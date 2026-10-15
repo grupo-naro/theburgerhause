@@ -72,13 +72,13 @@ export function useNewOrderAlert(orders: Watched[]) {
     if (!soundOn) return;
     const b = getBeeper();
     let alive = true;
+    // The AudioContext is created lazily INSIDE the first user gesture, never on mount.
     const unlock = () => {
       void b.unlock().then((ok) => {
         if (alive) setUnlocked(ok);
       });
     };
-    unlock();
-    const events = ["pointerdown", "keydown"] as const;
+    const events = ["click", "keydown"] as const;
     const onGesture = () => {
       unlock();
       for (const e of events) document.removeEventListener(e, onGesture, true);
