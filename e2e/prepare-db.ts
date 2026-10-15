@@ -9,6 +9,24 @@ import { hashPassword } from "../src/lib/auth/password";
 import { attachSeedImages } from "./helpers/product-images";
 import { USERS, type UserKey } from "./helpers/users";
 
+/** Store contact + bank data the public checkout shows (the seed leaves them empty). Known values, known in specs. */
+export const E2E_STORE_SETTINGS = {
+  store_address: "Av. Siempreviva 742, Springfield",
+  store_phone: "+54 11 5555-0000",
+  opening_hours_text: "Lun a Dom de 20 a 00",
+  bank_alias: "burger.house.e2e",
+  bank_cbu: "0000003100099999999999",
+} as const;
+
+async function setStoreSettings(): Promise<void> {
+  for (const [key, value] of Object.entries(E2E_STORE_SETTINGS)) {
+    await testDb()
+      .insert(s.settings)
+      .values({ key, value })
+      .onConflictDoUpdate({ target: s.settings.key, set: { value } });
+  }
+}
+
 /** Creates a non-admin user, or resets its credentials (idempotent). */
 async function upsertStaff(user: (typeof USERS)[Exclude<UserKey, "admin">]): Promise<void> {
   const passwordHash = await hashPassword(user.password);
@@ -30,6 +48,7 @@ export async function prepareDatabase(): Promise<void> {
   await migrateTestDatabase();
   await resetDb();
   await seed(testDb());
+  await setStoreSettings();
   await attachSeedImages(["Ranchita simple", "Melt simple", "Holtber extreme simple"]);
   await upsertAdmin(testDb(), { username: USERS.admin.username, password: USERS.admin.password });
   await upsertStaff(USERS.cajera);
