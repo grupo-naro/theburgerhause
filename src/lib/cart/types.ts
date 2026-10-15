@@ -29,6 +29,7 @@ export type OrderUnitInput = { productId: number; modifierIds: number[]; note: s
 export type CartAction =
   | { type: "add"; productId: number; units: UnitConfig[] }
   | { type: "removeLine"; id: string }
+  | { type: "removeLines"; ids: string[] }
   | { type: "removeGroup"; signature: string }
   | { type: "setGroupQuantity"; signature: string; quantity: number }
   | { type: "replaceGroup"; signature: string; productId: number; units: UnitConfig[] }

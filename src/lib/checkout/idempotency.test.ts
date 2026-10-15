@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { cartSignature, CHECKOUT_KEY_STORAGE, createKeyHolder } from "./idempotency";
+import { cartSignature, CHECKOUT_KEY_STORAGE, createKeyHolder, orderSignature } from "./idempotency";
+import { EMPTY_FORM, type CheckoutForm } from "./form";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -95,5 +96,43 @@ describe("createKeyHolder", () => {
 
   it("default generator produces uuid v4 keys", () => {
     expect(createKeyHolder(null).get("sig")).toMatch(UUID);
+  });
+});
+
+describe("orderSignature", () => {
+  const units = [{ productId: 1, modifierIds: [2], note: "" }];
+  const form: CheckoutForm = {
+    ...EMPTY_FORM,
+    name: "Juana Pérez",
+    whatsapp: "11 5555-1234",
+    address: "Calle Falsa 123",
+    crossStreets: "A y B",
+    notes: "timbre",
+    paymentMethod: "cash",
+  };
+  const base = orderSignature(units, form);
+
+  it("is stable for an unchanged retry, ignoring cosmetic differences", () => {
+    expect(orderSignature(units, { ...form })).toBe(base);
+    expect(orderSignature(units, { ...form, name: "  Juana   Pérez ", whatsapp: "(11) 5555 1234" })).toBe(base);
+  });
+  it("changes with every order-defining field", () => {
+    for (const patch of [
+      { address: "Otra calle 9" },
+      { crossStreets: "C y D" },
+      { notes: "portón" },
+      { paymentMethod: "transfer" as const },
+      { name: "Otra Persona" },
+      { whatsapp: "11 9999-0000" },
+      { fulfillment: "takeaway" as const },
+    ]) {
+      expect(orderSignature(units, { ...form, ...patch }), JSON.stringify(patch)).not.toBe(base);
+    }
+    expect(orderSignature([...units, ...units], form)).not.toBe(base);
+  });
+  it("ignores the delivery fields for takeaway and the honeypot always", () => {
+    const t = { ...form, fulfillment: "takeaway" as const };
+    expect(orderSignature(units, { ...t, address: "x", notes: "y" })).toBe(orderSignature(units, t));
+    expect(orderSignature(units, { ...form, bh_ref: "spam" })).toBe(base);
   });
 });

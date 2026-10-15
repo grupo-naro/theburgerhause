@@ -56,6 +56,11 @@ export function cartReducer(state: CartState, action: CartAction, newId: () => s
       const lines = state.lines.filter((l) => l.id !== action.id);
       return lines.length === state.lines.length ? state : { lines };
     }
+    case "removeLines": {
+      const drop = new Set(action.ids);
+      const lines = state.lines.filter((l) => !drop.has(l.id));
+      return lines.length === state.lines.length ? state : { lines };
+    }
     case "removeGroup": {
       const lines = state.lines.filter((l) => signature(l) !== action.signature);
       return lines.length === state.lines.length ? state : { lines };

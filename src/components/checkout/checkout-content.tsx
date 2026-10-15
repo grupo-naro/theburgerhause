@@ -25,10 +25,11 @@ export function CheckoutContent({ info }: { info: CheckoutInfo }) {
   const empty = cart.ready && cart.count === 0;
   const bannerRef = useRef<HTMLDivElement>(null);
 
-  // Nothing to confirm: back to the cart (not after a successful order, and not while explaining a stale cart).
+  // Nothing to confirm: back to the cart (not after a successful order). If the last products were just dropped
+  // as unavailable, the cart page explains it.
   useEffect(() => {
-    if (empty && !c.placed && c.unitMessages === null) router.replace("/carrito");
-  }, [empty, c.placed, c.unitMessages, router]);
+    if (empty && !c.placed) router.replace("/carrito");
+  }, [empty, c.placed, router]);
 
   // A units-invalid answer is the most important thing on the page: bring it into view.
   useEffect(() => {
@@ -47,7 +48,7 @@ export function CheckoutContent({ info }: { info: CheckoutInfo }) {
           <div className="space-y-4">
             {c.unitMessages && (
               <div ref={bannerRef} className="scroll-mt-28">
-                <UnitsInvalidBanner messages={c.unitMessages} />
+                <UnitsInvalidBanner messages={c.unitMessages} removed={c.unitsRemoved} />
               </div>
             )}
             {showForm && (
@@ -72,17 +73,20 @@ export function CheckoutContent({ info }: { info: CheckoutInfo }) {
                   onForget={c.forget}
                 />
                 <PaymentSection form={c.form} errors={c.errors} info={info} onChange={c.update} />
-                {/* Honeypot: invisible to people, tempting to bots. */}
+                {/* Honeypot: off-screen (not display:none), ignored by password managers / autofill. */}
                 <div aria-hidden="true" className="absolute -left-[9999px] size-px overflow-hidden">
                   <label>
                     No completar este campo
                     <input
                       type="text"
-                      name="website"
+                      name="bh_ref"
                       tabIndex={-1}
                       autoComplete="off"
-                      value={c.form.website}
-                      onChange={(e) => c.update({ website: e.target.value })}
+                      data-lpignore="true"
+                      data-1p-ignore
+                      data-form-type="other"
+                      value={c.form.bh_ref}
+                      onChange={(e) => c.update({ bh_ref: e.target.value })}
                     />
                   </label>
                 </div>

@@ -39,6 +39,10 @@ export type CartApi = {
   undoRemoval: () => boolean;
   setGroupQuantity: (signature: string, quantity: number) => void;
   replaceGroup: (signature: string, productId: number, units: UnitConfig[]) => void;
+  /** Drops these exact units (by line id), e.g. the ones the server said are no longer available. No undo. */
+  removeLines: (ids: string[]) => void;
+  /** Adds notices to the "what changed" banner (e.g. units dropped after a failed checkout). */
+  addIssues: (issues: CartIssue[]) => void;
   clear: () => void;
   dismissIssues: () => void;
 };
@@ -166,6 +170,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "replaceGroup", signature: sig, productId, units }),
     [],
   );
+  const removeLines = useCallback((ids: string[]) => dispatch({ type: "removeLines", ids }), []);
+  const addIssues = useCallback((added: CartIssue[]) => setIssues((prev) => [...prev, ...added]), []);
   const clear = useCallback(() => dispatch({ type: "clear" }), []);
   const dismissIssues = useCallback(() => setIssues([]), []);
 
@@ -185,10 +191,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       undoRemoval,
       setGroupQuantity,
       replaceGroup,
+      removeLines,
+      addIssues,
       clear,
       dismissIssues,
     }),
-    [state.lines, groups, subtotal, issues, ready, add, removeGroup, undoRemoval, setGroupQuantity, replaceGroup, clear, dismissIssues],
+    [state.lines, groups, subtotal, issues, ready, add, removeGroup, undoRemoval, setGroupQuantity, replaceGroup, removeLines, addIssues, clear, dismissIssues],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

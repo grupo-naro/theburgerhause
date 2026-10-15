@@ -1,5 +1,6 @@
 import { signature } from "@/lib/cart/signature";
 import type { OrderUnitInput } from "@/lib/cart/types";
+import type { CheckoutForm } from "./form";
 
 /** sessionStorage key of the checkout idempotency key (one per tab session). */
 export const CHECKOUT_KEY_STORAGE = "bh_checkout_key_v1";
@@ -14,6 +15,25 @@ export function cartSignature(units: readonly OrderUnitInput[]): string {
     .map((u) => signature(u))
     .sort()
     .join("\n");
+}
+
+const squash = (v: string) => v.replace(/\s+/g, " ").trim();
+
+/**
+ * Identity of the WHOLE order: cart contents plus every order-defining form field. Editing any of them
+ * after a lost response yields a new key (a new order) instead of replaying the old order with the old
+ * address / payment. An unchanged retry keeps the key.
+ */
+export function orderSignature(units: readonly OrderUnitInput[], form: CheckoutForm): string {
+  const delivery = form.fulfillment === "delivery" ? [squash(form.address), squash(form.crossStreets), squash(form.notes)] : [];
+  return JSON.stringify([
+    cartSignature(units),
+    form.fulfillment,
+    form.paymentMethod,
+    squash(form.name),
+    form.whatsapp.replace(/\D/g, ""),
+    ...delivery,
+  ]);
 }
 
 const randomKey = () => crypto.randomUUID();

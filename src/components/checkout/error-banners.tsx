@@ -19,7 +19,7 @@ export function ErrorSummary({ errors, other }: { errors: FieldErrors; other: re
       <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">
         {entries.map(([key, message]) => (
           <li key={key}>
-            <button type="button" onClick={() => focus(key)} className="min-h-6 text-left font-medium underline underline-offset-2">
+            <button type="button" onClick={() => focus(key)} className="min-h-11 text-left font-medium underline underline-offset-2">
               {message}
             </button>
           </li>
@@ -33,7 +33,7 @@ export function ErrorSummary({ errors, other }: { errors: FieldErrors; other: re
 }
 
 /** `UNITS_INVALID`: which items cannot be ordered any more, and the way to fix the cart. */
-export function UnitsInvalidBanner({ messages }: { messages: readonly string[] }) {
+export function UnitsInvalidBanner({ messages, removed }: { messages: readonly string[]; removed: boolean }) {
   return (
     <section
       role="alert"
@@ -49,7 +49,8 @@ export function UnitsInvalidBanner({ messages }: { messages: readonly string[] }
               <li key={m}>{m}</li>
             ))}
           </ul>
-          <p className="mt-2 text-sm text-ink">No creamos tu pedido. Revisalo y volvé a confirmar.</p>
+          <p className="mt-2 text-sm text-ink">No creamos tu pedido.{" "}
+            {removed ? "Quitamos de tu pedido lo que ya no está disponible: revisalo y volvé a confirmar." : "Revisalo y volvé a confirmar."}</p>
         </div>
       </div>
       <Link

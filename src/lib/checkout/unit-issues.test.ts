@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeUnitIssues } from "./unit-issues";
+import { describeUnitIssues, unavailableLineIds } from "./unit-issues";
 
 const units = [
   { productId: 1, modifierIds: [], note: "" },
@@ -51,5 +51,22 @@ describe("describeUnitIssues", () => {
     expect(describeUnitIssues([{ unitIndex: 0, code: "INVALID_SELECTION" }], units, names)).toEqual([
       "La combinación elegida para «Ranchita simple» no es válida.",
     ]);
+  });
+});
+
+describe("unavailableLineIds", () => {
+  const sent = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  it("returns the ids of the SENT lines whose product is unavailable, nothing else", () => {
+    expect(
+      unavailableLineIds(
+        [
+          { unitIndex: 0, code: "PRODUCT_UNAVAILABLE" },
+          { unitIndex: 1, code: "MODIFIER_UNAVAILABLE" },
+          { unitIndex: 2, code: "PRODUCT_UNAVAILABLE" },
+          { unitIndex: 9, code: "PRODUCT_UNAVAILABLE" },
+        ],
+        sent,
+      ),
+    ).toEqual(["a", "c"]);
   });
 });

@@ -33,3 +33,11 @@ export function describeUnitIssues(
     }
   });
 }
+
+/** Line ids (from the snapshot of lines that were SENT) whose product no longer exists / is inactive. */
+export function unavailableLineIds(issues: readonly UnitIssue[], sentLines: readonly { id: string }[]): string[] {
+  return issues.flatMap((i) => {
+    const line = i.code === "PRODUCT_UNAVAILABLE" ? sentLines[i.unitIndex] : undefined;
+    return line ? [line.id] : [];
+  });
+}

@@ -8,7 +8,7 @@ import { useMenuIndex } from "@/components/menu/menu-provider";
 import { useOrdersOpen } from "@/components/menu/store-status";
 import { useToast } from "@/components/ui/toast";
 import { toOrderUnits } from "@/lib/cart/order-input";
-import type { OrderUnitInput } from "@/lib/cart/types";
+import type { CartIssue, CartLine, OrderUnitInput } from "@/lib/cart/types";
 import { forgetCustomer, loadCustomer, saveCustomer } from "@/lib/checkout/customer-memory";
 import {
   EMPTY_FORM,
@@ -22,9 +22,10 @@ import {
   type FieldErrors,
   type FieldKey,
 } from "@/lib/checkout/form";
-import { cartSignature, createKeyHolder } from "@/lib/checkout/idempotency";
+import { createKeyHolder, orderSignature } from "@/lib/checkout/idempotency";
 import { checkoutPreview } from "@/lib/checkout/preview";
-import { describeUnitIssues } from "@/lib/checkout/unit-issues";
+import { failureMessage } from "@/lib/checkout/results";
+import { describeUnitIssues, unavailableLineIds } from "@/lib/checkout/unit-issues";
 
 const NETWORK_MESSAGE = "No pudimos conectarnos. Revisá tu conexión y probá de nuevo.";
 
@@ -43,6 +44,16 @@ function session(): Storage | null {
   }
 }
 
+/** Cart-page notices for units we dropped because their product is gone (one per product). */
+function removedIssues(ids: readonly string[], sentLines: readonly CartLine[], names: ReadonlyMap<number, string>): CartIssue[] {
+  const byProduct = new Map<number, number>();
+  for (const id of ids) {
+    const line = sentLines.find((l) => l.id === id);
+    if (line) byProduct.set(line.productId, (byProduct.get(line.productId) ?? 0) + 1);
+  }
+  return [...byProduct].map(([productId, quantity]) => ({ type: "product_unavailable", productId, name: names.get(productId), quantity }));
+}
+
 /** Which inline error each form field clears when it is edited. */
 const CLEARS: Record<keyof CheckoutForm, readonly FieldKey[]> = {
   fulfillment: ["delivery.address", "delivery.crossStreets", "delivery.notes"],
@@ -52,7 +63,7 @@ const CLEARS: Record<keyof CheckoutForm, readonly FieldKey[]> = {
   crossStreets: ["delivery.crossStreets"],
   notes: ["delivery.notes"],
   paymentMethod: ["paymentMethod"],
-  website: [],
+  bh_ref: [],
 };
 
 function focusField(key: FieldKey | null): void {
@@ -78,6 +89,7 @@ export function useCheckout(deliveryFee: number) {
   const [other, setOther] = useState<string[]>([]);
   const [serverMessage, setServerMessage] = useState<string | null>(null);
   const [unitMessages, setUnitMessages] = useState<string[] | null>(null);
+  const [unitsRemoved, setUnitsRemoved] = useState(false);
   const [remembered, setRemembered] = useState(saved !== null);
   const [placed, setPlaced] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -126,7 +138,7 @@ export function useCheckout(deliveryFee: number) {
     focusField(firstInvalidField(fields));
   }
 
-  function handleResult(result: ActionResult, units: OrderUnitInput[], sent: CheckoutForm) {
+  function handleResult(result: ActionResult, units: OrderUnitInput[], sent: CheckoutForm, sentLines: readonly CartLine[]) {
     if (result.ok) {
       // Order created: from here on the cart is empty ON PURPOSE (no redirect to /carrito).
       setPlaced(true);
@@ -144,11 +156,22 @@ export function useCheckout(deliveryFee: number) {
       else setServerMessage(result.message);
     } else if (result.code === "UNITS_INVALID") {
       const names = new Map([...index.products].map(([id, p]) => [id, p.name]));
-      setUnitMessages(describeUnitIssues(result.unitIssues ?? [], units, names));
-      // Pull a fresh menu so the cart reconciles (the cart page then explains what changed).
-      router.refresh();
+      const issues = result.unitIssues ?? [];
+      setUnitMessages(describeUnitIssues(issues, units, names));
+      // Products the server says are gone: drop exactly the units that were SENT (snapshot, so an edit
+      // in flight cannot shift indexes), without waiting for a fresh menu, and tell the cart page why.
+      const ids = unavailableLineIds(issues, sentLines);
+      setUnitsRemoved(ids.length > 0);
+      if (ids.length > 0) {
+        cart.removeLines(ids);
+        cart.addIssues(removedIssues(ids, sentLines, names));
+      }
+      // Options / combinations need the reconcile against a fresh menu.
+      if (issues.some((i) => i.code !== "PRODUCT_UNAVAILABLE")) router.refresh();
     } else {
-      setServerMessage(result.message);
+      // A tripped honeypot (autofilled by a form-filler) must never lock the customer out: clear it.
+      if (result.code === "HONEYPOT") setForm((f) => ({ ...f, bh_ref: "" }));
+      setServerMessage(failureMessage(result));
     }
   }
 
@@ -156,9 +179,10 @@ export function useCheckout(deliveryFee: number) {
     if (inFlight.current || !cart.ready || !ordersOpen || cart.count === 0) return;
     setServerMessage(null);
     setUnitMessages(null);
-    const units = toOrderUnits(cart.lines);
+    const sentLines = cart.lines;
+    const units = toOrderUnits(sentLines);
     keyHolder.current ??= createKeyHolder(session());
-    const key = keyHolder.current.get(cartSignature(units));
+    const key = keyHolder.current.get(orderSignature(units, form));
     const check = validateForm(form, units, key);
     if (!check.ok) {
       showFieldErrors(check.fields, check.other);
@@ -171,7 +195,7 @@ export function useCheckout(deliveryFee: number) {
     const input = toCreateOrderInput(sent, units, key);
     startTransition(async () => {
       try {
-        handleResult(await createOrderAction(input), units, sent);
+        handleResult(await createOrderAction(input), units, sent, sentLines);
       } catch {
         inFlight.current = false;
         setServerMessage(NETWORK_MESSAGE);
@@ -187,6 +211,7 @@ export function useCheckout(deliveryFee: number) {
     other,
     serverMessage,
     unitMessages,
+    unitsRemoved,
     remembered,
     placed,
     pending,

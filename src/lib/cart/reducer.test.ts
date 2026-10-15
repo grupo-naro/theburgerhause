@@ -114,6 +114,11 @@ describe("remove / replace / clear", () => {
     { type: "add", productId: 1, units: [unit([102])] },
   ]);
 
+  it("removeLines removes exactly those units, ignores unknown ids and keeps the same state when nothing matches", () => {
+    expect(cartReducer(base, { type: "removeLines", ids: ["l1", "l3", "nope"] }, counterIds()).lines.map((l) => l.id)).toEqual(["l2", "l4"]);
+    expect(cartReducer(base, { type: "removeLines", ids: ["nope"] }, counterIds())).toBe(base);
+    expect(cartReducer(base, { type: "removeLines", ids: [] }, counterIds())).toBe(base);
+  });
   it("removeLine removes one unit", () => {
     expect(cartReducer(base, { type: "removeLine", id: "l1" }, counterIds()).lines.map((l) => l.id)).toEqual(["l2", "l3", "l4"]);
   });
