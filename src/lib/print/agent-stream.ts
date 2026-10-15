@@ -1,7 +1,7 @@
 import { getDb, type Db } from "@/db/client";
 import { subscribe } from "@/lib/events/bus";
 import { PRINT_CHANNEL } from "@/lib/events/channels";
-import { touchStationSeen } from "./agent-auth";
+import { authenticateStation, touchStationSeen } from "./agent-auth";
 import { authorizeAgent, jsonResponse } from "./agent-http";
 import { agentStreamCount, hasAgentStream, registerAgentStream } from "./agent-registry";
 import { claimPendingJobs, INVALID_PAYLOAD_ERROR, markJobFailed, requeueStuckJobs, unclaimJobs, type ClaimedJob } from "./jobs";
@@ -145,6 +145,12 @@ export function createAgentStreamHandler(opts: AgentStreamOptions = {}): (reques
       if (!housekeeping) {
         housekeeping = true;
         try {
+          // A rotated token must cut an already-open stream, not only block new ones.
+          const current = await authenticateStation(db, request.headers.get("authorization"));
+          if (current?.id !== station.id) {
+            close();
+            return;
+          }
           await touchStationSeen(db, station.id, now());
           await requeueStuckJobs(db, now());
         } catch (err) {
@@ -153,6 +159,7 @@ export function createAgentStreamHandler(opts: AgentStreamOptions = {}): (reques
           housekeeping = false;
         }
       }
+      if (closed) return;
       await kick();
     };
 

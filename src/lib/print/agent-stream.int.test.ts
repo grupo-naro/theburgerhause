@@ -306,6 +306,23 @@ describe("delivering jobs", () => {
   });
 });
 
+describe("token revocation", () => {
+  it("rotating the station token ends an already-open stream at the next tick; nothing is delivered after that", async () => {
+    const { reader } = await connect(tokenA, { tickMs: 40 });
+    await reader.event("hello");
+    expect(agentStreamCount()).toBe(1);
+    const rot = await rotateStationToken(db(), fx.stationId);
+    if (!rot.ok) throw new Error("fixture");
+    expect(await reader.waitEnd()).toBe(true);
+    expect(agentStreamCount()).toBe(0);
+    const a = await addJob();
+    publish("print_job_created", { jobId: a.id, stationId: fx.stationId });
+    await sleep(150);
+    expect((await job(a.id)).status).toBe("pending");
+    expect(reader.seen.filter((f) => f.event === "job")).toHaveLength(0);
+  });
+});
+
 describe("one stream per station", () => {
   it("a second connection for the same station replaces the first: it gets 'replaced' and ends; only the new one receives jobs", async () => {
     const first = await connect(tokenA);
