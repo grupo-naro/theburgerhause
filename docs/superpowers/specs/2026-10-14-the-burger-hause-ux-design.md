@@ -78,7 +78,7 @@ Reglas: el color nunca es el único indicador (siempre va con texto o icono); co
 En ambos casos **toda la tarjeta es un único botón que abre la hoja de producto**; no hay contador en la tarjeta.
 
 ### 3.3 Estados de la tienda
-- Local cerrado o pedidos pausados: banner superior y botones deshabilitados con el motivo. Requiere `settings.accepting_orders` (adición menor).
+- Local cerrado o pedidos pausados: aviso flotante (tarjeta fija en la parte inferior, sin desplazar el contenido) y botones deshabilitados con el motivo. Requiere `settings.accepting_orders` (adición menor).
 - Producto no disponible: tarjeta atenuada con etiqueta "Sin stock".
 - Carga con *skeletons*; error de red con reintento.
 
