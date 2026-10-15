@@ -56,3 +56,4 @@ next-env.d.ts
 # print agent build output / runtime data
 /packages/*/dist/
 /packages/*/data/
+/packages/*/release/

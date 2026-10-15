@@ -1,0 +1,9 @@
+{
+  "SERVER_URL": "https://pedidos.ejemplo.com",
+  "STATION_TOKEN": "bhst_PEGAR-TOKEN-AQUI",
+  "PAPER_WIDTH": 80,
+  "CODEPAGE": "cp858",
+  "PRINTER_BACKEND": "windows",
+  "PRINTER_NAME": "NOMBRE EXACTO DE LA IMPRESORA",
+  "DATA_DIR": "C:\\BurgerHouseAgent\\data"
+}
