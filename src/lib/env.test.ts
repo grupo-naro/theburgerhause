@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseEnv } from "@/lib/env";
 
 const valid = {
-  DATABASE_URL: "postgres://u:p@localhost:5435/db",
+  DATABASE_URL: "postgres://u:p@localhost:15435/db",
   SESSION_SECRET: "x".repeat(32),
   UPLOAD_DIR: "./.uploads",
 };

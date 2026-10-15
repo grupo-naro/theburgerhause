@@ -3,7 +3,7 @@
 ## Run
 
 ```
-docker compose up -d      # Postgres on :5435
+docker compose up -d      # Postgres on :15435
 pnpm e2e                  # builds the app, starts it on :3100, runs every spec
 pnpm e2e:ui               # interactive runner
 ```

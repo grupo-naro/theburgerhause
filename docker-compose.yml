@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: burgerhause
       POSTGRES_DB: burgerhause
     ports:
-      - "5435:5432"
+      - "15435:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
