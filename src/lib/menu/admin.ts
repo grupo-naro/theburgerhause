@@ -23,7 +23,7 @@ const fail = (error: string): { ok: false; error: string } => ({ ok: false, erro
 const ok = <T>(data: T): Result<T> => ({ ok: true, data });
 const asDb = (c: Conn) => c as Db;
 
-function zodFieldErrors(issues: { path: PropertyKey[]; message: string }[]): Record<string, string> {
+export function zodFieldErrors(issues: { path: PropertyKey[]; message: string }[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const i of issues) {
     const key = String(i.path[0] ?? "form");
@@ -33,7 +33,7 @@ function zodFieldErrors(issues: { path: PropertyKey[]; message: string }[]): Rec
 }
 
 /** drizzle wraps driver errors in `cause`; walk it to find the pg code. */
-function pgError(e: unknown): { code?: string; constraint?: string } | null {
+export function pgError(e: unknown): { code?: string; constraint?: string } | null {
   for (let cur: unknown = e, i = 0; cur && typeof cur === "object" && i < 5; i++) {
     const o = cur as { code?: unknown; constraint?: unknown; cause?: unknown };
     if (typeof o.code === "string" && /^[0-9A-Z]{5}$/.test(o.code)) {
@@ -44,7 +44,7 @@ function pgError(e: unknown): { code?: string; constraint?: string } | null {
   return null;
 }
 
-const UNEXPECTED = "No se pudo guardar. Intentá de nuevo.";
+export const UNEXPECTED = "No se pudo guardar. Intentá de nuevo.";
 
 async function discardOldImage(old: string | null | undefined, next: string | null, deps: MenuDeps) {
   if (!old || old === next) return;
@@ -152,7 +152,7 @@ export async function saveProduct(db: Conn, input: unknown, deps: MenuDeps = {})
 type Sibling = { id: number; sort: number };
 
 /** Renormalizes `siblings` (already ordered) to 0..n-1, then swaps `id` with its neighbour. */
-async function swapInScope(
+export async function swapInScope(
   siblings: Sibling[],
   id: number,
   dir: Direction,
