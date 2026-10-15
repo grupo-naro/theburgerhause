@@ -86,7 +86,7 @@ describe("createOrderSchema", () => {
     });
     it("strips control characters from free text", () => {
       const r = parse({
-        customer: { name: "Ju\u0000an\u0007a​", whatsapp: "1155551234" },
+        customer: { name: "Ju\u0000an\u0007a\u200b", whatsapp: "1155551234" },
         units: [{ productId: 1, modifierIds: [], note: "sin\nsal\u0001" }],
         delivery: { address: "Calle\t123\u0000", crossStreets: "A y B", notes: "timbre\r\nroto" },
       });
