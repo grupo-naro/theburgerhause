@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { SearchIcon } from "./icons";
 
 /** Header shortcut: scrolls to the search box and focuses it. */
 export function SearchButton() {
+  const router = useRouter();
   return (
     <button
       type="button"
@@ -11,7 +13,7 @@ export function SearchButton() {
       onClick={() => {
         const input = document.getElementById("menu-search");
         if (!input) {
-          window.location.assign("/#menu-search");
+          router.push("/#menu-search");
           return;
         }
         const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
