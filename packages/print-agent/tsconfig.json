@@ -10,8 +10,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": { "@/*": ["../../src/*"] }
   },
-  "include": ["src/**/*.ts", "*.test.ts", "scripts/**/*.mjs"],
+  "include": ["src/**/*.ts", "*.test.ts"],
   "exclude": ["dist", "node_modules"]
 }
