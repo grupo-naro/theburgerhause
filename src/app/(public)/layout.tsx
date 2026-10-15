@@ -8,6 +8,7 @@ import { StoreFooter } from "@/components/menu/store-footer";
 import { StoreHeader } from "@/components/menu/store-header";
 import { StoreHeaderFallback } from "@/components/menu/store-header-fallback";
 import { StoreStatusProvider } from "@/components/menu/store-status";
+import { ToastProvider } from "@/components/ui/toast";
 import { ProductSheetProvider } from "@/components/product/sheet-context";
 import { getMenu } from "@/lib/menu/queries";
 
@@ -22,6 +23,7 @@ async function MenuShell({ children }: { children: ReactNode }) {
     <MenuProvider menu={menu}>
       <CartProvider>
         <StoreStatusProvider>
+          <ToastProvider>
           <ProductSheetProvider>
             <a
               href="#contenido"
@@ -42,6 +44,7 @@ async function MenuShell({ children }: { children: ReactNode }) {
               <StoreFooter />
             </Suspense>
           </ProductSheetProvider>
+          </ToastProvider>
         </StoreStatusProvider>
       </CartProvider>
     </MenuProvider>
