@@ -8,6 +8,7 @@ import type { AuthSession } from "@/lib/auth/roles";
 import { navLinksForRole } from "@/lib/caja/nav";
 import { derivePrinterStatus } from "@/lib/caja/printer-status";
 import { getStationHeader } from "@/lib/stations/header";
+import { PrinterHeartbeatRefresh } from "./printer-heartbeat-refresh";
 import { PrinterIndicator } from "./printer-indicator";
 import { StaffNav } from "./staff-nav";
 
@@ -37,6 +38,7 @@ export async function StaffShell({ session, children }: { session: AuthSession; 
         <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
           {printer && <PrinterIndicator status={printer} />}
           <LiveRefresh large />
+          <PrinterHeartbeatRefresh />
           <span data-testid="user-name" className="hidden text-base font-semibold text-ink sm:inline">
             {session.user.name}
           </span>
