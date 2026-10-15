@@ -13,7 +13,7 @@ export function SoundToggle({ on, onToggle }: { on: boolean; onToggle: () => voi
         on ? "border-green-700 bg-green-50 text-green-800" : "border-line bg-surface text-ink hover:bg-brand-50"
       }`}
     >
-      <span aria-hidden="true">{on ? "🔔" : "🔕"}</span>
+      <span aria-hidden="true" className={`size-2.5 rounded-full ${on ? "bg-green-600" : "bg-slate-400"}`} />
       Sonido: {on ? "activado" : "desactivado"}
     </button>
   );
