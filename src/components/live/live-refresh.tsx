@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createDebounce } from "@/lib/events/debounce";
 import { useLiveEvents } from "@/lib/events/use-live-events";
 import { ConnectionIndicator } from "./connection-indicator";
@@ -26,5 +26,14 @@ export function LiveRefresh({ indicator = true, large = false }: { indicator?: b
   useEffect(() => () => refresh.cancel(), [refresh]);
 
   const state = useLiveEvents({ onOrders: refresh.call, onResync: refresh.call });
+
+  // Anything that happened between the server render and the stream opening was not announced:
+  // catch up once, the first time the connection is live.
+  const caughtUp = useRef(false);
+  useEffect(() => {
+    if (state !== "live" || caughtUp.current) return;
+    caughtUp.current = true;
+    refresh.call();
+  }, [state, refresh]);
   return indicator ? <ConnectionIndicator state={state} large={large} /> : null;
 }
