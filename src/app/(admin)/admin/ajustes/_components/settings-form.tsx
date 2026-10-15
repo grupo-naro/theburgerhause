@@ -81,7 +81,7 @@ export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
         <h2 className="font-display text-xl font-extrabold">Envío y pedidos</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Costo de envío ($)" htmlFor="deliveryFeePesos" hint="En pesos enteros. 0 = envío sin cargo." error={fe.deliveryFeePesos}>
-            <Input id="deliveryFeePesos" name="deliveryFeePesos" type="number" inputMode="numeric" min={0} step={1} required defaultValue={pick("deliveryFeePesos")} hasHint error={fe.deliveryFeePesos} />
+            <Input id="deliveryFeePesos" name="deliveryFeePesos" type="number" inputMode="numeric" required defaultValue={pick("deliveryFeePesos")} hasHint error={fe.deliveryFeePesos} />
           </Field>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium">

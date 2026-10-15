@@ -64,8 +64,17 @@ function RenameForm({ station, onDone }: { station: StationCardData; onDone: () 
 }
 
 export function StationCard({ station }: { station: StationCardData }) {
-  const [state, action, pending] = useActionState<StationActionState, FormData>(rotateStationTokenAction, {});
   const [confirming, setConfirming] = useState(false);
+  const [state, action, pending] = useActionState<StationActionState, FormData>(
+    async (p, fd) => {
+      // Close the confirmation only after the action ran: unmounting the submit
+      // button from its own onClick would cancel the form submission.
+      const next = await rotateStationTokenAction(p, fd);
+      setConfirming(false);
+      return next;
+    },
+    {},
+  );
   const [renaming, setRenaming] = useState(false);
   const conn = CONNECTION[station.connection];
   const hasToken = station.hasToken || Boolean(state.token);
@@ -100,7 +109,7 @@ export function StationCard({ station }: { station: StationCardData }) {
                 ? "El token actual deja de funcionar al instante: el Print Agent de esta estación se desconecta hasta cargar el nuevo."
                 : "Se genera el primer token de esta estación."}
             </p>
-            <Button type="submit" size="sm" variant="danger" disabled={pending} onClick={() => setConfirming(false)}>
+            <Button type="submit" size="sm" variant="danger" disabled={pending}>
               {station.hasToken ? "Confirmar rotación" : "Confirmar"}
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(false)}>
