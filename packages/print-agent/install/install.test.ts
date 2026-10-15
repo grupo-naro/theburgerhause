@@ -39,7 +39,7 @@ const base = (extra: string[] = []) => ["-ServerUrl", "https://pedidos.example.c
 describe.skipIf(!win)("install.ps1", () => {
   it("every .ps1 parses with zero errors and uses no PowerShell 7-only syntax", () => {
     const files = fs.readdirSync(dir).filter((f) => f.endsWith(".ps1"));
-    expect(files).toEqual(expect.arrayContaining(["install.ps1", "common.ps1"]));
+    expect(files).toEqual(expect.arrayContaining(["install.ps1", "uninstall.ps1", "status.ps1", "update.ps1", "common.ps1"]));
     for (const f of files) {
       const full = path.join(dir, f);
       const r = spawnSync(
