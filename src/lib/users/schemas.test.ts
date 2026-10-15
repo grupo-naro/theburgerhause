@@ -31,7 +31,7 @@ describe("userInputSchema", () => {
     expect(userInputSchema.safeParse({ ...base, role: undefined }).success).toBe(false);
   });
   it("password is required on create, 8..256 characters", () => {
-    const { password: _p, ...noPass } = base;
+    const noPass = { name: base.name, username: base.username, role: base.role, active: base.active };
     const missing = userInputSchema.safeParse(noPass);
     expect(missing.success).toBe(false);
     expect(userInputSchema.safeParse({ ...base, password: "" }).success).toBe(false);
