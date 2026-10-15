@@ -79,3 +79,13 @@ export async function setAcceptingOrders(open: boolean): Promise<void> {
     .values({ key: "accepting_orders", value: open })
     .onConflictDoUpdate({ target: s.settings.key, set: { value: open } });
 }
+
+/** Id of an ACTIVE modifier by its (unique in the seed) name. */
+export async function modifierIdByName(name: string): Promise<number> {
+  const [row] = await db()
+    .select({ id: s.modifiers.id })
+    .from(s.modifiers)
+    .where(and(eq(s.modifiers.name, name), eq(s.modifiers.active, true)));
+  if (!row) throw new Error(`modifier not found: ${name}`);
+  return row.id;
+}

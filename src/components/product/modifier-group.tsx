@@ -44,6 +44,13 @@ export function ModifierGroup({ group, selectedIds, onToggle, idPrefix }: Props)
                   checked={checked}
                   aria-checked={checked}
                   onChange={() => onToggle(modifier)}
+                  onKeyDown={(e) => {
+                    // Space toggles natively; Enter does too, for keyboard users used to forms.
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      onToggle(modifier);
+                    }
+                  }}
                 />
                 <span
                   aria-hidden="true"
