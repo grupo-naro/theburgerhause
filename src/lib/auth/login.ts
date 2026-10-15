@@ -44,7 +44,6 @@ export function roleHome(role: Role): string {
 export function safeNextPath(raw: string | null | undefined, fallback: string): string {
   if (typeof raw !== "string" || raw.length === 0) return fallback;
   if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return fallback;
-  // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f\\]/.test(raw)) return fallback;
   if (raw === "/login" || /^\/login(?:[/?#]|$)/.test(raw)) return fallback;
   return raw;
