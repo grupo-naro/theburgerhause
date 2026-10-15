@@ -4,6 +4,8 @@ import type { Db, DbTransaction } from "@/db/client";
 import { businessDateFor, nextOrderNumber } from "@/db/order-number";
 import * as s from "@/db/schema";
 import { orderTotals } from "@/domain/pricing";
+import { ORDERS_CHANNEL } from "@/lib/events/channels";
+import { notifyInTx } from "@/lib/events/notify";
 import { getAcceptingOrders, getSettings } from "@/lib/settings";
 import { createOrderSchema, fieldErrorsOf, type CreateOrderInput } from "./schemas";
 import {
@@ -225,9 +227,8 @@ async function place(
     note: "Pedido web",
   });
 
-  // Delivered only if the transaction commits (Task 5.1 builds the listener).
-  const payload = JSON.stringify({ orderId: order.id, status: "pendiente_aprobacion", event: "created" });
-  await tx.execute(sql`select pg_notify('orders_changed', ${payload})`);
+  // Delivered only if the transaction commits.
+  await notifyInTx(tx, ORDERS_CHANNEL, { orderId: order.id, status: "pendiente_aprobacion", event: "created" });
 
   return { ok: true, data: { publicToken, number, total: totals.total, duplicate: false } };
 }
