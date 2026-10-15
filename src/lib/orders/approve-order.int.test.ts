@@ -4,6 +4,7 @@ import { Client } from "pg";
 import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
+import { formatARS } from "@/domain/money";
 import { renderCustomerTicket, renderKitchenTicket } from "@/domain/print-document";
 import { getEnv } from "@/lib/env";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
@@ -125,6 +126,22 @@ describe("approveOrder: print jobs", () => {
       );
     });
   }
+
+  it("print payloads keep the ORIGINAL snapshot names and prices after the catalog changes", async () => {
+    const o = await placeWebOrder(fx, { paymentMethod: "cash" });
+    await db().update(s.products).set({ name: "Renombrada XYZ", price: 1 }).where(eq(s.products.id, fx.ranchita));
+    await db().update(s.modifiers).set({ name: "Otro nombre", priceDelta: 999_99 }).where(eq(s.modifiers.id, fx.dips));
+    const r = await approve(o.id);
+    if (!r.ok) throw new Error(r.message);
+    const js = await jobs(o.id);
+    const all = JSON.stringify(js.map((j) => j.payload));
+    expect(all).toContain("Ranchita simple");
+    expect(all).not.toContain("Renombrada XYZ");
+    expect(all).not.toContain("Otro nombre");
+    const row = await order(o.id);
+    expect(JSON.stringify(js[1].payload)).toContain(`TOTAL: ${formatARS(row.total)}`);
+    expect(row.total).toBeGreaterThan(20000_00);
+  });
 
   it("uses the station of the approver, not any other", async () => {
     const o = await placeWebOrder(fx);
