@@ -71,3 +71,11 @@ export async function settingValue(key: string): Promise<unknown> {
   const [row] = await db().select().from(s.settings).where(eq(s.settings.key, key));
   return row ? row.value : null;
 }
+
+/** Flips the uncached "accepting orders" switch straight in the DB (no cache involved). */
+export async function setAcceptingOrders(open: boolean): Promise<void> {
+  await db()
+    .insert(s.settings)
+    .values({ key: "accepting_orders", value: open })
+    .onConflictDoUpdate({ target: s.settings.key, set: { value: open } });
+}

@@ -1,0 +1,35 @@
+import { closeDb } from "../src/db/client";
+import migrateTestDatabase from "../src/db/global-setup.int";
+import { seed } from "../src/db/seed";
+import { upsertAdmin } from "../src/db/seed-admin";
+import * as s from "../src/db/schema";
+import { resetDb, testDb } from "../src/db/test-utils";
+import { hashPassword } from "../src/lib/auth/password";
+import { attachSeedImages } from "./helpers/product-images";
+import { USERS, type UserKey } from "./helpers/users";
+
+/** Creates a non-admin user, or resets its credentials (idempotent). */
+async function upsertStaff(user: (typeof USERS)[Exclude<UserKey, "admin">]): Promise<void> {
+  const passwordHash = await hashPassword(user.password);
+  await testDb()
+    .insert(s.users)
+    .values({ name: user.name, username: user.username, passwordHash, role: user.role })
+    .onConflictDoUpdate({ target: s.users.username, set: { passwordHash, role: user.role, active: true } });
+}
+
+/**
+ * Migrates the test DB, wipes it and loads the seed, the product photos and the known users.
+ * Runs BEFORE `next build` (the public menu is prerendered from the DB at build time) and
+ * again in global setup. Needs E2E_SERVER_DATABASE_URL (the server URL) in the environment.
+ */
+export async function prepareDatabase(): Promise<void> {
+  process.env.DATABASE_URL = process.env.E2E_SERVER_DATABASE_URL!;
+  await migrateTestDatabase();
+  await resetDb();
+  await seed(testDb());
+  await attachSeedImages(["Ranchita simple", "Melt simple", "Holtber extreme simple"]);
+  await upsertAdmin(testDb(), { username: USERS.admin.username, password: USERS.admin.password });
+  await upsertStaff(USERS.cajera);
+  await upsertStaff(USERS.encargada);
+  await closeDb();
+}

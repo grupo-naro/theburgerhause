@@ -54,13 +54,14 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // Production build + server: closest to what ships (cacheComponents, prerendering).
-    command: `pnpm exec next build && pnpm exec next start -p ${PORT}`,
+    // Seeds the DB first (the public menu is prerendered at build time), then production build + server: closest to what ships.
+    command: `pnpm exec tsx e2e/prepare-db-cli.ts && pnpm exec next build && pnpm exec next start -p ${PORT}`,
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     env: {
       DATABASE_URL: E2E_DATABASE_URL,
+      E2E_SERVER_DATABASE_URL: serverUrl,
       SESSION_SECRET: E2E_SESSION_SECRET,
       UPLOAD_DIR: E2E_UPLOAD_DIR,
       PORT: String(PORT),
