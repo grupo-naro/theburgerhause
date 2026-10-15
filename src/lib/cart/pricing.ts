@@ -1,4 +1,4 @@
-import { unitTotal } from "@/domain/pricing";
+import { unitTotal, type UnitInput } from "@/domain/pricing";
 import type { PublicMenu, PublicModifier, PublicProduct } from "@/lib/menu/public";
 import type { CartLine } from "./types";
 
@@ -30,16 +30,22 @@ export function buildMenuIndex(menu: PublicMenu): MenuIndex {
   return { products, modifiers, offered };
 }
 
-/** Preview price of one unit with the DOMAIN `unitTotal`. Unknown product / modifier ids contribute 0. */
-export function unitTotalFor(line: Pick<CartLine, "productId" | "modifierIds">, index: MenuIndex): number {
+/** The domain `UnitInput` of a cart line (null for an unknown product); modifiers the product does not offer are ignored. */
+export function unitInputFor(line: Pick<CartLine, "productId" | "modifierIds">, index: MenuIndex): UnitInput | null {
   const product = index.products.get(line.productId);
-  if (!product) return 0;
+  if (!product) return null;
   const offered = index.offered.get(product.id);
   const modifiers = line.modifierIds.flatMap((id) => {
     const entry = index.modifiers.get(id);
     return entry && offered?.has(id) ? [{ priceDelta: entry.modifier.priceDelta }] : [];
   });
-  return unitTotal({ basePrice: product.price, modifiers });
+  return { basePrice: product.price, modifiers };
+}
+
+/** Preview price of one unit with the DOMAIN `unitTotal`. Unknown product / modifier ids contribute 0. */
+export function unitTotalFor(line: Pick<CartLine, "productId" | "modifierIds">, index: MenuIndex): number {
+  const input = unitInputFor(line, index);
+  return input ? unitTotal(input) : 0;
 }
 
 /** Display-only total (the server re-prices at checkout). */
