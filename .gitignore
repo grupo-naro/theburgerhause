@@ -43,3 +43,6 @@ next-env.d.ts
 
 # subagent-driven-development scratch
 /.superpowers/
+
+# uploaded images (local dev)
+/.uploads/
