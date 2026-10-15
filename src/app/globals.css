@@ -78,3 +78,34 @@ body:has([data-floating-ui]) {
 .animate-toast-in {
   animation: toast-in 0.2s ease-out;
 }
+
+/* Product sheet: slides up on phones, pops in on desktop (reduced motion is handled globally). */
+@keyframes sheet-in {
+  from { transform: translateY(2rem); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes sheet-pop {
+  from { transform: scale(0.97); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.animate-sheet-in {
+  animation: sheet-in 0.22s ease-out;
+}
+@media (min-width: 48rem) {
+  .animate-sheet-in {
+    animation: sheet-pop 0.18s ease-out;
+  }
+}
+
+/* Locking the page scroll while a dialog is open must not shift the layout by a scrollbar width. */
+html {
+  scrollbar-gutter: stable;
+}
+
+@keyframes bar-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-bar-in {
+  animation: bar-in 0.22s ease-out;
+}

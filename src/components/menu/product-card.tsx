@@ -12,11 +12,11 @@ import { ProductImage } from "./product-image";
  * so a long menu stays scannable. From md: large vertical card with a square photo.
  */
 export function ProductCard({ product }: { product: PublicProduct }) {
-  const { openProduct } = useProductSheet();
+  const { open } = useProductSheet();
   return (
     <button
       type="button"
-      onClick={() => openProduct(product.id)}
+      onClick={(e) => open(product.id, { opener: e.currentTarget })}
       data-testid="product-card"
       className="group relative flex min-h-[7.5rem] w-full flex-row items-stretch overflow-hidden rounded-xl border border-line bg-surface text-left shadow-[0_2px_10px_rgba(11,31,58,0.06)] transition duration-200 hover:shadow-[0_10px_24px_rgba(11,31,58,0.12)] active:scale-[0.99] md:h-full md:flex-col md:hover:-translate-y-0.5"
     >

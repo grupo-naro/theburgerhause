@@ -70,3 +70,23 @@ export const InfoIcon = (p: IconProps) => (
     <path d="M12 11v5M12 8h.01" />
   </Icon>
 );
+export const MinusIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 12h14" />
+  </Icon>
+);
+export const CheckIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </Icon>
+);
+export const ChevronDownIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m6 9 6 6 6-6" />
+  </Icon>
+);
+export const TrashIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+  </Icon>
+);

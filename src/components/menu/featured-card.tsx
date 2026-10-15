@@ -6,11 +6,11 @@ import type { PublicProduct } from "@/lib/menu/public";
 import { ProductImage } from "./product-image";
 
 export function FeaturedCard({ product, priority }: { product: PublicProduct; priority: boolean }) {
-  const { openProduct } = useProductSheet();
+  const { open } = useProductSheet();
   return (
     <button
       type="button"
-      onClick={() => openProduct(product.id)}
+      onClick={(e) => open(product.id, { opener: e.currentTarget })}
       className="group block w-full overflow-hidden rounded-xl border border-line bg-surface text-left shadow-[0_2px_10px_rgba(11,31,58,0.06)] transition duration-200 hover:shadow-[0_10px_24px_rgba(11,31,58,0.12)] active:scale-[0.99]"
     >
       <span className="relative block aspect-[4/3] w-full overflow-hidden bg-brand-50">
