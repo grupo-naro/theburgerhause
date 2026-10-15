@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/headers", async () => (await import("@/test-support/next-mocks")).nextHeadersMock);
+vi.mock("next/server", async () => (await import("@/test-support/next-mocks")).nextServerMock);
 vi.mock("next/navigation", async () => (await import("@/test-support/next-mocks")).nextNavigationMock);
 vi.mock("@/lib/auth/session-store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth/session-store")>();

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { getDb } from "@/db/client";
 import type { AuthSession } from "@/lib/auth/roles";
 import { validateSessionToken } from "@/lib/auth/session-store";
@@ -30,5 +31,8 @@ export async function getSessionToken(): Promise<string | null> {
 export async function getSession(): Promise<AuthSession | null> {
   const token = await getSessionToken();
   if (!token) return null;
+  // Session validity depends on the current time: opt out of (runtime) prefetch
+  // prerendering, which rejects `new Date()`, and validate on the real request.
+  await connection();
   return validateSessionToken(getDb(), token);
 }

@@ -74,3 +74,6 @@ export async function seedFixtures() {
   const id = (u: string) => users.find((x) => x.username === u)!.id;
   return { cora: id("cora"), admin: id("admin"), enca: id("enca"), station: stations[0].id };
 }
+
+/** `connection()` only works inside a request scope; in tests it is a no-op. */
+export const nextServerMock = { connection: async (): Promise<void> => {} };
