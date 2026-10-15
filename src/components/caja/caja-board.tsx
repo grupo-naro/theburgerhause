@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CajaOrder, FailedPrintJob } from "@/lib/orders/caja-queries";
 import { FailedPrintAlert } from "./failed-print-alert";
 import { PendingSection } from "./pending-section";
@@ -46,23 +46,29 @@ export function CajaBoard({ pending, recent, failed, serverNow, hasStation }: Pr
   // Orders another cashier handled first: kept on screen (frozen, with the reason) until dismissed.
   const [ghosts, setGhosts] = useState<ReadonlyMap<number, { order: CajaOrder; message: string }>>(new Map());
 
-  const onConflict = useCallback((order: CajaOrder, message: string) => {
-    setGhosts((g) => new Map(g).set(order.id, { order, message }));
-    window.setTimeout(() => {
-      setGhosts((g) => {
-        const next = new Map(g);
-        next.delete(order.id);
-        return next;
-      });
-    }, DISMISS_AFTER_MS);
+  const dismissTimers = useRef(new Map<number, number>());
+  useEffect(() => {
+    const timers = dismissTimers.current;
+    return () => timers.forEach((h) => window.clearTimeout(h));
   }, []);
+
   const onDismiss = useCallback((orderId: number) => {
+    window.clearTimeout(dismissTimers.current.get(orderId));
+    dismissTimers.current.delete(orderId);
     setGhosts((g) => {
       const next = new Map(g);
       next.delete(orderId);
       return next;
     });
   }, []);
+  const onConflict = useCallback(
+    (order: CajaOrder, message: string) => {
+      setGhosts((g) => new Map(g).set(order.id, { order, message }));
+      window.clearTimeout(dismissTimers.current.get(order.id));
+      dismissTimers.current.set(order.id, window.setTimeout(() => onDismiss(order.id), DISMISS_AFTER_MS));
+    },
+    [onDismiss],
+  );
 
   const shown = useMemo(() => {
     const live = new Set(pending.map((o) => o.id));

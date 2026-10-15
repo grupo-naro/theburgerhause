@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { approveOrderAction, rejectOrderAction } from "@/app/(staff)/caja/actions";
 import { ClockIcon } from "@/components/menu/icons";
 import { formatARS } from "@/domain/money";
@@ -59,12 +59,17 @@ export function OrderCard({ order, now, fresh, resolved, onConflict, onDismiss }
   const [rejecting, setRejecting] = useState(false);
   const rejectRef = useRef<HTMLButtonElement>(null);
   const busy = pending || leaving;
+  const timers = useRef<number[]>([]);
+  useEffect(() => {
+    const pendingTimers = timers.current;
+    return () => pendingTimers.forEach((h) => window.clearTimeout(h));
+  }, []);
 
   const afterSuccess = () => {
     setRejecting(false);
     setLeaving(true);
     // The SSE event normally removes the card first; this covers a stalled stream.
-    window.setTimeout(() => router.refresh(), REFRESH_AFTER_ACTION_MS);
+    timers.current.push(window.setTimeout(() => router.refresh(), REFRESH_AFTER_ACTION_MS));
   };
   const onFail = (f: { code: string; message: string }) => {
     if (f.code === "INVALID_TRANSITION" || f.code === "NOT_FOUND") {
@@ -80,7 +85,7 @@ export function OrderCard({ order, now, fresh, resolved, onConflict, onDismiss }
     run(() => rejectOrderAction({ orderId: order.id, reason }), { lockOnSuccess: true, onOk: afterSuccess, onFail });
   const closeDialog = () => {
     setRejecting(false);
-    window.setTimeout(() => rejectRef.current?.focus(), 0);
+    timers.current.push(window.setTimeout(() => rejectRef.current?.focus(), 0));
   };
 
   return (
