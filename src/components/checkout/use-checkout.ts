@@ -145,7 +145,7 @@ export function useCheckout(deliveryFee: number) {
       keyHolder.current?.clear();
       remember(sent);
       cart.clear();
-      router.replace(`/pedido/${result.publicToken}`);
+      router.replace(`/pedido/${result.publicToken}?nuevo=1`);
       return; // stays "in flight": the button remains disabled until the navigation
     }
     inFlight.current = false;

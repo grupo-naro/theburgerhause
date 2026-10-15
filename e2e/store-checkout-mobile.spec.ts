@@ -135,7 +135,7 @@ test("closed store and a stale cart on a phone @mobile", async ({ page }) => {
     expect(await noHorizontalOverflow(page)).toBe(true);
     await shotViewport(page, "checkout-units-invalid-mobile");
     await submitButton(page).click();
-    await expect(page).toHaveURL(/\/pedido\/[0-9a-f]{32}$/);
+    await expect(page).toHaveURL(/\/pedido\/[0-9a-f]{32}(\?nuevo=1)?$/);
     expect(await countOrdersOf(name)).toBe(1);
   } finally {
     await setProductActiveInDb("Aro simple", true);
@@ -148,5 +148,5 @@ test("a complete order from a phone @mobile", async ({ page }) => {
   await fillValidDelivery(page, name);
   await submitButton(page).scrollIntoViewIfNeeded();
   await submitButton(page).click();
-  await expect(page).toHaveURL(/\/pedido\/[0-9a-f]{32}$/);
+  await expect(page).toHaveURL(/\/pedido\/[0-9a-f]{32}(\?nuevo=1)?$/);
 });

@@ -43,7 +43,7 @@ const RANCHITA = 850000;
 const MELT = 880000;
 const DIPS = 120000;
 
-const ORDER_URL = /\/pedido\/[0-9a-f]{32}$/;
+const ORDER_URL = /\/pedido\/[0-9a-f]{32}(\?nuevo=1)?$/;
 
 test("full happy path: delivery paid by transfer creates exactly the right order", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
