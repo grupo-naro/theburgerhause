@@ -1,7 +1,8 @@
 import path from "node:path";
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { closeDb, getDb, type Db } from "@/db/client";
 import * as s from "@/db/schema";
+import { DEFAULT_SETTINGS } from "@/lib/settings";
 
 /**
  * Idempotent seed: every insert is keyed on a natural unique key, so running
@@ -71,8 +72,11 @@ const STATIONS = [
 
 const CADETS = ["Cadete 1", "Cadete 2", "Cadete 3"];
 
+/** Earlier seeds stored this misspelled name; it is corrected on re-seed (only when untouched). */
+const LEGACY_STORE_NAME = "The Burger Hause";
+
 const SETTINGS: Record<string, unknown> = {
-  store_name: "The Burger Hause",
+  store_name: DEFAULT_SETTINGS.storeName,
   store_address: "",
   bank_alias: "",
   bank_cbu: "",
@@ -150,6 +154,14 @@ export async function seed(db: Db): Promise<void> {
       .insert(s.settings)
       .values(Object.entries(SETTINGS).map(([key, value]) => ({ key, value })))
       .onConflictDoNothing({ target: s.settings.key });
+
+    // Fix the old typo, but never clobber a name the admin customized.
+    await tx
+      .update(s.settings)
+      .set({ value: DEFAULT_SETTINGS.storeName })
+      .where(
+        and(eq(s.settings.key, "store_name"), sql`${s.settings.value} = ${JSON.stringify(LEGACY_STORE_NAME)}::jsonb`),
+      );
   });
 }
 
