@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, sql } from "drizzle-orm";
 import { getDb } from "../../src/db/client";
 import * as s from "../../src/db/schema";
 import { getSettings } from "../../src/lib/settings";
@@ -149,4 +149,20 @@ export async function setOrderStatusInDb(
     .set({ status, ...(paymentStatus ? { paymentStatus } : {}) })
     .where(eq(s.orders.id, order.id));
   await db().insert(s.orderEvents).values({ orderId: order.id, fromStatus: order.status, toStatus: status, userId: null, note: "e2e" });
+}
+
+/** Terminates the server's dedicated LISTEN connection(s) (application_name 'bh-listener') on the test DB. */
+export async function killListenerBackends(): Promise<number> {
+  const rows = await db().execute(
+    sql`select pg_terminate_backend(pid) as ok from pg_stat_activity where application_name = 'bh-listener' and datname = current_database()`,
+  );
+  return rows.rows.length;
+}
+
+/** How many 'bh-listener' connections the server currently holds on the test DB. */
+export async function listenerConnections(): Promise<number> {
+  const rows = await db().execute(
+    sql`select count(*)::int as n from pg_stat_activity where application_name = 'bh-listener' and datname = current_database()`,
+  );
+  return Number((rows.rows[0] as { n: number }).n);
 }
