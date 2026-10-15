@@ -3,7 +3,7 @@ import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { SESSION_COOKIE } from "@/lib/auth/session";
-import { createSession, revokeSession } from "@/lib/auth/session-store";
+import { createSession, revokeSession, validateSessionToken } from "@/lib/auth/session-store";
 import type { AuthSession } from "@/lib/auth/roles";
 import { eq } from "drizzle-orm";
 import { defaultRevalidate } from "./sse";
@@ -41,5 +41,28 @@ describe("defaultRevalidate (cookie -> DB)", () => {
   it("an expired session is invalid", async () => {
     const { token } = await createSession(db(), { userId, now: new Date(Date.now() - 13 * 3_600_000) });
     expect(await defaultRevalidate(reqWith(token), asSession(userId))).toBe(false);
+  });
+});
+
+describe("sliding (the stream is not user activity)", () => {
+  const expiryOf = async (token: string) => {
+    const { createHash } = await import("node:crypto");
+    const id = createHash("sha256").update(token).digest("hex");
+    const [row] = await db().select().from(s.sessions).where(eq(s.sessions.id, id));
+    return row.expiresAt.getTime();
+  };
+
+  it("defaultRevalidate inside the renew window is true and leaves expires_at UNCHANGED", async () => {
+    const { token } = await createSession(db(), { userId, now: new Date(Date.now() - 7 * 3_600_000) }); // ~5 h left
+    const before = await expiryOf(token);
+    expect(await defaultRevalidate(reqWith(token), asSession(userId))).toBe(true);
+    expect(await expiryOf(token)).toBe(before);
+  });
+
+  it("regression guard: the default validateSessionToken still slides", async () => {
+    const { token } = await createSession(db(), { userId, now: new Date(Date.now() - 7 * 3_600_000) });
+    const before = await expiryOf(token);
+    expect(await validateSessionToken(db(), token)).not.toBeNull();
+    expect(await expiryOf(token)).toBeGreaterThan(before);
   });
 });

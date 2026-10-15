@@ -25,11 +25,12 @@ export async function createSession(
   return { token, expiresAt };
 }
 
-/** Null for unknown, expired or inactive-user sessions. Slides the expiry (one write at most). */
+/** Null for unknown, expired or inactive-user sessions. Slides the expiry (one write at most) unless `slide: false` (machine checks must not count as activity). */
 export async function validateSessionToken(
   db: Executor,
   token: string,
   now: Date = new Date(),
+  { slide = true }: { slide?: boolean } = {},
 ): Promise<AuthSession | null> {
   if (typeof token !== "string" || token.length === 0) return null;
   const id = tokenId(token);
@@ -49,7 +50,7 @@ export async function validateSessionToken(
   if (!row || !row.active) return null;
   const remaining = row.expiresAt.getTime() - now.getTime();
   if (remaining <= 0) return null;
-  if (remaining < RENEW_BELOW_MS) {
+  if (slide && remaining < RENEW_BELOW_MS) {
     await db
       .update(sessions)
       .set({ expiresAt: new Date(now.getTime() + SESSION_TTL_MS) })

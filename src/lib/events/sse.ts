@@ -52,13 +52,13 @@ function cookieValue(header: string | null, name: string): string | null {
 
 /**
  * Re-checks the session straight from the request's cookie (cookies() is request-scoped and not
- * reliable from a timer long after the response started). Note: validateSessionToken slides the
- * 12 h expiry, so a screen that stays connected keeps its session alive, as active use would.
+ * reliable from a timer long after the response started). The stream is NOT user activity: it
+ * validates WITHOUT sliding, so the 12 h inactivity limit still ends it (reconnect then gets a 401).
  */
 export async function defaultRevalidate(request: Request, session: AuthSession): Promise<boolean> {
   const token = cookieValue(request.headers.get("cookie"), SESSION_COOKIE);
   if (!token) return false;
-  const fresh = await validateSessionToken(getDb(), token);
+  const fresh = await validateSessionToken(getDb(), token, new Date(), { slide: false });
   return fresh !== null && fresh.user.id === session.user.id && STAFF_ROLES.includes(fresh.user.role);
 }
 

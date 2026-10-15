@@ -45,7 +45,7 @@ Requiere sesión de staff (`admin`, `cajera`, `encargada_delivery`): 401 sin ses
 4. `: ping` cada 25 s (mantiene vivo el proxy)
 
 - La sesión se revalida cada 60 s; si fue revocada, venció o el usuario se desactivó, el stream se cierra.
-  (Revalidar renueva la expiración deslizante, igual que el uso normal.)
+  (La revalidación NO renueva la expiración deslizante: el stream no cuenta como actividad y termina solo al vencer la sesión; al reconectar el navegador recibe 401.)
 - Topes: 10 streams por usuario y 200 en total (429 al pasarse). Los contadores se liberan al abortar.
 - Cliente lento: si su cola se llena se descartan eventos (no se acumulan) y se le manda UN `resync` después.
 - Las respuestas llevan `Cache-Control: no-cache, no-transform` y `X-Accel-Buffering: no`.
