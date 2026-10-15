@@ -94,3 +94,16 @@ describe("groupTrackingItems", () => {
     expect(JSON.stringify(r)).not.toMatch(/productId|modifierId|99/);
   });
 });
+
+describe("groupTrackingItems kitchenLabel pass-through", () => {
+  it("carries kitchenLabel only when the input provides it", () => {
+    const withLabel = groupTrackingItems([
+      item({ name: "R", unitPrice: 100, modifiers: [{ modifierId: 1, name: "Sin cheddar", priceDelta: 0, kitchenLabel: "SIN CHEDDAR" }] }),
+    ]);
+    expect(withLabel.groups[0].modifiers).toEqual([{ name: "Sin cheddar", priceDelta: 0, kitchenLabel: "SIN CHEDDAR" }]);
+    const without = groupTrackingItems([
+      item({ name: "R", unitPrice: 100, modifiers: [{ modifierId: 1, name: "Sin cheddar", priceDelta: 0 }] }),
+    ]);
+    expect(Object.keys(without.groups[0].modifiers[0])).toEqual(["name", "priceDelta"]);
+  });
+});

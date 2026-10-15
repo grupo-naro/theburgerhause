@@ -2,7 +2,7 @@ import { unitTotal } from "@/domain/pricing";
 
 /** Pure grouping of order unit rows (snapshot columns only) into the customer-facing lines. */
 
-export type SnapshotModifier = { modifierId?: number | null; name: string; priceDelta: number };
+export type SnapshotModifier = { modifierId?: number | null; name: string; priceDelta: number; kitchenLabel?: string };
 export type SnapshotItem = {
   /** Used only to decide which units are identical; never part of the output. */
   productId: number | null;
@@ -15,7 +15,8 @@ export type SnapshotItem = {
 export type TrackingGroup = {
   name: string;
   quantity: number;
-  modifiers: { name: string; priceDelta: number }[];
+  /** `kitchenLabel` is carried through only when the input units provide it (staff views). */
+  modifiers: { name: string; priceDelta: number; kitchenLabel?: string }[];
   note: string | null;
   unitTotal: number;
   lineTotal: number;
@@ -43,7 +44,11 @@ export function groupTrackingItems(items: SnapshotItem[]): { groups: TrackingGro
     byKey.set(key, {
       name: i.name,
       quantity: 1,
-      modifiers: i.modifiers.map((m) => ({ name: m.name, priceDelta: m.priceDelta })),
+      modifiers: i.modifiers.map((m) => ({
+        name: m.name,
+        priceDelta: m.priceDelta,
+        ...(m.kitchenLabel !== undefined ? { kitchenLabel: m.kitchenLabel } : {}),
+      })),
       note: i.note,
       unitTotal: total,
       lineTotal: total,
