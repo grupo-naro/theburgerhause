@@ -1,6 +1,7 @@
 import { groupLines } from "./group";
 import { normalizeLine, normalizeModifierIds, normalizeNote } from "./normalize";
 import { signature } from "./signature";
+import { restoreRemoved } from "./undo";
 import type { CartAction, CartLine, CartState, UnitConfig } from "./types";
 
 /**
@@ -89,6 +90,10 @@ export function cartReducer(state: CartState, action: CartAction, newId: () => s
       const after = state.lines.slice(first).filter((l) => !ids.has(l.id));
       const lines = [...before, ...replacement, ...after];
       return withinLimits(lines) ? { lines } : state;
+    }
+    case "restore": {
+      const lines = restoreRemoved(state.lines, action.items).map(normalizeLine);
+      return lines.length === state.lines.length || !withinLimits(lines) ? state : { lines };
     }
     case "clear":
       return state.lines.length === 0 ? state : emptyCart;

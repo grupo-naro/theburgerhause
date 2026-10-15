@@ -200,3 +200,31 @@ describe("groupLines", () => {
     ]);
   });
 });
+
+describe("restore (undo of a removal)", () => {
+  const seeded = () =>
+    run([
+      { type: "add", productId: 1, units: [unit([101]), unit([101])] },
+      { type: "add", productId: 2, units: [unit()] },
+      { type: "add", productId: 3, units: [unit()] },
+    ]);
+
+  it("puts a removed group back at its original position", () => {
+    const before = seeded();
+    const sig = signature(before.lines[0]);
+    const removed = before.lines.map((line, index) => ({ line, index })).filter((i) => signature(i.line) === sig);
+    const without = cartReducer(before, { type: "removeGroup", signature: sig }, counterIds());
+    expect(without.lines.map((l) => l.productId)).toEqual([2, 3]);
+    const back = cartReducer(without, { type: "restore", items: removed }, counterIds());
+    expect(back).toEqual(before);
+  });
+
+  it("is ignored when it would exceed the line limit", () => {
+    const full = run([{ type: "add", productId: 1, units: [unit()] }]);
+    const items = Array.from({ length: MAX_LINES }, (_, i) => ({
+      index: 0,
+      line: { id: `x${i}`, productId: 9, modifierIds: [], note: "" },
+    }));
+    expect(cartReducer(full, { type: "restore", items }, counterIds())).toBe(full);
+  });
+});

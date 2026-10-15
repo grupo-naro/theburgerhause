@@ -18,6 +18,7 @@ import { CART_STORAGE_KEY, saveCart } from "@/lib/cart/persistence";
 import { cartPreviewTotal } from "@/lib/cart/pricing";
 import { reconcileCart } from "@/lib/cart/reconcile";
 import { canAdd, cartReducer, emptyCart } from "@/lib/cart/reducer";
+import { isUndoExpired, takeGroup, type UndoEntry } from "@/lib/cart/undo";
 import type { CartAction, CartGroup, CartIssue, CartLine, UnitConfig } from "@/lib/cart/types";
 
 export type CartApi = {
@@ -32,7 +33,10 @@ export type CartApi = {
   ready: boolean;
   /** Returns false (and does nothing) when a limit would be exceeded. */
   add: (productId: number, units: UnitConfig[]) => boolean;
+  /** Remembers the removed units for ~6 s so `undoRemoval` can put them back in place. */
   removeGroup: (signature: string) => void;
+  /** Re-inserts the last removed group at its original position; false when there is nothing (or it expired). */
+  undoRemoval: () => boolean;
   setGroupQuantity: (signature: string, quantity: number) => void;
   replaceGroup: (signature: string, productId: number, units: UnitConfig[]) => void;
   clear: () => void;
@@ -78,6 +82,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const pricesRef = useRef<Record<string, number>>({});
   const indexRef = useRef(index);
   const loadedRef = useRef(false);
+  const linesRef = useRef(state.lines);
+  const undoRef = useRef<UndoEntry | null>(null);
+
+  useEffect(() => {
+    linesRef.current = state.lines;
+  }, [state.lines]);
 
   useEffect(() => {
     indexRef.current = index;
@@ -131,10 +141,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     },
     [state],
   );
-  const removeGroup = useCallback((sig: string) => dispatch({ type: "removeGroup", signature: sig }), []);
+  const removeGroup = useCallback((sig: string) => {
+    const taken = takeGroup(linesRef.current, sig, Date.now());
+    if (!taken) return;
+    undoRef.current = taken.entry;
+    dispatch({ type: "removeGroup", signature: sig });
+  }, []);
+  const undoRemoval = useCallback(() => {
+    const entry = undoRef.current;
+    undoRef.current = null;
+    if (!entry || isUndoExpired(entry, Date.now())) return false;
+    dispatch({ type: "restore", items: entry.items });
+    return true;
+  }, []);
   const setGroupQuantity = useCallback(
-    (sig: string, quantity: number) => dispatch({ type: "setGroupQuantity", signature: sig, quantity }),
-    [],
+    (sig: string, quantity: number) => {
+      if (quantity < 1) removeGroup(sig);
+      else dispatch({ type: "setGroupQuantity", signature: sig, quantity });
+    },
+    [removeGroup],
   );
   const replaceGroup = useCallback(
     (sig: string, productId: number, units: UnitConfig[]) =>
@@ -157,12 +182,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ready,
       add,
       removeGroup,
+      undoRemoval,
       setGroupQuantity,
       replaceGroup,
       clear,
       dismissIssues,
     }),
-    [state.lines, groups, subtotal, issues, ready, add, removeGroup, setGroupQuantity, replaceGroup, clear, dismissIssues],
+    [state.lines, groups, subtotal, issues, ready, add, removeGroup, undoRemoval, setGroupQuantity, replaceGroup, clear, dismissIssues],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

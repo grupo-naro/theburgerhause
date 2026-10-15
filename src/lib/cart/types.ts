@@ -32,6 +32,8 @@ export type CartAction =
   | { type: "removeGroup"; signature: string }
   | { type: "setGroupQuantity"; signature: string; quantity: number }
   | { type: "replaceGroup"; signature: string; productId: number; units: UnitConfig[] }
+  /** Undo of a removal: units go back to their original positions (see undo.ts). */
+  | { type: "restore"; items: { index: number; line: CartLine }[] }
   | { type: "clear" }
   | { type: "hydrate"; lines: CartLine[] };
 

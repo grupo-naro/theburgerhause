@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { CartProvider } from "@/components/cart/cart-provider";
 import { OrderBar } from "@/components/cart/order-bar";
+import { PreviousPathTracker } from "@/components/cart/previous-path";
 import { ClosedBanner } from "@/components/menu/closed-banner";
 import { MenuProvider } from "@/components/menu/menu-provider";
 import { MenuSkeleton } from "@/components/menu/menu-skeleton";
@@ -45,6 +46,7 @@ async function MenuShell({ children }: { children: ReactNode }) {
               <StoreFooter />
             </Suspense>
             <OrderBar />
+            <PreviousPathTracker />
           </ProductSheetProvider>
           </ToastProvider>
         </StoreStatusProvider>
