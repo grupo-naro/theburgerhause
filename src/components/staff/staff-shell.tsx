@@ -26,15 +26,15 @@ export async function StaffShell({ session, children }: { session: AuthSession; 
     <div className="min-h-dvh lg:grid lg:grid-cols-[14rem_1fr] lg:grid-rows-[auto_1fr]">
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-3 sm:px-6 lg:col-start-2 lg:row-start-1">
         <Image src="/brand/logo-512.webp" alt="" width={36} height={36} className="size-9 rounded-full lg:hidden" />
-        <div className="min-w-0 flex-1">
-          <p data-testid="station-name" className="font-display text-xl leading-tight font-extrabold text-brand-600 sm:text-2xl">
+        <div className="flex-1">
+          <p data-testid="station-name" className="font-display text-xl leading-tight font-extrabold whitespace-nowrap text-brand-600 sm:text-2xl">
             {station ? `Estación: ${station.name}` : "Sin estación"}
           </p>
           <Link href="/estacion" className="text-sm font-semibold text-ink-muted underline underline-offset-4 hover:text-brand-600">
             {station ? "Cambiar estación" : "Elegir estación"}
           </Link>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
           {printer && <PrinterIndicator status={printer} />}
           <LiveRefresh large />
           <span data-testid="user-name" className="hidden text-base font-semibold text-ink sm:inline">
