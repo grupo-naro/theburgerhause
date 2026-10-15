@@ -67,7 +67,7 @@ export function OrderActions({ orderNumber, paymentMethod, total, busy, onApprov
       </div>
 
       {state.hint && (
-        <p id={hintId} data-testid="approve-hint" className="text-sm text-ink-muted">
+        <p id={hintId} data-testid="approve-hint" className="text-base font-medium text-ink">
           {state.hint}
         </p>
       )}
