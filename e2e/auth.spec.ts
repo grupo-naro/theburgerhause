@@ -59,7 +59,8 @@ test.describe("cashier session", () => {
 
     await page.getByRole("button", { name: /Mostrador 1/ }).click();
     await expect(page).toHaveURL(/\/caja$/);
-    await expect(page.getByText(`Hola, ${user.name} — Mostrador 1`)).toBeVisible();
+    await expect(page.getByTestId("station-name")).toHaveText("Estación: Mostrador 1");
+    await expect(page.getByTestId("user-name")).toHaveText(user.name);
 
     // Wrong role area -> bounced to her own home.
     await page.goto("/admin/menu");
@@ -110,7 +111,8 @@ test.describe("saved sessions", () => {
     test.use({ storageState: authFile("encargada") });
     test("lands on /despacho with her station", async ({ page }) => {
       await page.goto("/despacho");
-      await expect(page.getByText(`Hola, ${USERS.encargada.name} — Delivery 1`)).toBeVisible();
+      await expect(page.getByTestId("station-name")).toHaveText("Estación: Delivery 1");
+      await expect(page.getByTestId("user-name")).toHaveText(USERS.encargada.name);
     });
   });
 });

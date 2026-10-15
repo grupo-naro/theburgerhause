@@ -13,7 +13,7 @@ export const REFRESH_DEBOUNCE_MS = 250;
  * `router.refresh()` (trailing debounce, so a burst of events refreshes once). Renders the
  * connection indicator unless `indicator={false}`.
  */
-export function LiveRefresh({ indicator = true }: { indicator?: boolean }) {
+export function LiveRefresh({ indicator = true, large = false }: { indicator?: boolean; large?: boolean }) {
   const router = useRouter();
   const refresh = useMemo(
     () =>
@@ -26,5 +26,5 @@ export function LiveRefresh({ indicator = true }: { indicator?: boolean }) {
   useEffect(() => () => refresh.cancel(), [refresh]);
 
   const state = useLiveEvents({ onOrders: refresh.call, onResync: refresh.call });
-  return indicator ? <ConnectionIndicator state={state} /> : null;
+  return indicator ? <ConnectionIndicator state={state} large={large} /> : null;
 }

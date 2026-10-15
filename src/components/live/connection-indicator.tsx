@@ -13,10 +13,14 @@ const DOT: Record<LiveState, string> = {
 };
 
 /** Small status dot + label. The text is the accessible name; the dot is decorative. */
-export function ConnectionIndicator({ state }: { state: LiveState }) {
+export function ConnectionIndicator({ state, large = false }: { state: LiveState; large?: boolean }) {
   return (
-    <span role="status" data-state={state} className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted">
-      <span aria-hidden="true" className={`size-2 rounded-full ${DOT[state]}`} />
+    <span
+      role="status"
+      data-state={state}
+      className={`inline-flex items-center gap-1.5 font-medium text-ink-muted ${large ? "text-sm" : "text-xs"}`}
+    >
+      <span aria-hidden="true" className={`rounded-full ${large ? "size-2.5" : "size-2"} ${DOT[state]}`} />
       {LABEL[state]}
     </span>
   );

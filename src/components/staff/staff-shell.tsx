@@ -1,0 +1,61 @@
+import Image from "next/image";
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { getDb } from "@/db/client";
+import { LiveRefresh } from "@/components/live/live-refresh";
+import { LogoutButton } from "@/components/logout-button";
+import type { AuthSession } from "@/lib/auth/roles";
+import { navLinksForRole } from "@/lib/caja/nav";
+import { derivePrinterStatus } from "@/lib/caja/printer-status";
+import { getStationHeader } from "@/lib/stations/header";
+import { PrinterIndicator } from "./printer-indicator";
+import { StaffNav } from "./staff-nav";
+
+/**
+ * Common frame of the staff screens: role navigation, top bar (station, printer, live connection,
+ * user, logout) and the page. It owns the page's ONE live connection (`LiveRefresh`): screens
+ * inside it must not mount another. Reads request data: render it inside <Suspense>.
+ */
+export async function StaffShell({ session, children }: { session: AuthSession; children: ReactNode }) {
+  const station = session.stationId === null ? null : await getStationHeader(getDb(), session.stationId);
+  const printer = station
+    ? derivePrinterStatus({ lastSeenAt: station.lastSeenAt, failedCount: station.failedCount, now: new Date() })
+    : null;
+
+  return (
+    <div className="min-h-dvh lg:grid lg:grid-cols-[14rem_1fr] lg:grid-rows-[auto_1fr]">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-3 sm:px-6 lg:col-start-2 lg:row-start-1">
+        <Image src="/brand/logo-512.webp" alt="" width={36} height={36} className="size-9 rounded-full lg:hidden" />
+        <div className="min-w-0 flex-1">
+          <p data-testid="station-name" className="font-display text-xl leading-tight font-extrabold text-brand-600 sm:text-2xl">
+            {station ? `Estación: ${station.name}` : "Sin estación"}
+          </p>
+          <Link href="/estacion" className="text-sm font-semibold text-ink-muted underline underline-offset-4 hover:text-brand-600">
+            {station ? "Cambiar estación" : "Elegir estación"}
+          </Link>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {printer && <PrinterIndicator status={printer} />}
+          <LiveRefresh large />
+          <span data-testid="user-name" className="hidden text-base font-semibold text-ink sm:inline">
+            {session.user.name}
+          </span>
+          <LogoutButton />
+        </div>
+      </header>
+      <StaffNav links={navLinksForRole(session.user.role)} />
+      <main className="min-w-0 px-4 py-6 sm:px-6 lg:col-start-2 lg:row-start-2">{children}</main>
+    </div>
+  );
+}
+
+/** Suspense fallback with the same box as the shell, so nothing jumps when it resolves. */
+export function StaffShellFallback() {
+  return (
+    <div className="min-h-dvh lg:grid lg:grid-cols-[14rem_1fr] lg:grid-rows-[auto_1fr]" aria-busy="true">
+      <div className="h-[4.5rem] border-b border-line bg-surface lg:col-start-2" />
+      <div className="h-16 bg-ink lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:h-dvh" />
+      <p className="p-6 text-ink-muted lg:col-start-2">Cargando…</p>
+    </div>
+  );
+}
