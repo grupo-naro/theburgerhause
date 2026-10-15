@@ -69,7 +69,7 @@ export const createOrderSchema = z.discriminatedUnion("fulfillment", [
     ...baseFields,
     fulfillment: z.literal("takeaway"),
     // Whatever was sent is discarded: takeaway orders never store an address.
-    delivery: z.unknown().transform(() => undefined),
+    delivery: z.unknown().optional().transform(() => undefined),
   }),
 ]);
 

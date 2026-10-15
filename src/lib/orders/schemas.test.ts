@@ -67,6 +67,11 @@ describe("createOrderSchema", () => {
     it("takeaway needs no delivery", () => {
       expect(parse({ fulfillment: "takeaway", delivery: undefined }).success).toBe(true);
     });
+    it("takeaway with the delivery key omitted entirely", () => {
+      const noKey: Record<string, unknown> = { ...base(), fulfillment: "takeaway" };
+      delete noKey.delivery;
+      expect(createOrderSchema.safeParse(noKey).success).toBe(true);
+    });
     it("rejects an unknown fulfillment", () => {
       expect(errors({ fulfillment: "drone" }).fulfillment).toBeTruthy();
     });

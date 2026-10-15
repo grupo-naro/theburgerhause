@@ -67,6 +67,11 @@ function pgError(err: unknown): { code?: string; constraint?: string } {
   return {};
 }
 
+/** Just the SQLSTATE (safe to log) of a possibly drizzle-wrapped driver error. */
+export function pgErrorCode(err: unknown): string | undefined {
+  return pgError(err).code;
+}
+
 /** ONE query: products + category flag + the modifiers of their LINKED groups. */
 async function loadCatalog(tx: DbTransaction, productIds: number[]): Promise<Catalog> {
   const rows = await tx
@@ -119,6 +124,11 @@ async function findByKey(conn: Db | DbTransaction, key: string): Promise<CreateO
     .from(s.orders)
     .where(eq(s.orders.idempotencyKey, key));
   return row ? { ...row, duplicate: true } : null;
+}
+
+/** Cheap indexed lookup: has an order with this idempotency key already been created? */
+export async function orderKeyExists(db: Db, key: string): Promise<boolean> {
+  return (await findByKey(db, key)) !== null;
 }
 
 async function place(
