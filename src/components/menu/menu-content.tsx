@@ -1,10 +1,12 @@
-import { getMenu } from "@/lib/menu/queries";
+"use client";
+
 import { MenuBrowser } from "./menu-browser";
+import { useMenu } from "./menu-provider";
 import { StatePanel } from "./state-panel";
 
-/** Cached menu -> part of the static shell; streams only when the cache entry has to be refilled. */
-export async function MenuContent() {
-  const menu = await getMenu();
+/** Reads the menu the layout already provides (one cached fetch, shared with the cart). */
+export function MenuContent() {
+  const menu = useMenu();
   if (menu.categories.length === 0) {
     return <StatePanel title="Estamos actualizando nuestra carta">Volvé en unos minutos para ver las novedades.</StatePanel>;
   }
