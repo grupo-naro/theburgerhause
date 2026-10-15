@@ -1,11 +1,18 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { testDatabaseUrl } from "./src/db/test-database";
 
 try {
   process.loadEnvFile?.();
 } catch {
   // no .env file; rely on the existing environment
+}
+
+// Mirrors testDatabaseUrl() in src/db/test-database.ts (kept inline: the config
+// loader cannot import extensionless TS).
+function testDatabaseUrl(serverUrl: string): string {
+  const url = new URL(serverUrl);
+  url.pathname = "/burgerhause_test";
+  return url.toString();
 }
 
 const serverUrl = process.env.DATABASE_URL;

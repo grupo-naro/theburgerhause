@@ -19,8 +19,8 @@ export function testDb() {
 
 /** Truncates every table and restarts identities. Call from `beforeEach`. */
 export async function resetDb(): Promise<void> {
-  const tables = Object.values(schema)
-    .filter((v): v is PgTable => is(v, PgTable))
-    .map((t) => `"${getTableName(t)}"`);
+  const tables = (Object.values(schema).filter((v) => is(v, PgTable)) as unknown as PgTable[]).map(
+    (t) => `"${getTableName(t)}"`,
+  );
   await testDb().execute(sql.raw(`TRUNCATE TABLE ${tables.join(", ")} RESTART IDENTITY CASCADE`));
 }
