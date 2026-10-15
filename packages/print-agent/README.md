@@ -17,7 +17,8 @@ Garantías operativas:
 
 ## Requisitos
 
-- Node.js 20 o superior en la PC (solo eso: el programa es un único archivo, sin `node_modules`).
+- Node.js 20 o superior instalado en CADA PC (solo eso: el programa es un único archivo, sin `node_modules`).
+  Esto se mantiene hasta que la Task 6.3 decida entre un ejecutable SEA o un Node empaquetado.
 - Windows 10/11 con la impresora instalada con su driver normal (sirve incluso "Generic / Text Only").
   No hace falta Zadig/WinUSB ni cambiar el driver.
 
@@ -54,7 +55,7 @@ Variables de entorno **o** un `config.json` junto al programa (el entorno gana).
 | `PAPER_WIDTH` | no | `80` (por defecto, 48 columnas) o `58` (32 columnas). Con tamaño doble el ancho efectivo es la mitad |
 | `CODEPAGE` | no | `cp858` (por defecto) · `cp437` · `cp850` · `wpc1252` |
 | `PRINTER_BACKEND` | no | `windows` (por defecto en Windows) · `tcp` · `file` · `console` |
-| `PRINTER_NAME` | si `windows` | Nombre exacto de la impresora en Windows (letras, números, espacios y `. - _ ( ) # / & +`, máx. 100) |
+| `PRINTER_NAME` | si `windows` | Nombre exacto de la impresora en Windows. Acepta acentos y ñ, espacios, `. _ - ( ) # / & + ' ,` (máx. 100), debe empezar con letra o número, y admite impresoras compartidas `\\PC\NOMBRE` |
 | `PRINTER_HOST`, `PRINTER_PORT` | si `tcp` | IP/host de la impresora de red; puerto 9100 por defecto |
 | `OUTPUT_DIR` | no (`file`) | Carpeta donde `file` guarda los trabajos (`job-<id>-<n>.bin`); por defecto `DATA_DIR/output` |
 | `DATA_DIR` | no | Estado y logs. Por defecto `%PROGRAMDATA%\BurgerHouseAgent` en Windows, `./data` en otros sistemas |
@@ -71,6 +72,20 @@ Los errores de configuración se muestran todos juntos, en español, nombrando l
   la ruta de los datos se pasan como **parámetros** (nunca se interpolan en el script) y el nombre se valida antes.
   El archivo temporal con los bytes se borra siempre. Tiempo máximo 15 s (se mata el proceso).
   Cada impresión arranca PowerShell y compila el P/Invoke (1–3 s en una PC lenta): es normal.
+
+  **Importante: el Spooler de Windows acepta trabajos aunque la impresora USB esté desenchufada, apagada o sin papel.**
+  `WritePrinter` termina bien y el trabajo queda en la cola de Windows; saldría después, de golpe, cuando la impresora
+  vuelva. Por eso, antes de `StartDocPrinter`, el script lee el estado de la impresora (`GetPrinter` nivel 2, `PRINTER_INFO_2`
+  `Status`/`Attributes`, por P/Invoke: funciona en Windows PowerShell 5.1 sin módulos extra) y **se niega a imprimir** si está
+  *desconectada* (`WORK_OFFLINE` / `OFFLINE`), *sin papel* (`PAPER_OUT`), con papel atascado o con problema de papel, con error,
+  *no disponible*, con la tapa abierta o esperando intervención. El agente responde `failed` con un mensaje como
+  «La impresora no está lista: desconectada, sin papel»; el servidor reintenta hasta 3 veces y después se enciende la alerta
+  roja de la Caja. El ahorro de energía (`POWER_SAVE`), ocupada, imprimiendo, etc. NO bloquean.
+
+  Qué garantiza y qué NO: detecta lo que el driver/Spooler **informa**. Si el driver siempre dice "estado 0" (algunos drivers
+  genéricos o puertos USB virtuales lo hacen), el trabajo se imprime igual (no se bloquea por falta de información) y
+  **no hay forma de saber** desde el software si salió papel. Tampoco detecta un corte de papel o un atasco que la impresora
+  no comunique a Windows. Esto solo se puede confirmar con la impresora real: ver la lista de verificación (pasos 7 y 11).
 - `tcp`: socket directo a una impresora de red (puerto 9100).
 - `file`: escribe los bytes ESC/POS a archivos (desarrollo, pruebas, diagnóstico). Nunca sobrescribe.
 - `console`: vista previa de texto en la consola (solo desarrollo).
@@ -92,11 +107,12 @@ node print-agent.cjs check
 
 con `PRINTER_BACKEND=windows` lista las impresoras instaladas (`Get-Printer`) con su driver y puerto, y avisa si
 `PRINTER_NAME` no coincide con ninguna. A mano: `powershell -Command "Get-Printer | Format-Table Name,DriverName,PortName"`.
-Si el nombre tiene caracteres fuera del conjunto permitido (por ejemplo acentos), renombrá la impresora en
-*Configuración → Impresoras y escáneres*.
+Si el nombre tiene caracteres no permitidos (comillas, `;`, `|`, `%`, `< >`, `*`, `?`, o empieza con `-`), renombrá la
+impresora en *Configuración → Impresoras y escáneres*.
 
 `check` además hace un heartbeat al servidor: confirma que la URL y el token sirven y que la estación queda activa.
-(No abre el stream, para no desplazar a un agente que ya esté corriendo.)
+`check` solo envía un heartbeat: no abre el stream (para no desplazar a un agente que ya esté corriendo), así que no muestra
+el nombre de la estación, solo la hora del servidor.
 
 ### Ticket de prueba
 
@@ -157,14 +173,25 @@ Marcar cada punto en la PC del local, con la impresora real:
 4. [ ] Acentos correctos (`á é í ó ú ñ Ñ ¿ ¡ °`); si no, probar `CODEPAGE` (cp858 → cp437 → cp850 → wpc1252).
 5. [ ] El texto no se corta en el borde: probar `PAPER_WIDTH` 58/80 según el papel real.
 6. [ ] El corte es parcial y deja el ticket colgando; el avance de papel antes del corte no desperdicia mucho.
-7. [ ] Desenchufar la impresora o apagarla y correr `test-print`: debe mostrar un error claro
-   («La impresora no responde» / «No se encontró la impresora …»), no colgarse (máx. 15 s).
+7. [ ] Impresora desenchufada o apagada: correr `test-print`. Observar (a) el mensaje en consola/`agent.log`
+   («La impresora no está lista: desconectada», o «No se encontró la impresora …» si Windows ya no la lista), (b) que la
+   **cola de impresión de Windows** (*Impresoras y escáneres → la impresora → Abrir cola*) **no** acumula el trabajo, y (c) que no
+   se cuelga (máx. 15 s). Volver a enchufarla y repetir: imprime. Si la cola SÍ acumula trabajos y el agente dice "impreso",
+   el driver no informa su estado: anotar el modelo/driver (el chequeo previo no puede ayudar con ese driver).
 8. [ ] Con `SERVER_URL`/`STATION_TOKEN` reales: `check` → `Servidor: OK`. Luego `run`, aprobar un pedido en la Caja:
    salen la comanda de cocina y el ticket, y los chips de la Caja pasan a "Impresión: ok".
 9. [ ] Cerrar la Caja de otra PC no afecta; apagar internet 1 minuto y volver: el agente reconecta solo y no repite tickets.
 10. [ ] Reiniciar el agente (Ctrl+C y volver a correr) no reimprime nada.
-11. [ ] Dejar sin papel: el pedido queda con error y aparece la alerta roja en la Caja tras 3 intentos; "Reimprimir" funciona.
-12. [ ] Anotar el modelo de la impresora, driver y `CODEPAGE` que funcionó (pregunta abierta 2 del spec).
+11. [ ] Dejar la impresora sin papel (o con la tapa abierta) y aprobar un pedido en la Caja. Observar: (a) la línea de log
+   «Falló la impresión … La impresora no está lista: sin papel» en cada intento (cada ~10 s), (b) la cola de Windows sin
+   trabajos acumulados, (c) la alerta roja en la Caja **después del 3.er intento fallido**, (d) al poner papel y tocar
+   "Reimprimir", salen los tickets una sola vez. Si el log dice «Trabajo impreso» con la impresora sin papel, el driver no
+   informa el estado (ver paso 7).
+12. [ ] Medir cuánto tarda `test-print` en la PC MÁS LENTA del local (cada impresión arranca PowerShell y compila C#). Si pasa
+   de ~6 s, avisar: habría que cambiar a un helper persistente (no se hace antes de medirlo).
+13. [ ] Reiniciar la PC en frío (apagar y encender) y verificar que el agente vuelve a estar activo SOLO, sin que nadie inicie
+   sesión ni abra nada a mano (tarea programada / servicio), y que el indicador de impresora de la Caja pasa a "lista".
+14. [ ] Anotar el modelo de la impresora, driver y `CODEPAGE` que funcionó (pregunta abierta 2 del spec).
 
 ## Desarrollo
 
