@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, ne, notExists, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import type { Fulfillment, OrderStatus } from "@/domain/order-status";
@@ -50,6 +51,12 @@ const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 30;
 const FAILED_LIMIT = 100;
 
+/**
+ * A failed job is "handled" once a LATER job of the same type for the same station was queued
+ * (pending/printing) or printed (done): a reprint superseded it. Only unhandled failures alert.
+ */
+const UNHANDLED_FAILED = `"print_jobs"."status" = 'failed' and not exists (select 1 from "print_jobs" "later" where "later"."order_id" = "print_jobs"."order_id" and "later"."station_id" = "print_jobs"."station_id" and "later"."type" = "print_jobs"."type" and "later"."id" > "print_jobs"."id" and "later"."status" in ('pending','printing','done'))`;
+
 const jobCount = (filter: string) =>
   sql<number>`(select count(*)::int from "print_jobs" where "print_jobs"."order_id" = "orders"."id" and ${sql.raw(filter)})`;
 
@@ -72,7 +79,7 @@ const orderColumns = {
   total: s.orders.total,
   createdAt: s.orders.createdAt,
   jobsPending: jobCount(`"print_jobs"."status" in ('pending','printing')`),
-  jobsFailed: jobCount(`"print_jobs"."status" = 'failed'`),
+  jobsFailed: jobCount(UNHANDLED_FAILED),
   jobsDone: jobCount(`"print_jobs"."status" = 'done'`),
 };
 
@@ -178,8 +185,9 @@ export async function listRecentProcessed(db: Db, opts: { limit?: number } & Caj
   return hydrate(db, rows, opts.now ?? new Date());
 }
 
-/** Failed print jobs (newest first), optionally only those of one station. */
+/** UNHANDLED failed print jobs (see UNHANDLED_FAILED), newest first, optionally only those of one station. */
 export async function listFailedPrintJobs(db: Db, stationId?: number): Promise<FailedPrintJob[]> {
+  const later = alias(s.printJobs, "later");
   const rows = await db
     .select({
       jobId: s.printJobs.id,
@@ -194,9 +202,24 @@ export async function listFailedPrintJobs(db: Db, stationId?: number): Promise<F
     .from(s.printJobs)
     .innerJoin(s.orders, eq(s.orders.id, s.printJobs.orderId))
     .where(
-      stationId === undefined
-        ? eq(s.printJobs.status, "failed")
-        : and(eq(s.printJobs.status, "failed"), eq(s.printJobs.stationId, stationId)),
+      and(
+        eq(s.printJobs.status, "failed"),
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(later)
+            .where(
+              and(
+                eq(later.orderId, s.printJobs.orderId),
+                eq(later.stationId, s.printJobs.stationId),
+                eq(later.type, s.printJobs.type),
+                gt(later.id, s.printJobs.id),
+                inArray(later.status, ["pending", "printing", "done"]),
+              ),
+            ),
+        ),
+        stationId === undefined ? undefined : eq(s.printJobs.stationId, stationId),
+      ),
     )
     .orderBy(desc(s.printJobs.createdAt), desc(s.printJobs.id))
     .limit(FAILED_LIMIT);

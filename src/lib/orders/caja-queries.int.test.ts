@@ -133,7 +133,7 @@ describe("print state aggregation", () => {
     await db().insert(s.printJobs).values({
       orderId: o1.id,
       stationId: fx.stationId,
-      type: "ticket",
+      type: "kitchen",
       payload: {},
       status: "printing",
     });
@@ -168,6 +168,43 @@ describe("listFailedPrintJobs", () => {
     });
     expect((await listFailedPrintJobs(db(), fx.stationId)).map((f) => f.jobId)).toEqual([jobs[0].id]);
     expect((await listFailedPrintJobs(db(), fx.otherStationId)).map((f) => f.jobId)).toEqual([jobs[1].id]);
+  });
+});
+
+describe("failed jobs that were handled (superseded)", () => {
+  const failJob = (id: number) =>
+    db().update(s.printJobs).set({ status: "failed", error: "sin papel", attempts: 3 }).where(eq(s.printJobs.id, id));
+  const newJob = (orderId: number, type: "kitchen" | "ticket", stationId: number, status: "pending" | "printing" | "done" | "failed") =>
+    db().insert(s.printJobs).values({ orderId, stationId, type, payload: {}, status }).returning();
+
+  it("a later pending/printing/done job of the same type and station handles the failure", async () => {
+    for (const status of ["pending", "printing", "done"] as const) {
+      await resetDb();
+      fx = await seedMenuAndStaff();
+      const o = await placeWebOrder(fx);
+      await approve(o.id);
+      const [kitchen] = await db().select().from(s.printJobs).where(eq(s.printJobs.type, "kitchen"));
+      await failJob(kitchen.id);
+      expect(await listFailedPrintJobs(db(), fx.stationId)).toHaveLength(1);
+      await newJob(o.id, "kitchen", fx.stationId, status);
+      expect(await listFailedPrintJobs(db(), fx.stationId)).toEqual([]);
+      const [row] = await listRecentProcessed(db());
+      expect(row.printState.failed).toBe(0);
+    }
+  });
+
+  it("a different type, a different station or a later FAILED job do not handle it", async () => {
+    const o = await placeWebOrder(fx);
+    await approve(o.id);
+    const [kitchen] = await db().select().from(s.printJobs).where(eq(s.printJobs.type, "kitchen"));
+    await failJob(kitchen.id);
+    await newJob(o.id, "ticket", fx.stationId, "done");
+    await newJob(o.id, "kitchen", fx.otherStationId, "done");
+    expect((await listFailedPrintJobs(db(), fx.stationId)).map((f) => f.jobId)).toEqual([kitchen.id]);
+    await newJob(o.id, "kitchen", fx.stationId, "failed");
+    expect(await listFailedPrintJobs(db(), fx.stationId)).toHaveLength(2);
+    const [row] = await listRecentProcessed(db());
+    expect(row.printState.failed).toBe(2);
   });
 });
 
