@@ -29,7 +29,7 @@ export function GroupCard({ group }: { group: AdminModifierGroup }) {
         <p className="text-sm text-ink-muted">Este grupo todavía no tiene modificadores.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[52rem] table-fixed text-left text-sm">
+          <table className="w-full min-w-[66rem] table-fixed text-left text-sm">
             <caption className="sr-only">Modificadores de {group.name}</caption>
             <thead className="text-xs text-ink-muted uppercase">
               <tr>
