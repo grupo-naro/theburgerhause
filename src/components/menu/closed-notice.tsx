@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { InfoIcon } from "./icons";
 import { useReportOrdersClosed } from "./store-status";
 
@@ -11,6 +12,8 @@ import { useReportOrdersClosed } from "./store-status";
  */
 export function ClosedNotice({ hours }: { hours: string }) {
   useReportOrdersClosed();
+  // The checkout page shows its own (inline) notice next to the disabled button.
+  if (usePathname() === "/checkout") return null;
   return (
     <div
       role="status"

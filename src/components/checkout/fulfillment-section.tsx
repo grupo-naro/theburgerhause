@@ -38,7 +38,7 @@ export function FulfillmentSection({ form, errors, info, onChange }: Props) {
               />
               <label
                 htmlFor={`checkout-fulfillment-${o.value}`}
-                className="flex min-h-11 cursor-pointer items-center justify-center rounded-full px-3 text-center font-display text-base font-bold text-brand-700 transition-colors peer-checked:bg-brand-600 peer-checked:text-white peer-checked:shadow-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600"
+                className="flex min-h-11 cursor-pointer items-center justify-center rounded-full px-2 text-center font-display text-sm font-bold sm:text-base text-brand-700 transition-colors peer-checked:bg-brand-600 peer-checked:text-white peer-checked:shadow-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600"
               >
                 {o.label}
               </label>

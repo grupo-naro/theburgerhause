@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { InfoIcon } from "@/components/menu/icons";
-import { fieldId, type FieldErrors, type FieldKey } from "@/lib/checkout/form";
+import { FIELD_ORDER, fieldId, type FieldErrors, type FieldKey } from "@/lib/checkout/form";
 
 /** Top-of-form summary of the invalid fields (role=alert) with a shortcut to each one. */
 export function ErrorSummary({ errors, other }: { errors: FieldErrors; other: readonly string[] }) {
-  const entries = Object.entries(errors) as [FieldKey, string][];
+  const entries = FIELD_ORDER.flatMap((k): [FieldKey, string][] => (errors[k] ? [[k, errors[k]]] : []));
   if (entries.length === 0 && other.length === 0) return null;
   const focus = (key: FieldKey) => document.getElementById(fieldId(key))?.focus();
   return (
