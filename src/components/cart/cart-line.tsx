@@ -7,7 +7,7 @@ import { formatARS } from "@/domain/money";
 import { selectedModifiers } from "@/lib/cart/display";
 import { MAX_GROUP_QUANTITY } from "@/lib/cart/reducer";
 import { modifierDisplay } from "@/lib/cart/sheet-state";
-import { unitTotalFor, type MenuIndex } from "@/lib/cart/pricing";
+import { lineTotalFor, unitTotalFor, type MenuIndex } from "@/lib/cart/pricing";
 import type { CartGroup } from "@/lib/cart/types";
 
 type Props = {
@@ -74,7 +74,7 @@ export function CartLine({ group, index, onQuantity, onEdit, onRemove }: Props) 
           testId="cart-line-quantity"
         />
         <p data-testid="cart-line-total" className="font-display text-xl font-extrabold tabular-nums text-ink">
-          {formatARS(unit * group.quantity)}
+          {formatARS(lineTotalFor(group, index))}
         </p>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2 border-t border-line pt-2">

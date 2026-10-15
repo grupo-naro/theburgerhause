@@ -56,7 +56,7 @@ export function ModifierGroup({ group, selectedIds, onToggle, idPrefix }: Props)
                   aria-hidden="true"
                   className={`grid size-6 shrink-0 place-items-center border-2 transition-colors ${
                     kind === "swap" ? "rounded-full" : "rounded-md"
-                  } ${checked ? "border-brand-600 bg-brand-600 text-white" : "border-ink-muted/60 bg-surface text-transparent"}`}
+                  } ${checked ? "border-brand-600 bg-brand-600 text-white" : "border-ink-muted bg-surface text-transparent"}`}
                 >
                   <CheckIcon className="size-4" strokeWidth={3} />
                 </span>
