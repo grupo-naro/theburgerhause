@@ -2,8 +2,20 @@ import { cacheLife, cacheTag } from "next/cache";
 import { getDb } from "@/db/client";
 import { getSettings, type Settings } from "@/lib/settings";
 import { SETTINGS_CACHE_TAG } from "@/lib/settings/cache";
+import { loadCheckoutInfo, type CheckoutInfo } from "@/lib/settings/checkout-info";
 import { MENU_CACHE_TAG } from "./cache";
 import { loadMenu, type PublicMenu } from "./public";
+
+/**
+ * Data the checkout page needs: delivery fee, bank data, store contact. Cached, invalidated with the
+ * settings tag. Bank alias / CBU are shown to customers who choose "Transferencia" anyway.
+ */
+export async function getCheckoutInfo(): Promise<CheckoutInfo> {
+  "use cache";
+  cacheTag(SETTINGS_CACHE_TAG);
+  cacheLife("hours");
+  return loadCheckoutInfo(getDb());
+}
 
 /** Public menu, cached and invalidated by `invalidateMenu()` (tag "menu"). */
 export async function getMenu(): Promise<PublicMenu> {
