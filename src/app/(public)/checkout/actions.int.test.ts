@@ -74,21 +74,18 @@ describe("createOrderAction", () => {
   });
 
   describe("rate limit", () => {
-    it("5 orders per IP in the window; the 6th is refused and creates no row", async () => {
-      for (let i = 0; i < 5; i++) expect((await createOrderAction(withWa(i))).ok).toBe(true);
-      const r = await createOrderAction(withWa(9));
+    const create = async (n: number, start = 0) => {
+      for (let i = start; i < start + n; i++) expect((await createOrderAction(withWa(i))).ok).toBe(true);
+    };
+
+    it("20 creations per IP in the window; the 21st is refused and creates no row", async () => {
+      await create(20);
+      const r = await createOrderAction(withWa(99));
       expect(r).toEqual({ ok: false, code: "RATE_LIMITED", message: LIMIT_MSG });
-      expect(await orderCount()).toBe(5);
+      expect(await orderCount()).toBe(20);
     });
 
-    it("the limiter runs BEFORE createOrder is called", async () => {
-      for (let i = 0; i < 5; i++) await createOrderAction(withWa(i));
-      vi.mocked(createOrder).mockClear();
-      await createOrderAction(withWa(9));
-      expect(createOrder).not.toHaveBeenCalled();
-    });
-
-    it("3 orders per whatsapp (digits), the 4th is refused even from a new IP", async () => {
+    it("3 creations per whatsapp (digits), the 4th is refused even from a new IP, BEFORE createOrder runs", async () => {
       const spellings = ["11 5555-1234", "(11) 5555 1234", "+11-5555-1234"];
       for (let i = 0; i < 3; i++) {
         asIp(`10.0.1.${i}`);
@@ -96,53 +93,99 @@ describe("createOrderAction", () => {
         expect(r.ok).toBe(true);
       }
       asIp("10.0.1.99");
+      vi.mocked(createOrder).mockClear();
       expect(await createOrderAction(payload())).toEqual({ ok: false, code: "RATE_LIMITED", message: LIMIT_MSG });
+      expect(createOrder).not.toHaveBeenCalled();
       expect(await orderCount()).toBe(3);
     });
 
     it("a spoofed first X-Forwarded-For hop does not bypass the IP limit (LAST hop counts)", async () => {
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 20; i++) {
         asIp(`6.6.6.${i}, 203.0.113.7`);
         expect((await createOrderAction(withWa(i))).ok).toBe(true);
       }
       asIp("7.7.7.7, 203.0.113.7");
-      expect(await createOrderAction(withWa(9))).toMatchObject({ ok: false, code: "RATE_LIMITED" });
+      expect(await createOrderAction(withWa(99))).toMatchObject({ ok: false, code: "RATE_LIMITED" });
     });
 
     it("another real client (different last hop) is unaffected", async () => {
       asIp("203.0.113.7");
-      for (let i = 0; i < 5; i++) await createOrderAction(withWa(i));
+      await create(20);
       asIp("203.0.113.8");
-      expect((await createOrderAction(withWa(9))).ok).toBe(true);
+      expect((await createOrderAction(withWa(99))).ok).toBe(true);
     });
 
-    it("idempotent duplicates (double click / retry) do NOT consume the quota", async () => {
+    it("failed attempts (stale cart, closed store, invalid) do NOT consume creation quota", async () => {
+      for (let i = 0; i < 5; i++) {
+        const r = await createOrderAction(payload({ units: [{ productId: 9999, modifierIds: [], note: "" }] }));
+        expect(r).toMatchObject({ ok: false, code: "UNITS_INVALID" });
+      }
+      await db().insert(s.settings).values({ key: "accepting_orders", value: false });
+      for (let i = 0; i < 5; i++) expect(await createOrderAction(payload())).toMatchObject({ code: "STORE_CLOSED" });
+      await db().update(s.settings).set({ value: true });
+      for (let i = 0; i < 3; i++) expect((await createOrderAction(payload())).ok).toBe(true);
+      expect(await createOrderAction(payload())).toMatchObject({ ok: false, code: "RATE_LIMITED" });
+    });
+
+    it("idempotent replays do NOT consume quota and still answer when the quota is exhausted", async () => {
       const same = payload();
       const first = await createOrderAction(same);
       if (!first.ok) throw new Error("expected ok");
       for (let i = 0; i < 8; i++) {
-        const again = await createOrderAction(same);
-        expect(again).toMatchObject({ ok: true, duplicate: true, publicToken: first.publicToken });
+        expect(await createOrderAction(same)).toMatchObject({ ok: true, duplicate: true, publicToken: first.publicToken });
       }
-      // 3 whatsapp slots, 1 used: two more orders fit, the third does not
       expect((await createOrderAction(payload())).ok).toBe(true);
       expect((await createOrderAction(payload())).ok).toBe(true);
       expect(await createOrderAction(payload())).toMatchObject({ ok: false, code: "RATE_LIMITED" });
+      // whatsapp quota is spent, yet the original order is still answered
+      expect(await createOrderAction(same)).toMatchObject({ ok: true, duplicate: true, publicToken: first.publicToken });
       expect(await orderCount()).toBe(3);
     });
 
-    it("duplicate replays are bounded too (30 per window per IP)", async () => {
+    it("two PARALLEL same-key submissions consume exactly ONE creation slot", async () => {
       const same = payload();
-      await createOrderAction(same);
-      let limited = 0;
-      for (let i = 0; i < 40; i++) if ((await createOrderAction(same)).ok === false) limited++;
-      expect(limited).toBeGreaterThan(0);
+      const [a, b] = await Promise.all([createOrderAction(same), createOrderAction(same)]);
+      expect(a.ok && b.ok).toBe(true);
+      expect(a.ok && b.ok && a.publicToken === b.publicToken).toBe(true);
+      expect(await orderCount()).toBe(1);
+      expect((await createOrderAction(payload())).ok).toBe(true);
+      expect((await createOrderAction(payload())).ok).toBe(true);
+      expect(await createOrderAction(payload())).toMatchObject({ ok: false, code: "RATE_LIMITED" });
     });
 
-    it("invalid / honeypot submissions do not touch the quota", async () => {
+    it("a closed store still answers a replay of an existing order (action level)", async () => {
+      const same = payload();
+      const first = await createOrderAction(same);
+      await db().insert(s.settings).values({ key: "accepting_orders", value: false });
+      const again = await createOrderAction(same);
+      expect(again).toMatchObject({ ok: true, duplicate: true });
+      expect(again.ok && first.ok && again.publicToken).toBe(first.ok && first.publicToken);
+      expect(await createOrderAction(payload())).toMatchObject({ ok: false, code: "STORE_CLOSED" });
+    });
+
+    it("the attempt limiter trips at the 61st request per IP (any kind of request)", async () => {
+      for (let i = 0; i < 60; i++) {
+        const r = await createOrderAction(i % 2 ? payload({ website: "x" }) : payload({ customer: { name: "x", whatsapp: "1" } }));
+        expect(r).toMatchObject({ ok: false });
+        expect((r as { code: string }).code).not.toBe("RATE_LIMITED");
+      }
+      vi.mocked(createOrder).mockClear();
+      expect(await createOrderAction(payload())).toEqual({ ok: false, code: "RATE_LIMITED", message: LIMIT_MSG });
+      expect(createOrder).not.toHaveBeenCalled();
+      asIp("203.0.113.50");
+      expect((await createOrderAction(payload())).ok).toBe(true);
+    });
+
+    it("invalid / honeypot submissions do not touch the creation quota", async () => {
       for (let i = 0; i < 10; i++) await createOrderAction(payload({ website: "x" }));
       for (let i = 0; i < 10; i++) await createOrderAction(payload({ customer: { name: "x", whatsapp: "1" } }));
-      expect((await createOrderAction(payload())).ok).toBe(true);
+      for (let i = 0; i < 3; i++) expect((await createOrderAction(payload())).ok).toBe(true);
+    });
+
+    it("without an x-forwarded-for header everyone shares the single 'unknown' bucket (fail-closed)", async () => {
+      requestHeaders.value = new Headers();
+      for (let i = 0; i < 60; i++) await createOrderAction(payload({ website: "x" }));
+      expect(await createOrderAction(payload())).toMatchObject({ ok: false, code: "RATE_LIMITED" });
     });
 
     it("resetOrderRateLimit clears the counters", async () => {
