@@ -17,7 +17,7 @@ export default function GlobalError({ retry }: { error: Error & { digest?: strin
           padding: "1rem",
         }}
       >
-        <main>
+        <main role="alert">
           <h1 style={{ fontSize: "1.5rem" }}>The Burger House 828</h1>
           <p>Se nos quemó la parrilla. No pudimos cargar la página.</p>
           <button

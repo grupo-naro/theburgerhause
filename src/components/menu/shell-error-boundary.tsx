@@ -1,41 +1,24 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { Component, startTransition, type ReactNode } from "react";
+import { catchError, type ErrorInfo } from "next/error";
+import { useEffect, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  SHELL_ERROR_LOG,
-  initialShellState,
-  shellFailed,
-  shellRetried,
-  type ShellBoundaryState,
-} from "./shell-boundary-state";
 import { StatePanel } from "./state-panel";
 import { StoreHeaderFallback } from "./store-header-fallback";
 
-function ShellError({ onRetry }: { onRetry: () => void }) {
-  const router = useRouter();
+function ShellError(_props: { children?: ReactNode }, { retry }: ErrorInfo) {
+  useEffect(() => {
+    // Fixed string only: the error object can carry DB details.
+    console.error("[storefront] the shell failed to load");
+  }, []);
   return (
     <>
       <StoreHeaderFallback />
-      <StatePanel
-        title="Se nos quemó la parrilla"
-        actions={
-          <Button
-            onClick={() =>
-              // Refresh first so the retry really re-fetches; both land together in one transition.
-              startTransition(() => {
-                router.refresh();
-                onRetry();
-              })
-            }
-          >
-            Reintentar
-          </Button>
-        }
-      >
-        No pudimos cargar la carta. Probá de nuevo en unos segundos.
-      </StatePanel>
+      <div role="alert">
+        <StatePanel title="Se nos quemó la parrilla" actions={<Button onClick={() => retry()}>Reintentar</Button>}>
+          No pudimos cargar la carta. Probá de nuevo en unos segundos.
+        </StatePanel>
+      </div>
     </>
   );
 }
@@ -43,21 +26,6 @@ function ShellError({ onRetry }: { onRetry: () => void }) {
 /**
  * `error.tsx` does not wrap the layout of its own segment, and the public layout awaits the cached
  * menu, so a data failure there needs its own boundary (UX spec 3.3: network error with retry).
+ * `catchError` lets redirect()/notFound() through and its `retry()` re-fetches the route in a transition.
  */
-export class ShellErrorBoundary extends Component<{ children: ReactNode }, ShellBoundaryState> {
-  state = initialShellState;
-
-  static getDerivedStateFromError(): ShellBoundaryState {
-    return shellFailed();
-  }
-
-  componentDidCatch() {
-    console.error(SHELL_ERROR_LOG);
-  }
-
-  private retry = () => this.setState(shellRetried());
-
-  render() {
-    return this.state.failed ? <ShellError onRetry={this.retry} /> : this.props.children;
-  }
-}
+export const ShellErrorBoundary = catchError(ShellError);
