@@ -14,6 +14,9 @@ import type { OrdersEvent } from "./channels";
 export const OFFLINE_AFTER_MS = 10_000;
 export const FALLBACK_POLL_MS = 15_000;
 export const RETRY_MS = 3_000;
+export const MAX_RETRY_MS = 60_000;
+/** After this many consecutive CLOSED failures (e.g. auth lost) the fallback poll stops: it cannot succeed either. */
+export const GIVE_UP_POLLING_AFTER = 5;
 
 export type LiveState = "connecting" | "live" | "offline";
 
@@ -56,6 +59,7 @@ export function createLiveClient(deps: LiveClientDeps): LiveClient {
   let started = false;
   let stopped = false;
   let needResync = false;
+  let closedFailures = 0;
   let offlineTimer: unknown = null;
   let fallbackTimer: unknown = null;
   let reopenTimer: unknown = null;
@@ -77,7 +81,7 @@ export function createLiveClient(deps: LiveClientDeps): LiveClient {
   function armFallback() {
     fallbackTimer = deps.schedule(() => {
       fallbackTimer = null;
-      if (stopped || state === "live") return;
+      if (stopped || state === "live" || closedFailures >= GIVE_UP_POLLING_AFTER) return;
       deps.onResync?.();
       armFallback();
     }, FALLBACK_POLL_MS);
@@ -103,6 +107,7 @@ export function createLiveClient(deps: LiveClientDeps): LiveClient {
     s.addEventListener("open", () => {
       if (!current()) return;
       clearTimers();
+      closedFailures = 0;
       setState("live");
       if (needResync) {
         needResync = false;
@@ -117,7 +122,14 @@ export function createLiveClient(deps: LiveClientDeps): LiveClient {
       if (s.readyState === CLOSED) {
         s.close();
         source = null;
-        if (!has(reopenTimer)) reopenTimer = deps.schedule(open, RETRY_MS);
+        closedFailures++;
+        if (closedFailures >= GIVE_UP_POLLING_AFTER) {
+          if (has(fallbackTimer)) deps.cancel(fallbackTimer);
+          fallbackTimer = null;
+          setState("offline");
+        }
+        const delay = Math.min(RETRY_MS * 2 ** (closedFailures - 1), MAX_RETRY_MS);
+        if (!has(reopenTimer)) reopenTimer = deps.schedule(open, delay);
       }
     });
     s.addEventListener("orders", (e) => {

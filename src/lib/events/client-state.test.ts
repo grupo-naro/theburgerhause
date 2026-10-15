@@ -176,3 +176,40 @@ describe("live client state machine", () => {
     expect(FakeSource.all).toHaveLength(1);
   });
 });
+
+describe("auth loss (source ends CLOSED again and again)", () => {
+  it("reopens with escalating backoff 3, 6, 12, 24, 48, 60 s and resets after an open", () => {
+    const t = setup();
+    t.client.start();
+    const delays = [3_000, 6_000, 12_000, 24_000, 48_000, 60_000, 60_000];
+    for (const [i, d] of delays.entries()) {
+      t.src().fail(true);
+      t.clock.advance(d - 1);
+      expect(FakeSource.all).toHaveLength(i + 1);
+      t.clock.advance(1);
+      expect(FakeSource.all).toHaveLength(i + 2);
+    }
+    t.src().open();
+    t.src().fail(true);
+    t.clock.advance(3_000);
+    expect(FakeSource.all).toHaveLength(delays.length + 2);
+  });
+
+  it("stops the fallback poll after 5 consecutive CLOSED failures and shows offline", () => {
+    const t = setup();
+    t.client.start();
+    for (const d of [3_000, 6_000, 12_000, 24_000]) {
+      t.src().fail(true);
+      t.clock.advance(d);
+    }
+    t.clock.advance(0);
+    const polledSoFar = t.onResync.mock.calls.length;
+    t.src().fail(true); // 5th
+    expect(t.client.state()).toBe("offline");
+    t.clock.advance(300_000);
+    expect(t.onResync.mock.calls.length).toBe(polledSoFar);
+    t.src().open(); // eventually recovers
+    expect(t.client.state()).toBe("live");
+    expect(t.onResync).toHaveBeenCalledTimes(polledSoFar + 1);
+  });
+});
