@@ -15,7 +15,7 @@ export type CheckoutForm = {
   /** null until a card is chosen. */
   paymentMethod: PaymentMethod | null;
   /** Honeypot, always empty for humans. */
-  website: string;
+  bh_ref: string;
 };
 
 export const EMPTY_FORM: CheckoutForm = {
@@ -26,7 +26,7 @@ export const EMPTY_FORM: CheckoutForm = {
   crossStreets: "",
   notes: "",
   paymentMethod: null,
-  website: "",
+  bh_ref: "",
 };
 
 /** Fields that can show an inline error, in the visual order of the page (also the focus order). */
@@ -56,7 +56,7 @@ export type CheckoutInput = {
   fulfillment: Fulfillment;
   delivery?: { address: string; crossStreets: string; notes: string };
   paymentMethod?: PaymentMethod;
-  website: string;
+  bh_ref: string;
 };
 
 export function toCreateOrderInput(
@@ -73,7 +73,7 @@ export function toCreateOrderInput(
       ? { delivery: { address: form.address, crossStreets: form.crossStreets, notes: form.notes } }
       : {}),
     paymentMethod: form.paymentMethod ?? undefined,
-    website: form.website,
+    bh_ref: form.bh_ref,
   };
 }
 

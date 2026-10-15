@@ -9,7 +9,7 @@ const base = () => ({
   fulfillment: "delivery",
   delivery: { address: "Av. Siempreviva 742", crossStreets: "Mitre y Sarmiento", notes: "" },
   paymentMethod: "cash",
-  website: "",
+  bh_ref: "",
 });
 const parse = (over: Record<string, unknown> = {}) => createOrderSchema.safeParse({ ...base(), ...over });
 const errors = (over: Record<string, unknown> = {}) => {
@@ -134,10 +134,10 @@ describe("createOrderSchema", () => {
 
   it("validates paymentMethod and tolerates a missing honeypot", () => {
     expect(errors({ paymentMethod: "bitcoin" }).paymentMethod).toBeTruthy();
-    const noWebsite: Record<string, unknown> = base();
-    delete noWebsite.website;
-    const r = createOrderSchema.safeParse(noWebsite);
-    expect(r.success && r.data.website).toBe("");
+    const noRef: Record<string, unknown> = base();
+    delete noRef.bh_ref;
+    const r = createOrderSchema.safeParse(noRef);
+    expect(r.success && r.data.bh_ref).toBe("");
   });
 });
 

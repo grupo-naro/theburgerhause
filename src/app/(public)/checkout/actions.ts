@@ -46,7 +46,7 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
     // nothing consumed). A replay of an existing order (same idempotency key) is never blocked.
     const parsed = createOrderSchema.safeParse(input);
     const quota =
-      parsed.success && parsed.data.website.trim() === "" ? parsed.data : null;
+      parsed.success && parsed.data.bh_ref.trim() === "" ? parsed.data : null;
     if (quota && !(await orderKeyExists(db, quota.idempotencyKey)) && !canCreate(ip, quota.customer.whatsapp).ok) {
       return RATE_LIMITED;
     }

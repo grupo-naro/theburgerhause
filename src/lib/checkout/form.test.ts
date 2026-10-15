@@ -33,7 +33,7 @@ describe("toCreateOrderInput", () => {
       fulfillment: "delivery",
       delivery: { address: "Calle Falsa 123", crossStreets: "Rivadavia y Mitre", notes: "Timbre roto" },
       paymentMethod: "transfer",
-      website: "",
+      bh_ref: "",
     });
   });
 
@@ -52,7 +52,7 @@ describe("toCreateOrderInput", () => {
   });
 
   it("passes the honeypot value through so the server can reject bots", () => {
-    expect(toCreateOrderInput({ ...delivery, website: "http://spam" }, units, KEY).website).toBe("http://spam");
+    expect(toCreateOrderInput({ ...delivery, bh_ref: "http://spam" }, units, KEY).bh_ref).toBe("http://spam");
   });
 });
 

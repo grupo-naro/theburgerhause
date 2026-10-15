@@ -35,7 +35,7 @@ export const MESSAGES = {
   STORE_CLOSED: "Por el momento no estamos tomando pedidos",
   VALIDATION: "Revisá los datos del pedido",
   UNITS_INVALID: "Algunos productos ya no están disponibles",
-  HONEYPOT: "No pudimos procesar el pedido. Probá de nuevo.",
+  HONEYPOT: "Recargá la página y probá de nuevo.",
 } as const;
 
 const fail = (code: CreateOrderFailure["code"], extra: Partial<CreateOrderFailure> = {}): CreateOrderFailure => ({
@@ -49,7 +49,7 @@ const defaultToken = () => randomBytes(16).toString("hex");
 
 function honeypotFilled(raw: unknown): boolean {
   if (typeof raw !== "object" || raw === null) return false;
-  const w = (raw as { website?: unknown }).website;
+  const w = (raw as { bh_ref?: unknown }).bh_ref;
   return typeof w === "string" && w.trim() !== "";
 }
 
@@ -242,7 +242,7 @@ export async function createOrder(db: Db, rawInput: unknown, ctx: CreateOrderCon
   const parsed = createOrderSchema.safeParse(rawInput);
   if (!parsed.success) return fail("VALIDATION", { fieldErrors: fieldErrorsOf(parsed.error) });
   const input = parsed.data;
-  if (input.website.trim() !== "") return fail("HONEYPOT");
+  if (input.bh_ref.trim() !== "") return fail("HONEYPOT");
 
   try {
     return await db.transaction((tx) => place(tx, input, ctx));

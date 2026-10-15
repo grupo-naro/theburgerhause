@@ -92,7 +92,7 @@ const input = (fx: Fx, over: Record<string, unknown> = {}) => ({
   fulfillment: "delivery",
   delivery: { address: "Av. Siempreviva 742", crossStreets: "Mitre y Sarmiento", notes: "timbre roto" },
   paymentMethod: "transfer",
-  website: "",
+  bh_ref: "",
   ...over,
 });
 
@@ -288,14 +288,14 @@ describe("createOrder: validation", () => {
   });
 
   it("honeypot filled -> HONEYPOT, no rows, no hint of why", async () => {
-    const r = await createOrder(db(), input(fx, { website: "http://spam" }), {});
+    const r = await createOrder(db(), input(fx, { bh_ref: "http://spam" }), {});
     expect(r).toMatchObject({ ok: false, code: "HONEYPOT" });
-    if (!r.ok) expect(r.message).not.toMatch(/honeypot|website|bot|spam/i);
+    if (!r.ok) expect(r.message).not.toMatch(/honeypot|bh_ref|bot|spam/i);
     expect(await counts()).toEqual(EMPTY);
   });
 
   it("honeypot wins even when the rest is invalid", async () => {
-    expect(await createOrder(db(), { website: "x" }, {})).toMatchObject({ ok: false, code: "HONEYPOT" });
+    expect(await createOrder(db(), { bh_ref: "x" }, {})).toMatchObject({ ok: false, code: "HONEYPOT" });
   });
 });
 

@@ -26,7 +26,7 @@ const payload = (over: Record<string, unknown> = {}) => ({
   customer: { name: "Juana Pérez", whatsapp: "11 5555-1234" },
   fulfillment: "takeaway",
   paymentMethod: "cash",
-  website: "",
+  bh_ref: "",
   ...over,
 });
 const withWa = (i: number) => payload({ customer: { name: "Juana", whatsapp: `1155550${100 + i}` } });
@@ -61,7 +61,7 @@ describe("createOrderAction", () => {
       code: "VALIDATION",
       fieldErrors: { "customer.name": expect.any(String), "customer.whatsapp": expect.any(String) },
     });
-    expect(await createOrderAction(payload({ website: "spam" }))).toMatchObject({ ok: false, code: "HONEYPOT" });
+    expect(await createOrderAction(payload({ bh_ref: "spam" }))).toMatchObject({ ok: false, code: "HONEYPOT" });
     expect(await createOrderAction(payload({ units: [{ productId: 9999, modifierIds: [], note: "" }] }))).toMatchObject({
       ok: false,
       code: "UNITS_INVALID",
@@ -165,7 +165,7 @@ describe("createOrderAction", () => {
 
     it("the attempt limiter trips at the 61st request per IP (any kind of request)", async () => {
       for (let i = 0; i < 60; i++) {
-        const r = await createOrderAction(i % 2 ? payload({ website: "x" }) : payload({ customer: { name: "x", whatsapp: "1" } }));
+        const r = await createOrderAction(i % 2 ? payload({ bh_ref: "x" }) : payload({ customer: { name: "x", whatsapp: "1" } }));
         expect(r).toMatchObject({ ok: false });
         expect((r as { code: string }).code).not.toBe("RATE_LIMITED");
       }
@@ -177,14 +177,14 @@ describe("createOrderAction", () => {
     });
 
     it("invalid / honeypot submissions do not touch the creation quota", async () => {
-      for (let i = 0; i < 10; i++) await createOrderAction(payload({ website: "x" }));
+      for (let i = 0; i < 10; i++) await createOrderAction(payload({ bh_ref: "x" }));
       for (let i = 0; i < 10; i++) await createOrderAction(payload({ customer: { name: "x", whatsapp: "1" } }));
       for (let i = 0; i < 3; i++) expect((await createOrderAction(payload())).ok).toBe(true);
     });
 
     it("without an x-forwarded-for header everyone shares the single 'unknown' bucket (fail-closed)", async () => {
       requestHeaders.value = new Headers();
-      for (let i = 0; i < 60; i++) await createOrderAction(payload({ website: "x" }));
+      for (let i = 0; i < 60; i++) await createOrderAction(payload({ bh_ref: "x" }));
       expect(await createOrderAction(payload())).toMatchObject({ ok: false, code: "RATE_LIMITED" });
     });
 

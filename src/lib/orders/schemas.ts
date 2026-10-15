@@ -69,7 +69,7 @@ const baseFields = {
   customer: customerSchema,
   paymentMethod: z.enum(["cash", "transfer"], { error: "Elegí un medio de pago" }),
   /** Honeypot: must be empty. */
-  website: z.string({ error: BAD_TEXT }).max(500, BAD_TEXT).optional().default(""),
+  bh_ref: z.string({ error: BAD_TEXT }).max(500, BAD_TEXT).optional().default(""),
 };
 
 // Discriminated on `fulfillment` so that ALL field errors of the chosen branch are reported together.
