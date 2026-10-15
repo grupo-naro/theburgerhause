@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { formatARS } from "../src/domain/money";
 import { findProduct, modifierIdByName } from "./helpers/db";
 import { reloadUntil } from "./helpers/public-menu";
-import { shot } from "./helpers/shots";
+import { shot, shotViewport } from "./helpers/shots";
 import {
   addProduct,
   cartCount,
@@ -81,7 +81,7 @@ test("cart page: steppers, undo, edit, remove and the empty state", async ({ pag
   await expect(sheet.getByRole("heading", { name: "Melt simple", level: 2 })).toBeVisible();
   await expect(modifierRow(sheet, "+ Dips de cheddar").getByRole("checkbox")).toBeChecked();
   await expect(cta(sheet)).toHaveText(`Guardar cambios · ${formatARS(MELT + DIPS)}`);
-  await shot(page, "sheet-edit-mode-desktop");
+  await shotViewport(page, "sheet-edit-mode-desktop");
   await sheet.getByRole("button", { name: "Aumentar cantidad" }).click();
   const units = sheet.getByTestId("unit-section");
   await expect(units).toHaveCount(2);

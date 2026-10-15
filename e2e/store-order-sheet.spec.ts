@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { formatARS } from "../src/domain/money";
 import { findGroup, setAcceptingOrders } from "./helpers/db";
 import { reloadUntil } from "./helpers/public-menu";
-import { shot } from "./helpers/shots";
+import { shot, shotViewport } from "./helpers/shots";
 import {
   addProduct,
   card,
@@ -73,7 +73,7 @@ test("per-unit configuration: two burgers, each with its own modifiers", async (
   // With one unit the groups are shown directly (no accordion).
   await expect(sheet.getByTestId("unit-section")).toHaveCount(0);
   await expect(sheet.getByRole("group", { name: "Quitar ingredientes" })).toBeVisible();
-  await shot(page, "sheet-qty1-desktop");
+  await shotViewport(page, "sheet-qty1-desktop");
 
   await sheet.getByRole("button", { name: "Aumentar cantidad" }).click();
   const units = sheet.getByTestId("unit-section");
@@ -88,7 +88,7 @@ test("per-unit configuration: two burgers, each with its own modifiers", async (
   await modifierRow(units.nth(0), "+ Dips de cheddar").click();
   await expect(units.nth(0).getByTestId("unit-summary")).toHaveText("Sin cheddar · + Dips de cheddar");
   await expect(cta(sheet)).toHaveText(`Agregar al pedido · ${formatARS(2 * RANCHITA + DIPS)}`);
-  await shot(page, "sheet-qty2-unit1-open-desktop");
+  await shotViewport(page, "sheet-qty2-unit1-open-desktop");
 
   // Unit 2: copy unit 1, then change it (remove Sin cheddar, add tomate).
   await header(1).click();
@@ -106,7 +106,7 @@ test("per-unit configuration: two burgers, each with its own modifiers", async (
   await expect(units.nth(1).getByTestId("unit-summary")).toHaveText("+ Dips de cheddar · Agregar tomate");
   await expect(same).toBeEnabled();
   await expect(cta(sheet)).toHaveText(`Agregar al pedido · ${formatARS(2 * RANCHITA + 2 * DIPS + TOMATE)}`);
-  await shot(page, "sheet-qty2-unit2-open-desktop");
+  await shotViewport(page, "sheet-qty2-unit2-open-desktop");
 
   // Shrinking keeps unit 1; growing again appends an EMPTY unit.
   await sheet.getByRole("button", { name: "Disminuir cantidad" }).click();
@@ -295,7 +295,7 @@ test("closed store: paused sheet, no order bar, disabled continue, and a stale s
     await expect(cta(stale)).toBeDisabled();
     await expect(cta(stale)).toHaveText("Pedidos pausados");
     await expect(cartCount(page)).toHaveCount(0);
-    await shot(page, "sheet-closed-desktop");
+    await shotViewport(page, "sheet-closed-desktop");
     await stale.getByRole("button", { name: "Cerrar" }).click();
 
     // Store open again for a moment: put one product in the cart.
