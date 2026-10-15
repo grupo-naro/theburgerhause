@@ -5,6 +5,8 @@ import type { CartLine, CartState } from "./types";
 
 export const CART_STORAGE_KEY = "bh_cart_v1";
 const VERSION = 1;
+/** Anything bigger than this cannot be a cart we wrote (100 lines are ~20 KB): refuse before JSON.parse. */
+const MAX_RAW_LENGTH = 200_000;
 
 /** The subset of `Storage` we use; `undefined`/`null` means "no storage available". */
 export type CartStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -31,7 +33,7 @@ export function serializeCart(state: CartState, prices: Record<string, number>):
 
 /** Validates untrusted storage content. Returns null on ANY problem; never throws. */
 export function parseCart(raw: string | null): { lines: CartLine[]; prices: Record<string, number> } | null {
-  if (!raw) return null;
+  if (!raw || raw.length > MAX_RAW_LENGTH) return null;
   try {
     const parsed = storedSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) return null;

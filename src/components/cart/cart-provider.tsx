@@ -96,7 +96,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // 2) Keep the cart consistent with the menu (menu refresh, new lines get their price snapshot).
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || index.products.size === 0) return; // empty menu: keep the saved cart as is
     const r = reconcileCart(state.lines, index, { lastSeenPrices: pricesRef.current });
     pricesRef.current = r.prices;
     const changed = r.lines.length !== state.lines.length || r.lines.some((l, i) => l !== state.lines[i]);

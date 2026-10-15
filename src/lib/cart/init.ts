@@ -15,7 +15,8 @@ export function initCart(
 ): { lines: CartLine[]; prices: Record<string, number>; issues: CartIssue[] } {
   const parsed = parseCart(raw);
   if (!parsed) return { lines: [], prices: {}, issues: [] };
-  if (!index) return { lines: parsed.lines, prices: parsed.prices, issues: [] };
+  // No usable menu (failed load, or every product momentarily inactive): never reconcile the cart away.
+  if (!index || index.products.size === 0) return { lines: parsed.lines, prices: parsed.prices, issues: [] };
   const r = reconcileCart(parsed.lines, index, { ...options, lastSeenPrices: parsed.prices });
   return { lines: r.lines, prices: r.prices, issues: r.issues };
 }

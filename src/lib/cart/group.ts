@@ -14,7 +14,7 @@ export function groupLines(lines: readonly CartLine[]): CartGroup[] {
       groups.set(sig, {
         signature: sig,
         productId: line.productId,
-        modifierIds: line.modifierIds,
+        modifierIds: [...line.modifierIds],
         note: line.note,
         quantity: 1,
         lineIds: [line.id],
