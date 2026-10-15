@@ -8,6 +8,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts", "packages/**/*.test.ts"],
+    exclude: ["**/node_modules/**", "**/*.int.test.ts"],
     passWithNoTests: true,
   },
 });
