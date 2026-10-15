@@ -109,3 +109,12 @@ html {
 .animate-bar-in {
   animation: bar-in 0.22s ease-out;
 }
+
+/* Caja: a brand-new pending order pulses its ring for the first seconds (reduced motion is handled globally). */
+@keyframes card-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(255 198 41 / 0.7); }
+  50% { box-shadow: 0 0 0 10px rgb(255 198 41 / 0); }
+}
+.animate-card-flash {
+  animation: card-flash 1s ease-out 4;
+}
