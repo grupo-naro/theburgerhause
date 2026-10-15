@@ -14,6 +14,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
     "db:seed-admin": "tsx src/db/seed-admin.ts",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
     "db:up": "docker compose up -d"
   },
   "dependencies": {
@@ -26,6 +28,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
