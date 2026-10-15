@@ -141,3 +141,14 @@ export function modifierDisplay(modifier: PublicModifier): {
     kind: modifier.kind,
   };
 }
+
+/**
+ * Edit mode saves with `replaceGroup`, which silently does nothing when the edited group is gone
+ * (removed from another tab, reconciled away). In that case the edited configuration is ADDED instead.
+ */
+export function resolveEditSubmit(
+  groups: readonly Pick<CartGroup, "signature">[],
+  editSignature: string | undefined,
+): "replace" | "add" {
+  return editSignature !== undefined && groups.some((g) => g.signature === editSignature) ? "replace" : "add";
+}

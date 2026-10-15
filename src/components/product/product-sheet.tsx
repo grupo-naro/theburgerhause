@@ -13,6 +13,7 @@ import {
   canCopyFromFirst,
   copyFromFirst,
   initSheet,
+  resolveEditSubmit,
   setExpanded,
   setNote,
   setQuantity,
@@ -119,14 +120,16 @@ function SheetBody({
       setServerOpen(open);
       if (!open) return;
       const units = toUnitConfigs(state);
-      if (state.mode === "edit" && state.editSignature) {
+      // Editing a group that vanished meanwhile (other tab) adds the edited configuration instead.
+      const replace = state.mode === "edit" && resolveEditSubmit(cart.groups, state.editSignature) === "replace";
+      if (replace && state.editSignature) {
         cart.replaceGroup(state.editSignature, product.id, units);
       } else if (!cart.add(product.id, units)) {
         setMessage("Tu pedido llegó al máximo de unidades. Revisalo antes de seguir agregando.");
         return;
       }
       toast.show({
-        message: state.mode === "edit" ? "Pedido actualizado" : "Agregado al pedido",
+        message: replace ? "Pedido actualizado" : "Agregado al pedido",
         action: { label: "Ver pedido", href: "/carrito" },
       });
       onClose();

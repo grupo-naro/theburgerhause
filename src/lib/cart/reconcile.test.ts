@@ -102,3 +102,11 @@ describe("toggleModifierInUnit", () => {
     expect(out).toEqual([101, 201, 302]);
   });
 });
+
+describe("reconcileCart without price snapshots (e.g. lines restored by undo)", () => {
+  it("never reports price_changed for lines that have no snapshot", () => {
+    const r = reconcileCart([{ id: "restored", productId: 1, modifierIds: [101], note: "" }], index, { lastSeenPrices: {} });
+    expect(r.issues).toEqual([]);
+    expect(r.prices.restored).toBe(850000);
+  });
+});

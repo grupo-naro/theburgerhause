@@ -8,6 +8,7 @@ import {
   copyFromFirst,
   initSheet,
   modifierDisplay,
+  resolveEditSubmit,
   setExpanded,
   setNote,
   setQuantity,
@@ -231,5 +232,17 @@ describe("modifierDisplay", () => {
     expect(d.kind).toBe("add");
     expect(modifierDisplay(modifierOf(301)).priceLabel).toBe(`+ ${formatARS(100000)}`);
     expect(modifierDisplay({ id: 9, name: "Gratis", kind: "swap", priceDelta: 0 }).priceLabel).toBeNull();
+  });
+});
+
+describe("resolveEditSubmit", () => {
+  const groups = [{ signature: "a" }, { signature: "b" }];
+  it("replaces when the edited group still exists", () => {
+    expect(resolveEditSubmit(groups, "b")).toBe("replace");
+  });
+  it("falls back to add when the group vanished or there is no signature", () => {
+    expect(resolveEditSubmit(groups, "gone")).toBe("add");
+    expect(resolveEditSubmit([], "a")).toBe("add");
+    expect(resolveEditSubmit(groups, undefined)).toBe("add");
   });
 });

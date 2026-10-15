@@ -51,3 +51,11 @@ export function cartPreviewTotal(
   for (const line of lines) subtotal += unitTotalFor(line, index);
   return { subtotal, unitCount: lines.length };
 }
+
+/** Line total of a cart group: the domain unit total times its quantity (display only). */
+export function lineTotalFor(
+  group: Pick<CartLine, "productId" | "modifierIds"> & { quantity: number },
+  index: MenuIndex,
+): number {
+  return unitTotalFor(group, index) * group.quantity;
+}

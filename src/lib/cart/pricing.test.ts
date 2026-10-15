@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { orderTotals } from "@/domain/pricing";
 import { menuFixture } from "./fixtures";
-import { buildMenuIndex, cartPreviewTotal, unitTotalFor } from "./pricing";
+import { buildMenuIndex, cartPreviewTotal, lineTotalFor, unitTotalFor } from "./pricing";
 import type { CartLine } from "./types";
 
 const index = buildMenuIndex(menuFixture);
@@ -41,5 +41,16 @@ describe("unitTotalFor / cartPreviewTotal", () => {
   });
   it("empty cart", () => {
     expect(cartPreviewTotal([], index)).toEqual({ subtotal: 0, unitCount: 0 });
+  });
+});
+
+describe("lineTotalFor", () => {
+  it("is the domain unit total times the quantity", () => {
+    const group = { productId: 1, modifierIds: [201, 301], quantity: 3 };
+    const unit = orderTotals([{ basePrice: 850000, modifiers: [{ priceDelta: 120000 }, { priceDelta: 100000 }] }], 0).subtotal;
+    expect(lineTotalFor(group, index)).toBe(unit * 3);
+  });
+  it("is 0 for an unknown product", () => {
+    expect(lineTotalFor({ productId: 99, modifierIds: [], quantity: 2 }, index)).toBe(0);
   });
 });
