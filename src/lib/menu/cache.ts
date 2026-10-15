@@ -13,4 +13,5 @@ export const MENU_CACHE_TAG = "menu";
 export function invalidateMenu(): void {
   updateTag(MENU_CACHE_TAG);
   revalidatePath("/admin/menu");
+  revalidatePath("/admin/modificadores");
 }

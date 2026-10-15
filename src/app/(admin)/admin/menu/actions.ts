@@ -12,6 +12,8 @@ import {
   setProductFeatured,
   type Result,
 } from "@/lib/menu/admin";
+import { setProductModifierGroups } from "@/lib/modifiers/admin";
+import { groupIdsFromForm } from "@/lib/modifiers/form-data";
 import { authorizeAdmin, type ActionState } from "@/lib/menu/action-state";
 import { invalidateMenu } from "@/lib/menu/cache";
 import {
@@ -50,6 +52,24 @@ export async function saveProductAction(_prev: ActionState, fd: FormData): Promi
   if (!result.ok) return toState(result, fd);
   invalidateMenu();
   redirect("/admin/menu");
+}
+
+/** Replaces the modifier groups linked to a product (separate form on the product edit page). */
+export async function saveProductModifierGroupsAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const auth = await authorizeAdmin();
+  if ("state" in auth) return auth.state;
+  const productId = parseId(fd);
+  const groupIds = groupIdsFromForm(fd);
+  if (!productId || !groupIds) return { error: "Solicitud inválida." };
+  let result: Result<null>;
+  try {
+    result = await setProductModifierGroups(getDb(), productId, groupIds);
+  } catch {
+    return { error: "No se pudo guardar. Intentá de nuevo." };
+  }
+  if (!result.ok) return toState(result);
+  invalidateMenu();
+  return { message: "Grupos guardados" };
 }
 
 async function quick(run: () => Promise<Result<unknown>> | null): Promise<ActionState> {

@@ -5,6 +5,8 @@ import { AuthError, type AuthSession } from "@/lib/auth/roles";
 /** State shape shared by every admin Server Action (`useActionState`). */
 export type ActionState = {
   error?: string;
+  /** Success feedback for actions that stay on the page (no redirect). */
+  message?: string;
   fieldErrors?: Record<string, string>;
   /** Submitted raw values, so a failed form can repopulate its fields. */
   values?: Record<string, string>;
