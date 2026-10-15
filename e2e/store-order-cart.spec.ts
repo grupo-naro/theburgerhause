@@ -176,7 +176,8 @@ test("totals agree: order bar, cart subtotal and the sum of the lines", async ({
 
   await page.getByTestId("cart-continue").click();
   await expect(page).toHaveURL(/\/checkout$/);
-  await expect(page.getByRole("heading", { name: "Estamos terminando esta pantalla" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Confirmar pedido", level: 1 })).toBeVisible();
+  await expect(page.getByTestId("checkout-total")).toContainText("$");
   await expect(orderBar(page)).toHaveCount(0);
   await page.getByRole("link", { name: "Volver a tu pedido" }).click();
   await expect(page).toHaveURL(/\/carrito$/);
