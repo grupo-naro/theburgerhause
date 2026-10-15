@@ -1,3 +1,4 @@
+import type { AuthSession } from "@/lib/auth/roles";
 import { authorizeAdmin, type ActionState } from "@/lib/menu/action-state";
 import { rawValues } from "@/lib/menu/form-data";
 import type { Result } from "@/lib/menu/admin";
@@ -27,12 +28,12 @@ export function toState(result: Result<unknown>, fd?: FormData, omit: string[] =
  * message (nothing from the exception reaches the client or the log).
  */
 export async function quick(
-  run: () => Promise<Result<unknown>> | null,
+  run: (session: AuthSession) => Promise<Result<unknown>> | null,
   onSuccess: () => void,
 ): Promise<ActionState> {
   const auth = await authorizeAdmin();
   if ("state" in auth) return auth.state;
-  const pending = run();
+  const pending = run(auth.session);
   if (!pending) return { error: "Solicitud inválida." };
   let result: Result<unknown>;
   try {
