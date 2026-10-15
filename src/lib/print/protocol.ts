@@ -10,7 +10,6 @@ export const MAX_ERROR_CHARS = 300;
 /** Raw bound on the agent-supplied error before it is cleaned and truncated. */
 const MAX_RAW_ERROR_CHARS = 2_000;
 
-// eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/g;
 
 export const ackBodySchema = z.object({
