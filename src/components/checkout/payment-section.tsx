@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { CheckIcon } from "@/components/menu/icons";
 import { fieldId, type CheckoutForm, type FieldErrors, type PaymentMethod } from "@/lib/checkout/form";
 import type { CheckoutInfo } from "@/lib/settings/checkout-info";
@@ -20,6 +21,13 @@ const CARDS: { value: PaymentMethod; title: string; text: string }[] = [
 
 export function PaymentSection({ form, errors, info, onChange }: Props) {
   const error = errors.paymentMethod;
+  // Only the LAST copied row confirms ("¡Copiado!"), and the confirmation is announced.
+  const [copied, setCopied] = useState<string | null>(null);
+  useEffect(() => {
+    if (!copied) return;
+    const t = window.setTimeout(() => setCopied(null), 2000);
+    return () => window.clearTimeout(t);
+  }, [copied]);
   const hasBank = info.bankAlias !== "" || info.bankCbu !== "";
   return (
     <CheckoutSection n={3} title="Pago" headingId="checkout-h-pago">
@@ -72,12 +80,15 @@ export function PaymentSection({ form, errors, info, onChange }: Props) {
         <div data-testid="transfer-details" className="space-y-2 rounded-2xl bg-brand-50 p-3">
           {hasBank ? (
             <>
-              {info.bankAlias && <CopyRow label="Alias" value={info.bankAlias} testId="bank-alias" />}
-              {info.bankCbu && <CopyRow label="CBU / CVU" value={info.bankCbu} testId="bank-cbu" />}
+              {info.bankAlias && <CopyRow label="Alias" value={info.bankAlias} testId="bank-alias" copied={copied === "alias"} onCopied={() => setCopied("alias")} />}
+              {info.bankCbu && <CopyRow label="CBU / CVU" value={info.bankCbu} testId="bank-cbu" copied={copied === "cbu"} onCopied={() => setCopied("cbu")} />}
             </>
           ) : (
             <p className="px-1 text-sm text-ink">Te pasamos los datos de la cuenta por WhatsApp al confirmar tu pedido.</p>
           )}
+          <p role="status" aria-live="polite" className="sr-only">
+            {copied === "alias" ? "Alias copiado" : copied === "cbu" ? "CBU copiado" : ""}
+          </p>
           <p className="px-1 text-sm font-medium text-ink">Un cajero verificará tu pago antes de preparar el pedido.</p>
         </div>
       )}

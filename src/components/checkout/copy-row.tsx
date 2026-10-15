@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { useToast } from "@/components/ui/toast";
 
 /** Selects the node's text so the customer can copy it by hand (fallback when the Clipboard API is not available). */
@@ -20,21 +20,27 @@ function selectText(node: HTMLElement | null): boolean {
 }
 
 /** "Alias: burger.828 [Copiar]". Clipboard API first, then select-the-text with a hint. */
-export function CopyRow({ label, value, testId }: { label: string; value: string; testId: string }) {
+export function CopyRow({
+  label,
+  value,
+  testId,
+  copied,
+  onCopied,
+}: {
+  label: string;
+  value: string;
+  testId: string;
+  /** Shown as "¡Copiado!" while true (state lives in the parent: only the last copied row confirms). */
+  copied: boolean;
+  onCopied: () => void;
+}) {
   const valueRef = useRef<HTMLElement>(null);
   const toast = useToast();
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-    const t = window.setTimeout(() => setCopied(false), 2000);
-    return () => window.clearTimeout(t);
-  }, [copied]);
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(value);
-      setCopied(true);
+      onCopied();
       toast.show({ message: `${label} copiado` });
       return;
     } catch {
@@ -48,7 +54,7 @@ export function CopyRow({ label, value, testId }: { label: string; value: string
       done = false;
     }
     if (done) {
-      setCopied(true);
+      onCopied();
       toast.show({ message: `${label} copiado` });
     } else {
       toast.show({ message: `Dejamos el ${label.toLowerCase()} seleccionado: copialo desde tu teclado` });
@@ -70,7 +76,7 @@ export function CopyRow({ label, value, testId }: { label: string; value: string
       <button
         type="button"
         onClick={copy}
-        aria-label={`Copiar ${label.toLowerCase()}`}
+        aria-label={copied ? `${label} copiado` : `Copiar ${label.toLowerCase()}`}
         data-testid={`${testId}-copy`}
         className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-brand-600 px-4 font-display text-sm font-bold text-brand-600 transition-colors hover:bg-brand-50"
       >
