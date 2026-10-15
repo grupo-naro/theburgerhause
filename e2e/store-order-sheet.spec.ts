@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { formatARS } from "../src/domain/money";
 import { findGroup, setAcceptingOrders } from "./helpers/db";
 import { reloadUntil } from "./helpers/public-menu";
-import { shot, shotViewport } from "./helpers/shots";
+import { shotViewport } from "./helpers/shots";
 import {
   addProduct,
   card,
