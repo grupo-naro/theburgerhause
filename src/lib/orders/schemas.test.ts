@@ -129,7 +129,8 @@ describe("createOrderSchema", () => {
 
   it("validates paymentMethod and tolerates a missing honeypot", () => {
     expect(errors({ paymentMethod: "bitcoin" }).paymentMethod).toBeTruthy();
-    const { website: _w, ...noWebsite } = base();
+    const noWebsite: Record<string, unknown> = base();
+    delete noWebsite.website;
     const r = createOrderSchema.safeParse(noWebsite);
     expect(r.success && r.data.website).toBe("");
   });
