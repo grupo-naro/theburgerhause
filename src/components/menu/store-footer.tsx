@@ -11,7 +11,7 @@ function Row({ icon, label, children }: { icon: ReactNode; label: string; childr
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-300">{label}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-white/75">{label}</p>
         <div className="text-base leading-snug">{children}</div>
       </div>
     </li>
@@ -66,7 +66,7 @@ export async function StoreFooter() {
             )}
           </ul>
         )}
-        <p className="mt-8 border-t border-white/15 pt-5 text-sm text-brand-300">
+        <p className="mt-8 border-t border-white/15 pt-5 text-sm text-white/80">
           © {info.storeName}. Pedí online y retirá o recibilo en tu casa.
         </p>
       </div>

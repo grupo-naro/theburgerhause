@@ -106,7 +106,7 @@ export function CategoryBar({ categories }: { categories: Chip[] }) {
     >
       <div
         ref={scrollerRef}
-        className="no-scrollbar relative mx-auto flex h-full max-w-[1100px] snap-x items-center gap-2 overflow-x-auto px-4"
+        className="no-scrollbar relative mx-auto flex h-full max-w-[1100px] snap-x scroll-px-4 items-center gap-2 overflow-x-auto px-4"
       >
         {categories.map((c) => {
           const current = c.slug === active;
