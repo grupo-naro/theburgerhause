@@ -205,6 +205,7 @@ test("unknown and malformed tokens are the same 404, with private headers and no
     const html = await page.content();
     for (const secret of [known.name, known.surname, known.whatsappDigits, known.crossStreets, known.notes]) expect(html).not.toContain(secret);
   }
+  // Streamed behind Suspense inside the shared layout, so the status line is already sent (200): the 404 view carries noindex instead.
   expect(new Set(seen.map((s) => s.status)).size).toBe(1); // identical answer for every kind of bad token
   for (const { headers } of seen) {
     expect(headers["cache-control"]).toContain("no-store");

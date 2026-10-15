@@ -4,7 +4,7 @@ import { buttonClass } from "@/components/ui/button";
 import { orderWhatsappLink } from "@/lib/orders/whatsapp";
 
 const digits = (s: string) => s.replace(/\D/g, "");
-const tap = "min-h-11 gap-2 px-5";
+const tap = "min-h-11 w-full gap-2 px-5 sm:w-auto";
 
 /** WhatsApp (hidden without a configured number), optional phone and the way back to the menu. */
 export function ContactButtons({
