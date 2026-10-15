@@ -212,7 +212,7 @@ try {
         $chk = Invoke-Native $node.Path ('"' + $paths.Cjs + '" check') $paths.Dir 60
         Write-Host ($chk.Output -replace 'bhst_[A-Za-z0-9_-]{8,}', 'bhst_***')
         if ($chk.ExitCode -ne 0) {
-            Stop-WithError "La verificación falló (arriba está el motivo). No se instaló nada: corregí el dato indicado y volvé a correr el comando." 6
+            throw "BH_FAIL:6:La verificación falló (arriba está el motivo). No se instaló nada: corregí el dato indicado y volvé a correr el comando."
         }
         Write-Ok 'Servidor y token verificados'
 
@@ -222,7 +222,7 @@ try {
             Write-Step 'Ticket de prueba'
             $tp = Invoke-Native $node.Path ('"' + $paths.Cjs + '" test-print') $paths.Dir 90
             Write-Host ($tp.Output -replace 'bhst_[A-Za-z0-9_-]{8,}', 'bhst_***')
-            if ($tp.ExitCode -ne 0) { Stop-WithError "No se pudo imprimir el ticket de prueba (arriba está el motivo). No se instaló nada." 6 }
+            if ($tp.ExitCode -ne 0) { throw "BH_FAIL:6:No se pudo imprimir el ticket de prueba (arriba está el motivo). No se instaló nada." }
             Write-Ok 'Ticket de prueba enviado: revisá el papel (acentos, negrita, corte)'
         }
 
@@ -243,6 +243,8 @@ try {
         Write-Ok 'El agente está conectado al servidor'
     }
     catch {
+        $failure = $_
+        $failMsg = $failure.Exception.Message
         if (-not $registered) {
             # Sin tarea registrada: volver al estado anterior (no dejar una instalación a medias).
             try {
@@ -253,8 +255,11 @@ try {
                 elseif (Test-Path -LiteralPath $paths.Dir) { Remove-Item -LiteralPath $paths.Dir -Recurse -Force }
             }
             catch { }
+            # Si ya había una tarea funcionando (reinstalación con -Force), volver a iniciarla.
+            if ($Force -and (Get-AgentTask $TaskName)) { try { Start-ScheduledTask -TaskName $TaskName } catch { } }
         }
-        throw
+        if ($failMsg -match '^BH_FAIL:([0-9]+):(.*)$') { Stop-WithError $Matches[2] ([int]$Matches[1]) }
+        throw $failure
     }
 
     Write-Host ''
