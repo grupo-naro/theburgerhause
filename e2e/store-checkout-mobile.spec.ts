@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { findProduct, modifierIdByName, setAcceptingOrders, setProductActiveInDb } from "./helpers/db";
+import { countOrdersOf, findProduct, modifierIdByName, setAcceptingOrders, setProductActiveInDb } from "./helpers/db";
 import {
   chooseFulfillment,
   choosePayment,
@@ -84,6 +84,7 @@ test("checkout fits a 360px phone: no overflow, collapsible summary, reachable C
   await submitButton(page).click();
   await expect(page.getByTestId("error-summary")).toBeVisible();
   await expect(page.getByLabel("Dirección")).toBeFocused();
+  await expectTall(page.getByTestId("error-summary").getByRole("button"), "summary link");
   expect(await noHorizontalOverflow(page)).toBe(true);
   await shot(page, "checkout-errors-mobile");
 
@@ -129,8 +130,13 @@ test("closed store and a stale cart on a phone @mobile", async ({ page }) => {
     await setProductActiveInDb("Aro simple", false);
     await submitButton(page).click();
     await expect(page.getByTestId("units-invalid-banner")).toBeVisible();
+    // The dead unit left the cart at once (no cache involved); the other one can still be ordered.
+    await expect(page.getByTestId("cart-count")).toHaveText("1");
     expect(await noHorizontalOverflow(page)).toBe(true);
     await shotViewport(page, "checkout-units-invalid-mobile");
+    await submitButton(page).click();
+    await expect(page).toHaveURL(/\/pedido\/[0-9a-f]{32}$/);
+    expect(await countOrdersOf(name)).toBe(1);
   } finally {
     await setProductActiveInDb("Aro simple", true);
   }

@@ -8,6 +8,7 @@ import {
   itemsOfOrder,
   ordersOf,
   setAcceptingOrders,
+  setProductActiveInDb,
 } from "./helpers/db";
 import {
   CUSTOMER_KEY,
@@ -23,7 +24,6 @@ import {
   unique,
   uniquePhone,
 } from "./helpers/checkout";
-import { reloadUntil } from "./helpers/public-menu";
 import { shot } from "./helpers/shots";
 import {
   addProduct,
@@ -86,6 +86,7 @@ test("full happy path: delivery paid by transfer creates exactly the right order
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(settings.bankAlias);
   await page.getByTestId("bank-cbu-copy").click();
   await expect(page.getByTestId("bank-cbu-copy")).toHaveText("¡Copiado!");
+  await expect(page.getByTestId("bank-alias-copy")).toHaveText("Copiar"); // only the last copied row confirms
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(settings.bankCbu);
   await shot(page, "checkout-transfer-desktop");
 
@@ -242,15 +243,97 @@ test("a double submit creates ONE order and a lost response is retried with the 
   await expect(page.getByText("No pudimos conectarnos")).toBeVisible();
   await expect.poll(() => countOrdersOf(name)).toBe(1);
   await expect(page).toHaveURL(/\/checkout$/);
-  expect(await storedKey(page)).toBe(key);
+  // The key is bound to the form content: filling the form made a new key, which the lost attempt used.
+  const sentKey = await storedKey(page);
+  expect(sentKey).toBeTruthy();
+  expect(sentKey).not.toBe(key);
 
-  // Retry with a double click: same key -> the existing order, still ONE row.
+  // Unchanged retry with a double click: same key -> the existing order, still ONE row.
   await submitButton(page).dblclick();
   await expect(page).toHaveURL(ORDER_URL);
   expect(await countOrdersOf(name)).toBe(1);
   const [order] = await ordersOf(name);
-  expect(order.idempotencyKey).toBe(key);
+  expect(order.idempotencyKey).toBe(sentKey);
   expect(page.url()).toContain(order.publicToken);
+});
+
+test("editing the address after a lost response creates a NEW order with the new address", async ({ page }) => {
+  const name = unique("Edited");
+  const ranchita = await findProduct("Ranchita simple");
+  await seedCart(page, [{ productId: ranchita.id }]);
+  await gotoCheckout(page);
+  await fillValidDelivery(page, name);
+  await fillDelivery(page, { address: "Calle Vieja 111" });
+
+  let dropped = false;
+  await page.route("**/checkout", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST" && request.headers()["next-action"] && !dropped) {
+      dropped = true;
+      await route.fetch();
+      await route.abort("connectionreset");
+      return;
+    }
+    await route.continue();
+  });
+  await submitButton(page).click();
+  await expect(page.getByText("No pudimos conectarnos")).toBeVisible();
+  await expect.poll(() => countOrdersOf(name)).toBe(1);
+  const oldKey = await storedKey(page);
+
+  // The customer corrects the address: this is a different order, not a replay of the old one.
+  await fillDelivery(page, { address: "Calle Nueva 222" });
+  await submitButton(page).click();
+  await expect(page).toHaveURL(ORDER_URL);
+  const orders = await ordersOf(name);
+  expect(orders).toHaveLength(2);
+  expect(orders.map((o) => o.address)).toEqual(["Calle Vieja 111", "Calle Nueva 222"]);
+  expect(orders[1].idempotencyKey).not.toBe(oldKey);
+  expect(page.url()).toContain(orders[1].publicToken);
+});
+
+test("a form-filler that fills the honeypot cannot lock the customer out", async ({ page }) => {
+  const name = unique("Honey");
+  const ranchita = await findProduct("Ranchita simple");
+  await seedCart(page, [{ productId: ranchita.id }]);
+  await gotoCheckout(page);
+  await fillValidDelivery(page, name);
+
+  const trap = page.locator('input[name="bh_ref"]');
+  await expect(trap).toHaveAttribute("autocomplete", "off");
+  await expect(trap).toHaveAttribute("tabindex", "-1");
+  await trap.evaluate((el: HTMLInputElement) => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(el, "http://filled-by-autofill");
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await submitButton(page).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Recargá la página y probá de nuevo." })).toBeVisible();
+  expect(await countOrdersOf(name)).toBe(0);
+  await shot(page, "checkout-honeypot-desktop");
+
+  // The polluted value is cleared client-side: the very next attempt goes through, exactly one order.
+  await expect(trap).toHaveValue("");
+  await submitButton(page).click();
+  await expect(page).toHaveURL(ORDER_URL);
+  expect(await countOrdersOf(name)).toBe(1);
+});
+
+test("when every product is gone the cart page explains it", async ({ page }) => {
+  const name = unique("AllGone");
+  const aro = await findProduct("Aro simple");
+  await seedCart(page, [{ productId: aro.id }]);
+  await gotoCheckout(page);
+  await fillValidDelivery(page, name);
+  try {
+    await setProductActiveInDb("Aro simple", false);
+    await submitButton(page).click();
+    await expect(page).toHaveURL(/\/carrito$/);
+    await expect(page.getByRole("heading", { name: "Tu pedido está vacío" })).toBeVisible();
+    await expect(page.getByTestId("issues-banner")).toContainText("«Aro simple» ya no está disponible");
+    expect(await countOrdersOf(name)).toBe(0);
+  } finally {
+    await setProductActiveInDb("Aro simple", true);
+  }
 });
 
 test("rapid Enter presses in a field submit once", async ({ page }) => {
@@ -321,27 +404,36 @@ test("a stale cart: the unavailable product is named, nothing is created, the ca
   try {
     // An admin deactivates the product while this page is open (it is NOT reloaded).
     await withAdmin(browser, baseURL, headers, (admin) => setProductActive(admin, "Aro simple", false));
-    // Another visitor (own context: it must not share this cart) sees the menu refreshed.
-    const visitor = await browser.newContext({ baseURL, extraHTTPHeaders: headers });
-    const probe = await visitor.newPage();
-    await gotoStore(probe);
-    await reloadUntil(probe, () => expect(probe.getByTestId("product-card").filter({ hasText: "Aro simple" })).toHaveCount(0, { timeout: 1000 }));
-    await visitor.close();
-
+    // NOTE: no waiting for the public menu cache: the recovery must not depend on it.
     await submitButton(page).click();
     const banner = page.getByTestId("units-invalid-banner");
     await expect(banner).toBeVisible();
     await expect(banner).toContainText("Algunos productos ya no están disponibles");
     await expect(banner).toContainText("«Aro simple»");
+    await expect(banner).toContainText("Quitamos de tu pedido");
     await expect(banner).not.toContainText("Melt simple");
     expect(await countOrdersOf(name)).toBe(0);
+    // The dead unit is gone from the cart right away; the other one stays.
+    await expect(cartCount(page)).toHaveText("1");
+    await expect(page.getByTestId("summary-line")).toHaveCount(1);
+    await expect(page.getByTestId("summary-line")).toContainText("Melt simple");
     await shot(page, "checkout-units-invalid-desktop");
 
-    // The cart link works and the cart now explains what changed.
+    // The cart link works and the cart explains what changed.
     await page.getByTestId("units-invalid-cart-link").click();
     await expect(page).toHaveURL(/\/carrito$/);
-    await expect(page.getByTestId("issues-banner")).toContainText("ya no está disponible");
+    await expect(page.getByTestId("issues-banner")).toContainText("«Aro simple» ya no está disponible y se quitó de tu pedido");
     await expect(page.getByTestId("cart-line-name")).toHaveText(["Melt simple"]);
+
+    // Back to checkout: the remaining item can be ordered, exactly once.
+    await page.getByTestId("cart-continue").click();
+    await expect(submitButton(page)).toBeVisible();
+    await fillValidDelivery(page, name);
+    await submitButton(page).click();
+    await expect(page).toHaveURL(ORDER_URL);
+    expect(await countOrdersOf(name)).toBe(1);
+    const [order] = await ordersOf(name);
+    expect((await itemsOfOrder(order.id)).map((i) => i.nameSnapshot)).toEqual(["Melt simple"]);
   } finally {
     await withAdmin(browser, baseURL, headers, (admin) => setProductActive(admin, "Aro simple", true));
   }
