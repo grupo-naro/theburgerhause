@@ -140,10 +140,12 @@ async function place(
   // (no burned order numbers, no unique-violation noise). The UNIQUE index stays the backstop.
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.idempotencyKey}))`);
 
-  if (!(await getAcceptingOrders(tx))) return fail("STORE_CLOSED");
-
+  // A retry of an order that already exists is answered with it whatever the store state is;
+  // only NEW orders are refused when the store is closed.
   const existing = await findByKey(tx, input.idempotencyKey);
   if (existing) return { ok: true, data: existing };
+
+  if (!(await getAcceptingOrders(tx))) return fail("STORE_CLOSED");
 
   const productIds = [...new Set(input.units.map((u) => u.productId))];
   const catalog = await loadCatalog(tx, productIds);

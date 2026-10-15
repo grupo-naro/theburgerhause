@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { asc, eq, sql } from "drizzle-orm";
 import { Client } from "pg";
 import { closeDb } from "@/db/client";
@@ -105,13 +105,22 @@ const counts = async () => ({
 });
 const EMPTY = { orders: 0, items: 0, mods: 0, events: 0, counters: [] };
 
+/** Test-only failure-injection functions (their triggers go with them). */
+async function dropFailureTriggers() {
+  await db().execute(sql.raw("DROP FUNCTION IF EXISTS boom() CASCADE; DROP FUNCTION IF EXISTS boom_commit() CASCADE;"));
+}
+
 let fx: Fx;
 beforeEach(async () => {
-  await db().execute(sql.raw("DROP FUNCTION IF EXISTS boom() CASCADE")); // test-only failure triggers
+  await dropFailureTriggers();
   await resetDb();
   fx = await seedMenu();
 });
-afterAll(closeDb);
+afterEach(dropFailureTriggers); // a dying test can never leak a trigger into other files
+afterAll(async () => {
+  await dropFailureTriggers();
+  await closeDb();
+});
 
 describe("createOrder: happy path", () => {
   it("creates a delivery order priced from the DB with the delivery fee", async () => {
@@ -297,6 +306,20 @@ describe("createOrder: closed store", () => {
     expect(r).toEqual({ ok: false, code: "STORE_CLOSED", message: "Por el momento no estamos tomando pedidos" });
     expect(await counts()).toEqual(EMPTY);
   });
+  it("a retry of an ALREADY CREATED order still answers with it after the store closes", async () => {
+    const first = await createOrder(db(), input(fx), {});
+    if (!first.ok) throw new Error("expected ok");
+    await setSetting("accepting_orders", false);
+    const again = await createOrder(db(), input(fx), {});
+    expect(again).toEqual({ ok: true, data: { ...first.data, duplicate: true } });
+    expect((await counts()).orders).toBe(1);
+    // a NEW order (different key) is still refused
+    expect(await createOrder(db(), input(fx, { idempotencyKey: crypto.randomUUID() }), {})).toMatchObject({
+      ok: false,
+      code: "STORE_CLOSED",
+    });
+    expect((await counts()).orders).toBe(1);
+  });
   it("reads the switch fresh on every call", async () => {
     await setSetting("accepting_orders", false);
     expect(await createOrder(db(), input(fx), {})).toMatchObject({ ok: false, code: "STORE_CLOSED" });
@@ -343,6 +366,7 @@ describe("createOrder: stale / invalid units (Review Focus 4)", () => {
   it("product without linked groups cannot take any modifier", async () => {
     const r = await createOrder(db(), input(fx, { units: [{ productId: fx.noGroup, modifierIds: [fx.dips], note: "" }] }), {});
     expect(r).toMatchObject({ ok: false, unitIssues: [{ code: "MODIFIER_UNAVAILABLE" }] });
+    await rolledBack();
   });
 
   it("two swaps of one group -> INVALID_SELECTION", async () => {
@@ -480,21 +504,39 @@ describe("createOrder: orders_changed notification", () => {
     }
   });
 
-  it("rejected / rolled-back creations emit nothing", async () => {
+  it("rejected creations emit nothing (units invalid, closed store)", async () => {
     const { client, received } = await listener();
     try {
-      await db().execute(
-        sql.raw(`
-          CREATE FUNCTION boom() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'boom'; END $$ LANGUAGE plpgsql;
-          CREATE TRIGGER boom_trg BEFORE INSERT ON order_events FOR EACH ROW EXECUTE FUNCTION boom();`),
-      );
-      await expect(createOrder(db(), input(fx), {})).rejects.toThrow();
-      await db().execute(sql.raw("DROP TRIGGER boom_trg ON order_events; DROP FUNCTION boom();"));
       await createOrder(db(), input(fx, { units: [{ productId: 424242, modifierIds: [], note: "" }] }), {});
       await setSetting("accepting_orders", false);
       await createOrder(db(), input(fx), {});
       await waitFor(() => received.length > 0, 600);
       expect(received).toEqual([]);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it("a commit that FAILS after pg_notify ran emits nothing and leaves no rows", async () => {
+    const { client, received } = await listener();
+    try {
+      // Deferred constraint trigger: raises at COMMIT, i.e. after the pg_notify statement executed.
+      await db().execute(
+        sql.raw(`
+          CREATE FUNCTION boom_commit() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'boom at commit'; END $$ LANGUAGE plpgsql;
+          CREATE CONSTRAINT TRIGGER boom_commit_trg AFTER INSERT ON orders
+            DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION boom_commit();`),
+      );
+      await expect(createOrder(db(), input(fx), {})).rejects.toThrow();
+      await waitFor(() => received.length > 0, 600);
+      expect(received).toEqual([]);
+      expect(await counts()).toEqual(EMPTY);
+
+      // control: without the trigger the very same call notifies
+      await dropFailureTriggers();
+      await createOrder(db(), input(fx), {});
+      await waitFor(() => received.length > 0);
+      expect(received).toHaveLength(1);
     } finally {
       await client.end();
     }
