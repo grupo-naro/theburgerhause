@@ -199,6 +199,14 @@ describe("quick actions", () => {
     expect(invalidateMenu).not.toHaveBeenCalled();
   });
 
+  it("returns a generic error (and does not invalidate) when the core rejects", async () => {
+    asAdmin();
+    vi.mocked(core.setProductActive).mockRejectedValueOnce(new Error("connection terminated"));
+    const r = await toggleProductActiveAction(prev, form({ id: "1", value: "true" }));
+    expect(r).toEqual({ error: "No se pudo completar la acción. Probá de nuevo." });
+    expect(invalidateMenu).not.toHaveBeenCalled();
+  });
+
   it("does not invalidate when the item does not exist", async () => {
     asAdmin();
     const r = await toggleProductActiveAction(prev, form({ id: "9999", value: "true" }));

@@ -57,7 +57,13 @@ async function quick(run: () => Promise<Result<unknown>> | null): Promise<Action
   if ("state" in auth) return auth.state;
   const pending = run();
   if (!pending) return { error: "Solicitud inválida." };
-  const result = await pending;
+  let result: Result<unknown>;
+  try {
+    result = await pending;
+  } catch {
+    // Never leak DB details (or throw to the client) from a quick action.
+    return { error: "No se pudo completar la acción. Probá de nuevo." };
+  }
   if (!result.ok) return toState(result);
   invalidateMenu();
   return {};
