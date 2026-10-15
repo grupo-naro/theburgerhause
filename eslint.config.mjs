@@ -19,6 +19,7 @@ const eslintConfig = defineConfig([
     ".uploads-e2e/**",
     "e2e/.auth/**",
     "packages/*/dist/**",
+    "packages/*/release/**",
   ]),
 ]);
 
