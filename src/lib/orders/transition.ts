@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
 import { canTransition, type Fulfillment, type OrderStatus } from "@/domain/order-status";
@@ -82,7 +82,7 @@ export async function transitionOrder(
   const [updated] = await tx
     .update(s.orders)
     .set({ ...patch, status: to })
-    .where(eq(s.orders.id, orderId))
+    .where(and(eq(s.orders.id, orderId), eq(s.orders.status, current.status)))
     .returning({
       id: s.orders.id,
       status: s.orders.status,
@@ -90,6 +90,8 @@ export async function transitionOrder(
       paymentMethod: s.orders.paymentMethod,
       paymentStatus: s.orders.paymentStatus,
     });
+  // Defense in depth: the row is locked, so this cannot normally happen.
+  if (!updated) return failure("INVALID_TRANSITION", currentStateMessage(current.status));
 
   await tx.insert(s.orderEvents).values({
     orderId,
