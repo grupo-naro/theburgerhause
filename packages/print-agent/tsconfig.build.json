@@ -2,5 +2,5 @@
   "extends": "./tsconfig.json",
   "compilerOptions": { "noEmit": false, "outDir": "dist/lib", "rootDir": "src", "declaration": true, "sourceMap": true },
   "include": ["src/**/*.ts"],
-  "exclude": ["dist", "node_modules", "src/**/*.test.ts"]
+  "exclude": ["dist", "node_modules", "src/**/*.test.ts", "src/testing/**"]
 }
