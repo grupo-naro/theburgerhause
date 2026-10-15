@@ -86,7 +86,7 @@ describe("createOrderSchema", () => {
     });
     it("strips control characters from free text", () => {
       const r = parse({
-        customer: { name: "Ju\u0000an\u0007a​", whatsapp: "1155551234" },
+        customer: { name: "Ju\u0000an\u0007a200b", whatsapp: "1155551234" },
         units: [{ productId: 1, modifierIds: [], note: "sin\nsal\u0001" }],
         delivery: { address: "Calle\t123\u0000", crossStreets: "A y B", notes: "timbre\r\nroto" },
       });
@@ -138,5 +138,69 @@ describe("createOrderSchema", () => {
     delete noWebsite.website;
     const r = createOrderSchema.safeParse(noWebsite);
     expect(r.success && r.data.website).toBe("");
+  });
+});
+
+describe("createOrderSchema hardening", () => {
+  const INT4 = 2_147_483_647;
+  it("accepts the int4 maximum and rejects bigger ids (VALIDATION, not a DB overflow)", () => {
+    expect(parse({ units: [{ ...unit, productId: INT4, modifierIds: [INT4] }] }).success).toBe(true);
+    for (const big of [3_000_000_000, INT4 + 1]) {
+      expect(parse({ units: [{ ...unit, productId: big }] }).success).toBe(false);
+      expect(parse({ units: [{ ...unit, modifierIds: [big] }] }).success).toBe(false);
+    }
+  });
+
+  describe("free-text characters", () => {
+    // Built from code points so the file itself stays free of invisible characters.
+    const u = (...cps: number[]) => String.fromCodePoint(...cps);
+    const nameOf = (name: string) => {
+      const r = parse({ customer: { name, whatsapp: "1155551234" } });
+      return r.success ? r.data.customer.name : null;
+    };
+    it("removes C0/C1 controls, BOM, bidi overrides and isolates, other format chars", () => {
+      expect(nameOf(`Ana${u(0x00, 0x1f, 0x7f, 0x85)}`)).toBe("Ana");
+      expect(nameOf(`${u(0xfeff)}Ana`)).toBe("Ana");
+      expect(nameOf(`A${u(0x202a, 0x202e)}na${u(0x202c)}`)).toBe("Ana");
+      expect(nameOf(`A${u(0x2066, 0x2067, 0x2068)}n${u(0x2069)}a`)).toBe("Ana");
+      expect(nameOf(`A${u(0x200b)}n${u(0x2060, 0x200e, 0x200f)}a`)).toBe("Ana");
+    });
+    it("keeps ZWJ / ZWNJ so emoji sequences and some scripts survive", () => {
+      const chef = `Chef ${u(0x1f468, 0x200d, 0x1f373)}`;
+      expect(nameOf(chef)).toBe(chef);
+      const persian = u(0x645, 0x6cc, 0x200c, 0x62e, 0x648, 0x627, 0x647, 0x645);
+      expect(nameOf(persian)).toBe(persian);
+    });
+    it("maps U+2028 / U+2029 to a plain space instead of deleting", () => {
+      expect(nameOf(`Ana${u(0x2028)}Maria`)).toBe("Ana Maria");
+      expect(nameOf(`Ana${u(0x2029)}Maria`)).toBe("Ana Maria");
+    });
+  });
+
+  it("non-string / malformed values report SPANISH messages (no English zod text)", () => {
+    const e = errors({
+      customer: { name: 42, whatsapp: { a: 1 } },
+      units: [{ productId: "x", modifierIds: "no", note: 5 }],
+      paymentMethod: 7,
+      idempotencyKey: 5,
+    });
+    const msgs = Object.values(e);
+    expect(Object.keys(e)).toEqual(
+      expect.arrayContaining(["customer.name", "customer.whatsapp", "units.0.productId", "paymentMethod", "idempotencyKey"]),
+    );
+    for (const m of msgs) expect(m).not.toMatch(/expected|invalid input|received|string|number/i);
+    expect(e["customer.whatsapp"]).toBe("Ingresá un número de WhatsApp válido (solo números, con característica)");
+  });
+
+  it("a missing customer / units / fulfillment also reports Spanish", () => {
+    const r = createOrderSchema.safeParse({});
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    for (const m of Object.values(fieldErrorsOf(r.error))) expect(m).not.toMatch(/expected|invalid input|received/i);
+  });
+
+  it("normalizes the idempotency key to lowercase", () => {
+    const r = parse({ idempotencyKey: KEY.toUpperCase() });
+    expect(r.success && r.data.idempotencyKey).toBe(KEY);
   });
 });
