@@ -8,7 +8,7 @@ beforeEach(resetDb);
 afterAll(closeDb);
 
 describe("loadCheckoutInfo", () => {
-  it("exposes ONLY the seven checkout fields, never the store name or the accepting switch", async () => {
+  it("exposes ONLY the five checkout fields, never the store name or the accepting switch", async () => {
     await testDb()
       .insert(s.settings)
       .values([
@@ -29,8 +29,6 @@ describe("loadCheckoutInfo", () => {
       bankCbu: "0000003100012345678901",
       storeAddress: "Av. Siempreviva 742",
       openingHoursText: "Lun a Dom 20 a 00",
-      storePhone: "+54 11 5555-1234",
-      whatsapp: "5491155551234",
     });
     expect(Object.keys(info).sort()).toEqual([
       "bankAlias",
@@ -38,8 +36,6 @@ describe("loadCheckoutInfo", () => {
       "deliveryFee",
       "openingHoursText",
       "storeAddress",
-      "storePhone",
-      "whatsapp",
     ]);
   });
 
@@ -50,8 +46,6 @@ describe("loadCheckoutInfo", () => {
       bankCbu: "",
       storeAddress: "",
       openingHoursText: "",
-      storePhone: "",
-      whatsapp: "",
     });
   });
 });

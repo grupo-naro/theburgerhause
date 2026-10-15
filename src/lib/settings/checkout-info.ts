@@ -7,7 +7,7 @@ import { getSettings, type Settings } from "./index";
  */
 export type CheckoutInfo = Pick<
   Settings,
-  "deliveryFee" | "bankAlias" | "bankCbu" | "storeAddress" | "openingHoursText" | "storePhone" | "whatsapp"
+  "deliveryFee" | "bankAlias" | "bankCbu" | "storeAddress" | "openingHoursText"
 >;
 
 export function toCheckoutInfo(s: Settings): CheckoutInfo {
@@ -17,8 +17,6 @@ export function toCheckoutInfo(s: Settings): CheckoutInfo {
     bankCbu: s.bankCbu,
     storeAddress: s.storeAddress,
     openingHoursText: s.openingHoursText,
-    storePhone: s.storePhone,
-    whatsapp: s.whatsapp,
   };
 }
 
