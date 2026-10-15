@@ -58,6 +58,6 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   // (d) Log in once per role through the real UI and keep the cookies.
   mkdirSync("e2e/.auth", { recursive: true });
   const baseURL = config.projects[0].use.baseURL!;
-  const headers = { "x-forwarded-for": `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.7` };
+  const headers = config.projects[0].use.extraHTTPHeaders ?? {};
   for (const key of Object.keys(USERS) as UserKey[]) await loginThroughUi(key, baseURL, headers);
 }

@@ -23,6 +23,11 @@ process.env.DATABASE_URL = E2E_DATABASE_URL;
 process.env.SESSION_SECRET = E2E_SESSION_SECRET;
 process.env.UPLOAD_DIR = E2E_UPLOAD_DIR;
 
+// Login rate limits are per IP (X-Forwarded-For, in-memory in the server). A random
+// IP per runner/worker process keeps repeated runs against a reused server independent.
+const rnd = () => Math.floor(Math.random() * 250) + 1;
+const clientIp = `10.${rnd()}.${rnd()}.${rnd()}`;
+
 export default defineConfig({
   testDir: "e2e",
   globalSetup: "./e2e/global-setup.ts",
@@ -34,6 +39,7 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    extraHTTPHeaders: { "x-forwarded-for": clientIp },
   },
   projects: [
     {
