@@ -32,17 +32,17 @@ export default async function AdminCadetsPage() {
         </Card>
       ) : (
         <Card className="overflow-x-auto p-0">
-          <table className="w-full min-w-[44rem] text-left text-sm">
+          <table className="w-full text-left text-sm">
             <caption className="sr-only">Cadetes</caption>
             <thead className="text-xs text-ink-muted uppercase">
               <tr>
                 <th scope="col" className={th}>
                   Nombre
                 </th>
-                <th scope="col" className={th}>
+                <th scope="col" className={`${th} hidden sm:table-cell`}>
                   Teléfono
                 </th>
-                <th scope="col" className={th}>
+                <th scope="col" className={`${th} hidden sm:table-cell`}>
                   En camino
                 </th>
                 <th scope="col" className={th}>
@@ -56,9 +56,14 @@ export default async function AdminCadetsPage() {
             <tbody className="divide-y divide-line">
               {cadets.map((c) => (
                 <tr key={c.id} className={c.active ? "" : "bg-slate-50 text-ink-muted"}>
-                  <td className="p-3 font-medium">{c.name}</td>
-                  <td className="p-3 whitespace-nowrap">{c.phone ?? "–"}</td>
-                  <td className="p-3">{c.enCamino}</td>
+                  <td className="p-3 font-medium">
+                    {c.name}
+                    <span className="block text-xs font-normal text-ink-muted sm:hidden">
+                      {c.phone ?? "Sin teléfono"} · {c.enCamino} en camino
+                    </span>
+                  </td>
+                  <td className="hidden p-3 whitespace-nowrap sm:table-cell">{c.phone ?? "–"}</td>
+                  <td className="hidden p-3 sm:table-cell">{c.enCamino}</td>
                   <td className="p-3">
                     <Badge tone={c.active ? "success" : "muted"}>{c.active ? "Activo" : "Inactivo"}</Badge>
                   </td>

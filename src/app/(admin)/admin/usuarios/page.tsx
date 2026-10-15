@@ -29,20 +29,20 @@ export default async function AdminUsersPage() {
         administrador activo.
       </p>
       <Card className="overflow-x-auto p-0">
-        <table className="w-full min-w-4xl text-left text-sm">
+        <table className="w-full text-left text-sm">
           <caption className="sr-only">Usuarios</caption>
           <thead className="text-xs text-ink-muted uppercase">
             <tr>
               <th scope="col" className={th}>
                 Nombre
               </th>
-              <th scope="col" className={th}>
+              <th scope="col" className={`${th} hidden md:table-cell`}>
                 Usuario
               </th>
-              <th scope="col" className={th}>
+              <th scope="col" className={`${th} hidden md:table-cell`}>
                 Rol
               </th>
-              <th scope="col" className={th}>
+              <th scope="col" className={`${th} hidden md:table-cell`}>
                 Sesiones
               </th>
               <th scope="col" className={th}>
@@ -61,10 +61,13 @@ export default async function AdminUsersPage() {
                   <td className="p-3 font-medium">
                     {u.name}
                     {self ? <span className="ml-2 text-xs font-normal text-ink-muted">(vos)</span> : null}
+                    <span className="block text-xs font-normal text-ink-muted md:hidden">
+                      {u.username} · {ROLE_LABEL[u.role]} · {u.activeSessions} sesiones
+                    </span>
                   </td>
-                  <td className="p-3 font-mono text-xs">{u.username}</td>
-                  <td className="p-3">{ROLE_LABEL[u.role]}</td>
-                  <td className="p-3">{u.activeSessions}</td>
+                  <td className="hidden p-3 font-mono text-xs md:table-cell">{u.username}</td>
+                  <td className="hidden p-3 md:table-cell">{ROLE_LABEL[u.role]}</td>
+                  <td className="hidden p-3 md:table-cell">{u.activeSessions}</td>
                   <td className="p-3">
                     <Badge tone={u.active ? "success" : "muted"}>{u.active ? "Activo" : "Inactivo"}</Badge>
                   </td>
