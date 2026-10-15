@@ -83,6 +83,8 @@ test("clicking a category chip scrolls to its section and marks the chip current
 
 test("instant search filters accent-insensitively, clears and shows the empty state", async ({ page }) => {
   await page.goto("/");
+  await expect(card(page, "Ranchita simple")).toHaveCount(1);
+  const total = await page.getByTestId("product-card").count(); // other specs may add products
   const box = page.getByRole("searchbox", { name: "Buscar en el menú" });
   await box.fill("RÁNCHITA");
   await expect(page.getByTestId("product-card")).toHaveCount(2);
@@ -93,14 +95,14 @@ test("instant search filters accent-insensitively, clears and shows the empty st
 
   await page.getByRole("button", { name: "Borrar búsqueda" }).click();
   await expect(box).toHaveValue("");
-  await expect(page.getByTestId("product-card")).toHaveCount(SEEDED_PRODUCTS.length);
+  await expect(page.getByTestId("product-card")).toHaveCount(total);
 
   await box.fill("zzzz");
   await expect(page.getByText("No encontramos productos para «zzzz»")).toBeVisible();
   await expect(page.getByTestId("product-card")).toHaveCount(0);
   await shot(page, "store-search-empty");
   await page.getByRole("button", { name: "Borrar búsqueda" }).last().click();
-  await expect(page.getByTestId("product-card")).toHaveCount(SEEDED_PRODUCTS.length);
+  await expect(page.getByTestId("product-card")).toHaveCount(total);
 });
 
 test("the header search button focuses the search box", async ({ page }) => {
