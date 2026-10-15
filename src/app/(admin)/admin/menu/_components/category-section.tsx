@@ -62,26 +62,26 @@ export function CategorySection({
         <p className="text-sm text-ink-muted">Esta categoría todavía no tiene productos.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[60rem] table-fixed text-left text-sm">
             <caption className="sr-only">Productos de {category.name}</caption>
             <thead className="text-xs text-ink-muted uppercase">
               <tr>
-                <th scope="col" className={th}>
+                <th scope="col" className={`${th} w-16`}>
                   Foto
                 </th>
                 <th scope="col" className={th}>
                   Nombre
                 </th>
-                <th scope="col" className={th}>
+                <th scope="col" className={`${th} w-28`}>
                   Precio
                 </th>
-                <th scope="col" className={th}>
+                <th scope="col" className={`${th} w-24`}>
                   Estado
                 </th>
-                <th scope="col" className={`${th} text-center`}>
+                <th scope="col" className={`${th} text-center w-24`}>
                   Destacado
                 </th>
-                <th scope="col" className="pb-1 font-semibold">
+                <th scope="col" className="pb-1 font-semibold w-[26rem]">
                   Acciones
                 </th>
               </tr>
