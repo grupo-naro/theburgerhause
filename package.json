@@ -13,6 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed-admin": "tsx src/db/seed-admin.ts",
     "db:up": "docker compose up -d"
   },
   "dependencies": {
