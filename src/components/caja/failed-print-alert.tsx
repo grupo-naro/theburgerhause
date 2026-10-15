@@ -4,25 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { reprintOrderAction } from "@/app/(staff)/caja/actions";
 import type { FailedPrintJob } from "@/lib/orders/caja-queries";
+import { groupFailedByOrder, type FailedRowModel } from "@/lib/caja/failed-rows";
 import { useGuardedAction } from "./use-guarded-action";
-
-type Which = "kitchen" | "ticket" | "both";
-type Row = { orderId: number; orderNumber: number; which: Which; jobs: FailedPrintJob[] };
 
 const TYPE_LABEL = { kitchen: "Cocina", ticket: "Ticket" } as const;
 
-/** One row per order: both types failed -> reprint "both", otherwise just the failed one. */
-function groupByOrder(jobs: FailedPrintJob[]): Row[] {
-  const byOrder = new Map<number, FailedPrintJob[]>();
-  for (const j of jobs) byOrder.set(j.orderId, [...(byOrder.get(j.orderId) ?? []), j]);
-  return [...byOrder.values()].map((list) => {
-    const types = new Set(list.map((j) => j.type));
-    const which: Which = types.size > 1 ? "both" : list[0].type;
-    return { orderId: list[0].orderId, orderNumber: list[0].orderNumber, which, jobs: list };
-  });
-}
-
-function FailedRow({ row }: { row: Row }) {
+function FailedRow({ row }: { row: FailedRowModel }) {
   const router = useRouter();
   const { run, pending, error } = useGuardedAction();
   const [queued, setQueued] = useState(false);
@@ -81,8 +68,8 @@ export function FailedPrintAlert({ jobs }: { jobs: FailedPrintJob[] }) {
       </h2>
       <p className="mb-3 text-red-100">Revisá la impresora (papel, cable, encendido) y reimprimí.</p>
       <ul className="space-y-2">
-        {groupByOrder(jobs).map((r) => (
-          <FailedRow key={r.orderId} row={r} />
+        {groupFailedByOrder(jobs).map((r) => (
+          <FailedRow key={r.key} row={r} />
         ))}
       </ul>
     </section>
