@@ -1,5 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { CartProvider } from "@/components/cart/cart-provider";
+import { OrderBar } from "@/components/cart/order-bar";
 import { ClosedBanner } from "@/components/menu/closed-banner";
 import { MenuProvider } from "@/components/menu/menu-provider";
 import { MenuSkeleton } from "@/components/menu/menu-skeleton";
@@ -43,6 +44,7 @@ async function MenuShell({ children }: { children: ReactNode }) {
             <Suspense fallback={null}>
               <StoreFooter />
             </Suspense>
+            <OrderBar />
           </ProductSheetProvider>
           </ToastProvider>
         </StoreStatusProvider>
