@@ -149,18 +149,18 @@ function SheetBody({
         // Backdrop click = a click that started AND ended on the <dialog> itself (it has no padding).
         if (e.target === e.currentTarget && pointerDownOnBackdrop.current) onClose();
       }}
-      className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[92dvh] w-full max-w-none animate-sheet-in flex-col overflow-hidden rounded-t-3xl border-0 bg-surface p-0 text-ink backdrop:bg-ink/55 open:flex md:inset-0 md:m-auto md:h-fit md:max-h-[88dvh] md:max-w-lg md:rounded-3xl"
+      className="fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-none animate-sheet-in overflow-clip rounded-t-3xl border-0 bg-surface p-0 text-ink backdrop:bg-ink/55 open:block md:inset-0 md:m-auto md:h-fit md:max-w-lg md:rounded-3xl"
     >
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Cerrar"
-          className="absolute right-3 top-3 z-10 grid size-11 place-items-center rounded-full bg-surface/95 text-ink shadow-md ring-1 ring-line transition-colors hover:bg-brand-50"
-        >
-          <CloseIcon className="size-5" />
-        </button>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div className="relative flex max-h-[92dvh] flex-col md:max-h-[88dvh]">
+        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="absolute right-3 top-3 z-10 grid size-11 place-items-center rounded-full bg-surface/95 text-ink shadow-md ring-1 ring-line transition-colors hover:bg-brand-50"
+          >
+            <CloseIcon className="size-5" />
+          </button>
           <SheetHeader product={product} titleId={titleId} />
           <div className="px-4 pb-5">
             <div className="flex items-center justify-between gap-3 rounded-2xl bg-bg px-4 py-2">

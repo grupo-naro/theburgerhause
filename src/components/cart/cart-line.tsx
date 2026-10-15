@@ -30,7 +30,7 @@ export function CartLine({ group, index, onQuantity, onEdit, onRemove }: Props) 
   return (
     <li data-testid="cart-line" className="rounded-2xl border border-line bg-surface p-3 shadow-sm sm:p-4">
       <div className="flex gap-3">
-        <span className="block size-16 shrink-0 overflow-hidden rounded-xl bg-brand-50 sm:size-20">
+        <span className="block size-16 shrink-0 overflow-hidden rounded-xl bg-brand-50">
           <ProductImage product={{ ...product, imageUrl: product.thumbUrl ?? product.imageUrl }} sizes="80px" />
         </span>
         <div className="min-w-0 flex-1">
