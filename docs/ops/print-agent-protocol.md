@@ -3,7 +3,8 @@
 Un agente Node.js corre en cada PC con impresora térmica USB y se conecta HACIA AFUERA al servidor
 (no hay puertos abiertos en el local). El servidor le entrega los trabajos de impresión (cocina y
 ticket) por Server-Sent Events y el agente confirma cada uno con un POST. Código: `src/lib/print/*`,
-rutas en `src/app/api/agent/*`. El agente en sí es la Task 6.2.
+rutas en `src/app/api/agent/*`. El agente en sí es `packages/print-agent`; **cómo instalarlo en las PCs del local
+(tarea programada de Windows, release ZIP, planilla de las 9 PCs): [`print-agent-install.md`](./print-agent-install.md).**
 
 ```
 approveOrder / reprint ── INSERT print_jobs (pending) + NOTIFY print_job_created {jobId, stationId}

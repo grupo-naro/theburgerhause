@@ -156,13 +156,13 @@ Si querés **ver qué haría sin cambiar nada**, agregá `-DryRun` al final del 
 1. Estado desde PowerShell (como Administrador):
 
    ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Instalador\burgerhause-print-agent-0.1.0\status.ps1
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\status.ps1
    ```
 
    Esperado al final: `Todo bien.` (estado de la tarea `Running`, proceso corriendo, chequeo correcto).
 2. En el sistema, entrá a la **Caja** desde esa PC eligiendo **la estación de esa PC**. Arriba tiene que decir
    **"Impresora lista"** (si dice "Sin agente", mirá la tabla de problemas).
-3. Hacé un **pedido de prueba** (por ejemplo una venta de mostrador de $0 o de un producto cualquiera), aprobalo y
+3. Hacé un **pedido de prueba** (por ejemplo una venta de mostrador de un producto barato), aprobalo y
    comprobá que salen **los dos papeles**: la comanda de cocina y el ticket, y que los chips del pedido pasan a
    "Impresión: ok". Después cancelá o anulá ese pedido de prueba según la rutina del local.
 4. **Prueba de reinicio**: reiniciá la PC (Inicio → Reiniciar). **No inicies sesión ni abras nada.** Esperá 2 minutos,
@@ -173,13 +173,12 @@ Si pasó todo, completá la fila de esta PC en la lista de la sección 12.
 
 ## 9. Uso diario y mantenimiento
 
-Todos los comandos se escriben en PowerShell abierto **como Administrador**. En los ejemplos, `C:\Instalador\…` es
-la carpeta donde descomprimiste la versión (para `update.ps1` y `uninstall.ps1` conviene usar la de la
-versión nueva).
+Todos los comandos se escriben en PowerShell abierto **como Administrador**, dentro de la carpeta del instalador
+(`cd C:\Instalador\burgerhause-print-agent-0.1.0`). Para `update.ps1` hay que usar la carpeta de la versión nueva.
 
 | Qué querés hacer | Comando |
 | --- | --- |
-| Ver el estado completo | `powershell -NoProfile -ExecutionPolicy Bypass -File C:\BurgerHouseAgent\..\Instalador\burgerhause-print-agent-0.1.0\status.ps1` (o el `status.ps1` de la carpeta del instalador) |
+| Ver el estado completo | `powershell -NoProfile -ExecutionPolicy Bypass -File .\status.ps1` |
 | Ver el log en vivo (Ctrl+C para salir) | `Get-Content C:\BurgerHouseAgent\data\logs\agent.log -Tail 30 -Wait` |
 | Imprimir un ticket de prueba | `& "C:\BurgerHouseAgent\node\node.exe" "C:\BurgerHouseAgent\print-agent.cjs" test-print` (con Node instalado: `node C:\BurgerHouseAgent\print-agent.cjs test-print`) |
 | Reiniciar el agente | `Stop-ScheduledTask BurgerHouseAgent; Start-ScheduledTask BurgerHouseAgent` |

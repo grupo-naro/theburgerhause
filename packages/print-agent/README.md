@@ -4,7 +4,8 @@ Programa Node.js que corre en cada PC del local con una impresora térmica USB. 
 servidor (no abre puertos), recibe los trabajos de impresión (cocina y ticket) por Server-Sent Events, los
 traduce a ESC/POS y los imprime con el driver normal de Windows (modo RAW). Confirma cada trabajo al servidor.
 
-El protocolo del lado servidor está en `docs/ops/print-agent-protocol.md`.
+El protocolo del lado servidor está en `docs/ops/print-agent-protocol.md`. **Para instalarlo en las PCs del local:
+`docs/ops/print-agent-install.md`** (guía paso a paso para quien instala).
 
 Garantías operativas:
 
@@ -17,8 +18,8 @@ Garantías operativas:
 
 ## Requisitos
 
-- Node.js 20 o superior instalado en CADA PC (solo eso: el programa es un único archivo, sin `node_modules`).
-  Esto se mantiene hasta que la Task 6.3 decida entre un ejecutable SEA o un Node empaquetado.
+- Node.js 20 o superior en CADA PC (el programa es un único archivo, sin `node_modules`): el Node del sistema o un
+  `node.exe` portable en `C:\BurgerHouseAgent\node\node.exe` (el instalador prefiere el portable si existe).
 - Windows 10/11 con la impresora instalada con su driver normal (sirve incluso "Generic / Text Only").
   No hace falta Zadig/WinUSB ni cambiar el driver.
 
@@ -31,7 +32,29 @@ pnpm --filter @burgerhause/print-agent build     # tsc (chequeo + dist/lib)
 pnpm --filter @burgerhause/print-agent bundle    # dist/print-agent.cjs (todo incluido)
 ```
 
-Copiar `packages/print-agent/dist/print-agent.cjs` a la PC (por ejemplo `C:\BurgerHouseAgent\print-agent.cjs`).
+Para instalar en un local no se copia a mano: se genera la release (ver abajo) y se usa `install.ps1`.
+
+## Release e instalación (ZIP)
+
+```
+pnpm --filter @burgerhause/print-agent release
+```
+
+Corre `build` + `bundle` y deja en `packages/print-agent/release/` (ignorada por git) la carpeta
+`burgerhause-print-agent-<versión>/`, el `.zip` y un `.zip.sha256`. Contenido: `print-agent.cjs`, `install.ps1`,
+`uninstall.ps1`, `status.ps1`, `update.ps1`, `common.ps1`, `config.example.json` y `LEEME.txt`. Los scripts (PowerShell 5.1,
+UTF-8 con BOM) viven en `install/`; las pruebas (`install/*.test.ts`) corren los scripts en simulación (`-DryRun`) y
+solo en Windows.
+
+En cada PC, PowerShell **como Administrador** en la carpeta descomprimida:
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -ServerUrl https://<servidor> -PrinterName "<impresora>"
+```
+
+Verifica con `check` ANTES de registrar nada, protege `config.json` con ACL (SYSTEM + Administradores) y registra la tarea
+programada `BurgerHouseAgent` (al iniciar Windows, SYSTEM, reinicio automático). `status.ps1`, `update.ps1` y `uninstall.ps1`
+completan el ciclo. Detalle, parámetros, códigos de salida y solución de problemas: `docs/ops/print-agent-install.md`.
 
 ## Configuración
 
@@ -150,8 +173,9 @@ Si salen símbolos raros en lugar de letras, la impresora no entiende `ESC t n`:
 
 ## Servicio de Windows
 
-Esta tarea no instala el servicio. Mientras tanto se puede correr con una tarea programada "al iniciar sesión" o con un
-`.bat` (`node C:\BurgerHouseAgent\print-agent.cjs`). Al recibir `SIGINT`/`SIGTERM` (Ctrl+C) termina el trabajo en curso y guarda el estado.
+Se instala como **tarea programada** (sin binarios externos) con `install/install.ps1`: disparador al iniciar Windows
+(+30 s), cuenta SYSTEM, sin límite de tiempo, reinicio cada 1 min (hasta 999 veces), instancia única. Ver la guía de
+instalación. Al recibir `SIGINT`/`SIGTERM` (Ctrl+C) el agente termina el trabajo en curso y guarda el estado.
 
 ## Uso como biblioteca
 
