@@ -68,6 +68,11 @@ describe("serialize / parse", () => {
     expect(parseCart(mk(101))).toBeNull();
     expect(parseCart(mk(100))?.lines).toHaveLength(100);
   });
+  it("refuses oversized raw strings before parsing", () => {
+    expect(parseCart(" ".repeat(200_001))).toBeNull();
+    const big = wrap([line("a")], { pad: "x".repeat(200_000) });
+    expect(parseCart(big)).toBeNull();
+  });
   it("accepts a note of exactly 140 chars", () => {
     expect(parseCart(wrap([line("a", { note: "n".repeat(140) })]))?.lines[0].note).toHaveLength(140);
   });

@@ -142,6 +142,25 @@ describe("remove / replace / clear", () => {
     expect(fewer.lines.map((l) => l.productId)).toEqual([1, 2, 1]);
     expect(fewer.lines[0].modifierIds).toEqual([201]);
   });
+  it("increasing a quantity places the clones right after the group's last unit", () => {
+    // lines: A(l1) B(l2) A(l3) -> group A is non-contiguous; clones go after l3
+    const s = run([
+      { type: "add", productId: 1, units: [unit([101])] },
+      { type: "add", productId: 2, units: [unit()] },
+      { type: "add", productId: 1, units: [unit([101])] },
+    ]);
+    const out = cartReducer(s, { type: "setGroupQuantity", signature: signature(s.lines[0]), quantity: 3 }, counterIds("n"));
+    expect(out.lines.map((l) => l.id)).toEqual(["l1", "l2", "l3", "n1"]);
+  });
+  it("replaceGroup on a non-contiguous group puts the replacement at the FIRST position of that group", () => {
+    const s = run([
+      { type: "add", productId: 1, units: [unit([101])] },
+      { type: "add", productId: 2, units: [unit()] },
+      { type: "add", productId: 1, units: [unit([101])] },
+    ]);
+    const out = cartReducer(s, { type: "replaceGroup", signature: signature(s.lines[0]), productId: 1, units: [unit([102])] }, counterIds("n"));
+    expect(out.lines.map((l) => [l.productId, l.modifierIds])).toEqual([[1, [102]], [2, []]]);
+  });
   it("replaceGroup rejects empty units and unknown signatures", () => {
     expect(cartReducer(base, { type: "replaceGroup", signature: signature(base.lines[0]), productId: 1, units: [] }, counterIds())).toBe(base);
     expect(cartReducer(base, { type: "replaceGroup", signature: "nope", productId: 1, units: [unit()] }, counterIds())).toBe(base);
@@ -161,6 +180,13 @@ describe("hydrate", () => {
 });
 
 describe("groupLines", () => {
+  it("returns copies: mutating a group does not change the state", () => {
+    const s = run([{ type: "add", productId: 1, units: [unit([101, 102])] }]);
+    const [g] = groupLines(s.lines);
+    g.modifierIds.push(999);
+    g.lineIds.push("x");
+    expect(s.lines[0].modifierIds).toEqual([101, 102]);
+  });
   it("groups by signature in first-appearance order, keeping relative line order", () => {
     const s = run([
       { type: "add", productId: 1, units: [unit([101])] },

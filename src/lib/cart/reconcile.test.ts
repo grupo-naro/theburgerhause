@@ -64,6 +64,37 @@ describe("toggleModifierInUnit", () => {
   it("swaps in different groups are independent and other kinds are untouched", () => {
     expect(toggleModifierInUnit([301, 101, 201], mod(311), index)).toEqual([101, 201, 301, 311]);
   });
+  it("a swap only deselects other SWAPS of its group, never remove/add modifiers of that group", () => {
+    const mixed = {
+      ...menuFixture,
+      categories: [
+        {
+          ...menuFixture.categories[0],
+          products: [
+            {
+              ...menuFixture.categories[0].products[0],
+              modifierGroups: [
+                {
+                  id: 50,
+                  name: "Mixto",
+                  modifiers: [
+                    { id: 501, name: "Sin sal", kind: "remove" as const, priceDelta: 0 },
+                    { id: 502, name: "Extra", kind: "add" as const, priceDelta: 10000 },
+                    { id: 503, name: "Cambio A", kind: "swap" as const, priceDelta: 0 },
+                    { id: 504, name: "Cambio B", kind: "swap" as const, priceDelta: 0 },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const idx = buildMenuIndex(mixed);
+    const m = (id: number) => idx.modifiers.get(id)!.modifier;
+    expect(toggleModifierInUnit([501, 502, 503], m(504), idx)).toEqual([501, 502, 504]);
+    expect(toggleModifierInUnit([501, 504], m(502), idx)).toEqual([501, 502, 504]);
+  });
   it("does not mutate its input and returns sorted ids", () => {
     const input = [302, 101];
     const out = toggleModifierInUnit(input, mod(201), index);

@@ -23,6 +23,13 @@ describe("initCart (load -> validate -> reconcile)", () => {
     expect(r.lines).toEqual([]);
     expect(r.issues).toEqual([{ type: "product_unavailable", productId: 99, quantity: 1 }]);
   });
+  it("an empty menu index keeps the cart (never wipes it)", () => {
+    const raw = serializeCart({ lines: [{ id: "a", productId: 1, modifierIds: [101], note: "" }] }, { a: 1 });
+    const empty = buildMenuIndex({ categories: [], featured: [] });
+    const r = initCart(raw, empty);
+    expect(r.lines).toHaveLength(1);
+    expect(r.issues).toEqual([]);
+  });
   it("without a menu the cart is kept as parsed (never wiped by a failed menu load)", () => {
     const raw = serializeCart({ lines: [{ id: "a", productId: 99, modifierIds: [], note: "" }] }, {});
     expect(initCart(raw, null).lines).toHaveLength(1);
