@@ -48,30 +48,30 @@ const deliverySchema = z.object({
   notes: text(0, 300).default(""),
 });
 
-export const createOrderSchema = z
-  .object({
-    idempotencyKey: z.string().regex(UUID_V4, "Clave inválida"),
-    units: z.array(unitSchema).min(1, "El pedido está vacío").max(100),
-    customer: customerSchema,
-    fulfillment: z.enum(["delivery", "takeaway"]),
-    // Validated below, and only when fulfillment = delivery (ignored otherwise).
-    delivery: z.unknown().optional(),
-    paymentMethod: z.enum(["cash", "transfer"]),
-    /** Honeypot: must be empty. */
-    website: z.string().max(500).optional().default(""),
-  })
-  .transform((v, ctx) => {
-    const { delivery: rawDelivery, ...rest } = v;
-    if (v.fulfillment === "takeaway") return { ...rest, delivery: undefined };
-    const parsed = deliverySchema.safeParse(rawDelivery ?? {});
-    if (!parsed.success) {
-      for (const issue of parsed.error.issues) {
-        ctx.issues.push({ code: "custom", message: issue.message, input: rawDelivery, path: ["delivery", ...issue.path] });
-      }
-      return z.NEVER;
-    }
-    return { ...rest, delivery: parsed.data };
-  });
+const baseFields = {
+  idempotencyKey: z.string().regex(UUID_V4, "Clave inválida"),
+  units: z.array(unitSchema).min(1, "El pedido está vacío").max(100),
+  customer: customerSchema,
+  paymentMethod: z.enum(["cash", "transfer"]),
+  /** Honeypot: must be empty. */
+  website: z.string().max(500).optional().default(""),
+};
+
+// Discriminated on `fulfillment` so that ALL field errors of the chosen branch are reported together.
+export const createOrderSchema = z.discriminatedUnion("fulfillment", [
+  z.object({
+    ...baseFields,
+    fulfillment: z.literal("delivery"),
+    // A missing / non-object `delivery` is validated as {} so each field reports its own error.
+    delivery: z.preprocess((v) => (typeof v === "object" && v !== null ? v : {}), deliverySchema),
+  }),
+  z.object({
+    ...baseFields,
+    fulfillment: z.literal("takeaway"),
+    // Whatever was sent is discarded: takeaway orders never store an address.
+    delivery: z.unknown().transform(() => undefined),
+  }),
+]);
 
 export type CreateOrderInput = z.output<typeof createOrderSchema>;
 
