@@ -153,6 +153,11 @@ describe("getOrderForTracking", () => {
       ].sort(),
     );
     expect(Object.keys(dto!.groups[0]).sort()).toEqual(["lineTotal", "modifiers", "name", "note", "quantity", "unitTotal"]);
+    // Customer privacy guard: kitchen labels are a staff-only detail.
+    for (const g of dto!.groups) {
+      for (const m of g.modifiers) expect(Object.keys(m).sort()).toEqual(["name", "priceDelta"]);
+    }
+    expect(json).not.toContain("kitchenLabel");
   });
 
   it("snapshots survive later price and name changes of the catalog", async () => {
