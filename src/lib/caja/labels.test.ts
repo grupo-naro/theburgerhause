@@ -39,4 +39,7 @@ describe("formatOrderTime", () => {
   it("uses Argentina time (UTC-3)", () => {
     expect(formatOrderTime("2026-10-15T15:41:00.000Z")).toBe("12:41");
   });
+  it("midnight is 00:05, never 24:05", () => {
+    expect(formatOrderTime("2026-10-15T03:05:00.000Z")).toBe("00:05");
+  });
 });

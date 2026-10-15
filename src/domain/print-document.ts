@@ -42,7 +42,7 @@ const timeFormat = new Intl.DateTimeFormat("es-AR", {
   timeZone: TIME_ZONE,
   hour: "2-digit",
   minute: "2-digit",
-  hour12: false,
+  hourCycle: "h23",
 });
 const dateFormat = new Intl.DateTimeFormat("es-AR", {
   timeZone: TIME_ZONE,

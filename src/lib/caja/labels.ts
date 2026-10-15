@@ -37,7 +37,7 @@ export function whatsappHref(raw: string | null): string | null {
 const timeFmt = new Intl.DateTimeFormat("es-AR", {
   hour: "2-digit",
   minute: "2-digit",
-  hour12: false,
+  hourCycle: "h23",
   timeZone: "America/Argentina/Buenos_Aires",
 });
 /** Order time as HH:mm in Argentina's time zone (same on server and client). */
