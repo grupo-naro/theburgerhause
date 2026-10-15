@@ -31,3 +31,23 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Storefront sticky chrome: header + (optional) closed banner + category bar. */
+:root {
+  --header-h: 3.5rem;
+  --bar-h: 3.75rem;
+  --banner-h: 0px;
+  --chrome-h: calc(var(--header-h) + var(--banner-h) + var(--bar-h));
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
