@@ -71,7 +71,7 @@ describe("processImage", () => {
   });
 
   it("rejects truncated PNG as CORRUPT", async () => {
-    const full = await sharp({ create: { width: 600, height: 600, channels: 3, noise: { type: "gaussian", mean: 128, sigma: 40 } } }).png().toBuffer();
+    const full = await sharp({ create: { width: 600, height: 600, channels: 3, background: "#000", noise: { type: "gaussian", mean: 128, sigma: 40 } } }).png().toBuffer();
     expect(await codeOf(processImage(full.subarray(0, Math.floor(full.length / 3))))).toBe("CORRUPT");
   });
 

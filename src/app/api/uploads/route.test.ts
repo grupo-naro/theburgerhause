@@ -28,7 +28,7 @@ const png = () => sharp({ create: { width: 900, height: 600, channels: 3, backgr
 function upload(opts: { body?: Buffer | string; field?: string; name?: string; headers?: Record<string, string> } = {}) {
   const form = new FormData();
   if (opts.body !== undefined || !opts.field) {
-    form.set(opts.field ?? "file", new Blob([opts.body ?? "x"]), opts.name ?? "a.png");
+    form.set(opts.field ?? "file", new Blob([new Uint8Array(Buffer.from(opts.body ?? "x"))]), opts.name ?? "a.png");
   }
   return new Request("http://localhost:3000/api/uploads", {
     method: "POST",
