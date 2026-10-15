@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Baloo_2, DM_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "The Burger House 828",
   description: "Pedí online en The Burger House 828",
 };
+
+/** `cover` lets fixed bottom UI use `env(safe-area-inset-bottom)` on notched phones. */
+export const viewport: Viewport = { viewportFit: "cover" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

@@ -15,7 +15,8 @@ export function ClosedNotice({ hours }: { hours: string }) {
     <div
       role="status"
       data-testid="closed-banner"
-      className="pointer-events-none fixed inset-x-3 bottom-3 z-40 mx-auto max-w-xl"
+      data-floating-ui
+      className="pointer-events-none fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 mx-auto max-w-xl"
     >
       <div className="pointer-events-auto flex items-start gap-3 rounded-2xl bg-cheddar-400 px-4 py-3 text-ink shadow-[0_8px_24px_rgba(11,31,58,0.25)]">
         <InfoIcon className="mt-0.5 size-5 shrink-0" />

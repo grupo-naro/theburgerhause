@@ -39,6 +39,17 @@ body {
   --chrome-h: calc(var(--header-h) + var(--bar-h));
 }
 
+/*
+ * Space reserved at the bottom of the page for floating UI (closed notice, order bar).
+ * Anything fixed to the bottom marks itself with data-floating-ui; the footer pads itself with it.
+ */
+:root {
+  --floating-clearance: 0px;
+}
+body:has([data-floating-ui]) {
+  --floating-clearance: calc(6rem + env(safe-area-inset-bottom, 0px));
+}
+
 @utility no-scrollbar {
   scrollbar-width: none;
   &::-webkit-scrollbar {

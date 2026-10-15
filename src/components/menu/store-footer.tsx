@@ -28,7 +28,7 @@ export async function StoreFooter() {
   const hasContact = info.storeAddress || tel || wa || info.openingHoursText;
 
   return (
-    <footer className="mt-12 bg-brand-700 text-white">
+    <footer className="mt-12 bg-brand-700 pb-[var(--floating-clearance)] text-white">
       <div className="mx-auto max-w-[1100px] px-4 py-10">
         <p className="font-display text-2xl font-extrabold">{info.storeName}</p>
         {hasContact && (

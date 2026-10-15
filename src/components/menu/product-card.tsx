@@ -21,7 +21,7 @@ export function ProductCard({ product }: { product: PublicProduct }) {
       className="group relative flex min-h-[7.5rem] w-full flex-row items-stretch overflow-hidden rounded-xl border border-line bg-surface text-left shadow-[0_2px_10px_rgba(11,31,58,0.06)] transition duration-200 hover:shadow-[0_10px_24px_rgba(11,31,58,0.12)] active:scale-[0.99] md:h-full md:flex-col md:hover:-translate-y-0.5"
     >
       <span className="flex min-w-0 flex-1 flex-col gap-0.5 py-3 pl-4 pr-2 md:order-2 md:p-4">
-        <span className="line-clamp-2 block font-display text-lg font-bold leading-tight text-ink">
+        <span className="line-clamp-3 block font-display text-base font-bold leading-tight text-ink md:line-clamp-2 md:text-lg">
           {product.name}
         </span>
         {product.description && (
