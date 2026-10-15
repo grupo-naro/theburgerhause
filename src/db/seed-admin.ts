@@ -46,7 +46,8 @@ if (process.argv[1] && path.basename(process.argv[1]) === "seed-admin.ts") {
       // Never log the error object/message: Drizzle query errors embed the bound
       // params (which include the password hash). Log only fixed text and the pg code.
       let code: string | undefined;
-      for (let e: unknown = err; e && !code; e = (e as { cause?: unknown }).cause) {
+      // Bounded walk: a cyclic cause chain must not hang the script.
+      for (let e: unknown = err, depth = 0; e && !code && depth < 5; e = (e as { cause?: unknown }).cause, depth++) {
         const c = (e as { code?: unknown }).code;
         if (typeof c === "string") code = c;
       }
