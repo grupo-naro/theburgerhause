@@ -3,6 +3,7 @@ import { getDb } from "@/db/client";
 import { requireSessionOrRedirect, requireStationOrRedirect } from "@/lib/auth/guards";
 import type { Role } from "@/lib/auth/roles";
 import { findStation } from "@/lib/stations";
+import { LiveRefresh } from "@/components/live/live-refresh";
 import { LogoutButton } from "@/components/logout-button";
 
 async function Greeting({ roles, path, needsStation }: { roles: Role[]; path: string; needsStation: boolean }) {
@@ -34,6 +35,7 @@ export function StaffPlaceholder({
   return (
     <main className="mx-auto flex w-full max-w-md flex-col items-start gap-4 px-4 py-10">
       <h1 className="font-display text-3xl font-extrabold text-brand-600">{title}</h1>
+      <LiveRefresh />
       <Suspense fallback={<p>Cargando…</p>}>
         <Greeting roles={roles} path={path} needsStation={needsStation} />
       </Suspense>
