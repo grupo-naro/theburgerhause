@@ -180,6 +180,24 @@ describe("startAgent: persistence and restarts", () => {
   });
 });
 
+describe("startAgent: a broken state directory", () => {
+  it("logs ONE error per window, keeps printing and acking from memory", async () => {
+    boot();
+    await connected();
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.writeFileSync(dir, "the data dir became a file: no save can work");
+    server.stream.job(sampleJob(90));
+    server.stream.job(sampleJob(91));
+    server.stream.job(sampleJob(92));
+    await server.waitForAcks(3);
+    expect(backend.prints.map((p) => p.jobId)).toEqual([90, 91, 92]);
+    expect(log.count("No se pudo guardar el estado")).toBe(1);
+    expect(log.entries.find((e) => e.msg.includes("No se pudo guardar el estado"))?.level).toBe("error");
+    fs.rmSync(dir, { force: true });
+    fs.mkdirSync(dir);
+  });
+});
+
 describe("startAgent: graceful stop", () => {
   it("stop() finishes the in-flight job and delivers its ack before resolving", async () => {
     backend.plan = ["hang"];

@@ -8,6 +8,12 @@ const MAX_ERROR = 300;
 export type PrintedEntry = { id: number; at: string };
 export type PendingAck = { jobId: number; status: "done" | "failed"; error?: string; queuedAt: string; attempts: number };
 
+export type StateLogger = {
+  error(msg: string, fields?: Record<string, unknown>): void;
+  info(msg: string, fields?: Record<string, unknown>): void;
+};
+const ERROR_LOG_WINDOW_MS = 60_000;
+
 const isId = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n > 0;
 const isObject = (o: unknown): o is Record<string, unknown> => typeof o === "object" && o !== null && !Array.isArray(o);
 
@@ -18,15 +24,18 @@ const isObject = (o: unknown): o is Record<string, unknown> => typeof o === "obj
  */
 export class StateStore {
   lastError: string | null = null;
+  private lastErrorLoggedAt = 0;
+  private failing = false;
 
   private constructor(
     private readonly dir: string,
     private readonly now: () => Date,
     private printed: PrintedEntry[],
     private acks: PendingAck[],
+    private readonly logger?: StateLogger,
   ) {}
 
-  static load(dir: string, now: () => Date = () => new Date()): StateStore {
+  static load(dir: string, now: () => Date = () => new Date(), logger?: StateLogger): StateStore {
     const file = path.join(dir, "state.json");
     let printed: PrintedEntry[] = [];
     let acks: PendingAck[] = [];
@@ -66,7 +75,7 @@ export class StateStore {
         }
       }
     }
-    return new StateStore(dir, now, printed, acks);
+    return new StateStore(dir, now, printed, acks, logger);
   }
 
   hasPrinted(id: number): boolean {
@@ -124,8 +133,21 @@ export class StateStore {
       fs.writeFileSync(tmp, JSON.stringify({ version: 1, printed: this.printed, pendingAcks: this.acks }));
       renameWithRetry(tmp, file);
       this.lastError = null;
+      if (this.failing) {
+        this.failing = false;
+        this.logger?.info("El guardado del estado volvió a funcionar");
+      }
     } catch (err) {
       this.lastError = err instanceof Error ? err.message : String(err);
+      this.failing = true;
+      const at = this.now().getTime();
+      if (this.logger && at - this.lastErrorLoggedAt >= ERROR_LOG_WINDOW_MS) {
+        this.lastErrorLoggedAt = at;
+        this.logger.error(
+          "No se pudo guardar el estado del agente en disco: sin él no se evitan reimpresiones tras un reinicio y se pierden las confirmaciones pendientes. Revisá permisos y espacio de DATA_DIR",
+          { code: (err as NodeJS.ErrnoException).code ?? "desconocido" },
+        );
+      }
       try {
         fs.rmSync(tmp, { force: true });
       } catch {

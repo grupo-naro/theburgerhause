@@ -35,7 +35,7 @@ export function startAgent(config: AgentConfig, deps: AgentDeps = {}): AgentHand
   const rng = deps.rng ?? Math.random;
   const logger = deps.logger ?? createLogger({ level: config.logLevel, sinks: [consoleSink(), fileSink(config.dataDir)] });
   const backend = deps.backend ?? createBackend(config);
-  const state = StateStore.load(config.dataDir);
+  const state = StateStore.load(config.dataDir, () => new Date(), logger);
 
   const api = new AgentApi({ serverUrl: config.serverUrl, token: config.stationToken, fetch: deps.fetch });
   const acks = new AckDelivery({ api, state, clock, rng, logger });

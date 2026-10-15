@@ -151,3 +151,74 @@ describe("StateStore.removeAck with a status guard", () => {
     fs.rmSync(d, { recursive: true, force: true });
   });
 });
+
+describe("StateStore save failures are surfaced", () => {
+  function setup() {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "agent-state-"));
+    const calls: { level: string; msg: string; fields?: Record<string, unknown> }[] = [];
+    const logger = {
+      error: (msg: string, fields?: Record<string, unknown>) => void calls.push({ level: "error", msg, fields }),
+      info: (msg: string, fields?: Record<string, unknown>) => void calls.push({ level: "info", msg, fields }),
+    };
+    let t = Date.parse("2026-10-15T10:00:00.000Z");
+    const clock = () => new Date(t);
+    const s = StateStore.load(d, clock, logger);
+    const breakDir = () => {
+      fs.rmSync(d, { recursive: true, force: true });
+      fs.writeFileSync(d, "now a file, so nothing can be saved");
+    };
+    const fixDir = () => {
+      fs.rmSync(d, { force: true });
+      fs.mkdirSync(d);
+    };
+    return { d, s, calls, advance: (ms: number) => void (t += ms), breakDir, fixDir };
+  }
+
+  it("logs an ERROR when a save fails, at most once per minute, and keeps working in memory", () => {
+    const { d, s, calls, advance, breakDir } = setup();
+    breakDir();
+    s.markPrinted(1);
+    s.enqueueAck({ jobId: 1, status: "done" });
+    s.markPrinted(2);
+    expect(calls.filter((c) => c.level === "error")).toHaveLength(1);
+    expect(calls[0].msg).toContain("No se pudo guardar el estado");
+    expect(s.hasPrinted(2)).toBe(true);
+    advance(59_000);
+    s.markPrinted(3);
+    expect(calls.filter((c) => c.level === "error")).toHaveLength(1);
+    advance(2_000);
+    s.markPrinted(4);
+    expect(calls.filter((c) => c.level === "error")).toHaveLength(2);
+    fs.rmSync(d, { force: true });
+  });
+
+  it("never puts ids, documents or tokens in the message", () => {
+    const { d, s, calls, breakDir } = setup();
+    breakDir();
+    s.markPrinted(987654);
+    s.enqueueAck({ jobId: 987655, status: "failed", error: "SECRETO bhst_AAAAAAAAAAAAAAAAAAAA" });
+    expect(JSON.stringify(calls)).not.toMatch(/987654|SECRETO|bhst_/);
+    fs.rmSync(d, { force: true });
+  });
+
+  it("logs once when saving works again", () => {
+    const { d, s, calls, breakDir, fixDir } = setup();
+    breakDir();
+    s.markPrinted(1);
+    fixDir();
+    s.markPrinted(2);
+    s.markPrinted(3);
+    expect(calls.map((c) => c.level)).toEqual(["error", "info"]);
+    expect(calls[1].msg).toContain("volvió a funcionar");
+    expect(StateStore.load(d, now).hasPrinted(3)).toBe(true);
+  });
+
+  it("works without a logger", () => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "agent-state-"));
+    const s = StateStore.load(d, now);
+    fs.rmSync(d, { recursive: true, force: true });
+    fs.writeFileSync(d, "x");
+    expect(() => s.markPrinted(1)).not.toThrow();
+    fs.rmSync(d, { force: true });
+  });
+});
