@@ -58,6 +58,29 @@ test.describe("cashier", () => {
     expect(streams.count()).toBe(before);
   });
 
+  test("the printer indicator follows the agent heartbeat WITHOUT any order event or reload", async ({ page }) => {
+    // The server compares last_seen_at with ITS clock, so "time passing" is simulated in the DB.
+    const ago = (ms: number) => new Date(Date.now() - ms);
+    await setStationSeen("Mostrador 1", new Date());
+    try {
+      await page.clock.install({ time: new Date() });
+      await page.goto("/caja");
+      const printer = page.getByTestId("printer-indicator");
+      await expect(printer).toHaveText("Impresora lista");
+
+      await setStationSeen("Mostrador 1", ago(95_000)); // the agent stopped pinging
+      await page.clock.runFor(31_000); // one heartbeat tick + the shared refresh debounce
+      await expect(printer).toHaveText("Sin agente");
+      await expect(printer).toHaveAttribute("data-online", "false");
+
+      await setStationSeen("Mostrador 1", new Date()); // the agent is back
+      await page.clock.runFor(31_000);
+      await expect(printer).toHaveText("Impresora lista");
+    } finally {
+      await setStationSeen("Mostrador 1", null);
+    }
+  });
+
   test("every staff page opens exactly one /api/events connection", async ({ context }) => {
     for (const path of ["/caja", "/mostrador"]) {
       const fresh = await context.newPage();

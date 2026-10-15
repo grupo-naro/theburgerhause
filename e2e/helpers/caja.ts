@@ -132,7 +132,11 @@ export async function stubAudio(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const w = window as unknown as { __beeps: number; AudioContext: unknown };
     w.__beeps = 0;
+    (w as unknown as { __ctxCount: number }).__ctxCount = 0;
     class FakeAudioContext {
+      constructor() {
+        (w as unknown as { __ctxCount: number }).__ctxCount++;
+      }
       state = "running";
       currentTime = 0;
       destination = {};
@@ -157,5 +161,8 @@ export async function stubAudio(page: Page): Promise<void> {
     w.AudioContext = FakeAudioContext;
   });
 }
+
+export const audioContexts = (page: Page): Promise<number> =>
+  page.evaluate(() => (window as unknown as { __ctxCount: number }).__ctxCount);
 
 export const beeps = (page: Page): Promise<number> => page.evaluate(() => (window as unknown as { __beeps: number }).__beeps);

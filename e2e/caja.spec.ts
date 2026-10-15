@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { formatARS } from "../src/domain/money";
-import { beeps, eventsOf, failPrintJob, markJobsDone, openCaja, orderById, orderCard, parkPendingOrders, placeCajaOrder, printJobsOf, recentRow, stubAudio } from "./helpers/caja";
+import { audioContexts, beeps, eventsOf, failPrintJob, markJobsDone, openCaja, orderById, orderCard, parkPendingOrders, placeCajaOrder, printJobsOf, recentRow, stubAudio } from "./helpers/caja";
 import { findStation, findUser } from "./helpers/db";
 import { currentStep, openTracking } from "./helpers/tracking";
 import { authFile } from "./helpers/users";
@@ -74,6 +74,25 @@ test.describe("arrival and alerts", () => {
     expect(await beeps(page)).toBe(0);
     await page.reload();
     await expect(page.getByTestId("sound-toggle")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("a stored sound preference does not create an AudioContext until the first gesture", async ({ page }) => {
+    await stubAudio(page);
+    await page.addInitScript(() => window.localStorage.setItem("caja:sound", "on"));
+    await parkPendingOrders();
+    const o = await placeCajaOrder();
+    await openCaja(page);
+    await expect(orderCard(page, o.number)).toBeVisible();
+    await expect(page.getByTestId("sound-toggle")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("sound-hint")).toContainText("Tocá cualquier parte");
+    expect(await audioContexts(page)).toBe(0);
+
+    await page.mouse.click(5, 5); // any gesture
+    await expect(page.getByTestId("sound-hint")).toHaveCount(0);
+    expect(await audioContexts(page)).toBe(1);
+    const next = await placeCajaOrder();
+    await expect(orderCard(page, next.number)).toBeVisible();
+    expect(await beeps(page)).toBe(1);
   });
 
   test("an unfocused tab flashes the title until it is focused again", async ({ page }) => {
@@ -313,6 +332,14 @@ test.describe("failed prints", () => {
       expect(reprint).toMatchObject({ type: "kitchen", status: "pending", stationId: station.id, attempts: 0 });
       await expect(page.getByTestId("printer-indicator")).not.toContainText("fallida");
       await expect(recentRow(page, o.number).locator('[data-state="failed"]')).toHaveCount(0);
+
+      // The reprinted job fails too: the alert returns with a fresh, enabled button.
+      await failPrintJob(reprint.id, "Se trabó el papel");
+      await expect(alert).toBeVisible();
+      await expect(alert).toContainText("Cocina: Se trabó el papel");
+      const again = alert.getByRole("button", { name: `Reimprimir pedido #${o.number}` });
+      await expect(again).toBeEnabled();
+      await expect(again).toHaveText("Reimprimir");
     } finally {
       // Leave no failed job behind for other specs.
       await markJobsDone(o.id);
