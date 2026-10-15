@@ -4,7 +4,7 @@ import { NotFoundView } from "@/components/menu/not-found-view";
 export default function RootNotFound() {
   return (
     <main className="flex flex-1 items-center justify-center">
-      <NotFoundView />
+      <NotFoundView heading="h1" />
     </main>
   );
 }

@@ -27,7 +27,7 @@ export function ProductImage({ product, priority = false, sizes }: Props) {
           height={96}
           loading="lazy"
           decoding="async"
-          className="size-24 rounded-full opacity-90 shadow-sm"
+          className="size-14 rounded-full opacity-80 md:size-24 md:opacity-90 md:shadow-sm"
         />
       </span>
     );

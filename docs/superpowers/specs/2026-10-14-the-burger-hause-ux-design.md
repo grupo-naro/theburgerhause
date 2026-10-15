@@ -15,7 +15,7 @@ Referencias analizadas: logo (círculo azul, texto blanco redondeado y grueso, m
 | 17 categorías como texto en 4 filas empujan los productos fuera de pantalla | Barra horizontal *sticky* de chips con scroll lateral y *scrollspy* |
 | Contador por tarjeta impide configurar cada unidad por separado | Hoja de producto con configuración por unidad (§3.4) |
 | El carrito es solo un total en el header | Barra inferior fija con cantidad y total + carrito completo |
-| Miniaturas de ~100 px en 2 columnas | Una columna en celular con foto grande; 2–3 columnas en escritorio |
+| Miniaturas de ~100 px en 2 columnas, difíciles de recorrer y de tocar | En celular, una fila compacta por producto con miniatura de 104 px a la derecha y botón "+" de 44 px (más legible y tocable que la tienda actual, y la página sigue siendo corta con muchos productos); tarjetas grandes con foto en escritorio (2–3 columnas) |
 
 ## 2. Tokens de diseño
 
@@ -71,7 +71,11 @@ Reglas: el color nunca es el único indicador (siempre va con texto o icono); co
 7. **Barra de pedido inferior** (aparece con ≥1 ítem): "Ver pedido · 3 · $43.700".
 
 ### 3.2 Tarjeta de producto
-Foto (relación 4:3 en celular, 1:1 en escritorio), nombre en display, descripción en 2 líneas, precio en azul y botón circular cheddar "+". **Toda la tarjeta abre la hoja de producto**; no hay contador en la tarjeta.
+**Celular (< 768 px): fila compacta.** Texto a la izquierda (nombre en display, descripción en 2 líneas, precio en azul) y miniatura cuadrada de 104 px a la derecha con esquinas redondeadas; el botón circular cheddar "+" (44 px) se superpone a la esquina inferior derecha de la miniatura. Alto mínimo ~120 px. Sin foto, la miniatura muestra un recuadro tenue con la mascota (~56 px), sin paneles vacíos grandes. Motivo: con tarjetas de foto 4:3 a una columna cada producto ocupaba ~390 px (la página de 11 productos medía ~5.800 px); la fila compacta ocupa ~130 px (~2.550 px la página) y con un menú de ~100 productos la tarjeta grande sería inmanejable en celular.
+
+**Escritorio (≥ 768 px): tarjeta grande** en grilla de 2 (md) o 3 (lg) columnas: foto 1:1, nombre en display, descripción en 2 líneas, precio en azul y botón circular cheddar "+".
+
+En ambos casos **toda la tarjeta es un único botón que abre la hoja de producto**; no hay contador en la tarjeta.
 
 ### 3.3 Estados de la tienda
 - Local cerrado o pedidos pausados: banner superior y botones deshabilitados con el motivo. Requiere `settings.accepting_orders` (adición menor).

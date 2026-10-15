@@ -5,16 +5,20 @@ import type { PublicMenu } from "@/lib/menu/public";
 import { filterMenu } from "@/lib/menu/search";
 import { CategoryBar } from "./category-bar";
 import { CategorySection } from "./category-section";
+import { FeaturedCarousel } from "./featured-carousel";
 import { SearchBox } from "./search-box";
 
-/** Search + sticky category bar + sections, filtered instantly on the client. */
+/** Featured row + search + sticky category bar + sections, filtered instantly on the client. */
 export function MenuBrowser({ menu }: { menu: PublicMenu }) {
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => filterMenu(menu, query), [menu, query]);
   const count = filtered.categories.reduce((n, c) => n + c.products.length, 0);
+  const searching = query.trim() !== "";
 
   return (
     <div>
+      {/* Hidden while searching: the results are what the visitor is looking at. */}
+      {!searching && <FeaturedCarousel products={menu.featured} />}
       <SearchBox value={query} onChange={setQuery} resultCount={count} />
       {filtered.categories.length > 0 ? (
         <>

@@ -2,10 +2,11 @@ import Link from "next/link";
 import { StatePanel } from "./state-panel";
 import { buttonClass } from "@/components/ui/button";
 
-export function NotFoundView() {
+export function NotFoundView({ heading }: { heading?: "h1" | "h2" }) {
   return (
     <StatePanel
       title="No encontramos esa página"
+      heading={heading}
       actions={
         <Link href="/" className={buttonClass()}>
           Volver a la carta

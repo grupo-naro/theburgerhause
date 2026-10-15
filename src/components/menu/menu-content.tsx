@@ -1,5 +1,4 @@
 import { getMenu } from "@/lib/menu/queries";
-import { FeaturedCarousel } from "./featured-carousel";
 import { MenuBrowser } from "./menu-browser";
 import { StatePanel } from "./state-panel";
 
@@ -9,10 +8,5 @@ export async function MenuContent() {
   if (menu.categories.length === 0) {
     return <StatePanel title="Estamos actualizando nuestra carta">Volvé en unos minutos para ver las novedades.</StatePanel>;
   }
-  return (
-    <>
-      <FeaturedCarousel products={menu.featured} />
-      <MenuBrowser menu={menu} />
-    </>
-  );
+  return <MenuBrowser menu={menu} />;
 }
