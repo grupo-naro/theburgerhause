@@ -67,6 +67,7 @@ test("a product without modifier groups gets the minimal sheet and adds at its p
 });
 
 test("per-unit configuration: two burgers, each with its own modifiers", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" }); // screenshots show the settled selected state
   await gotoStore(page);
   const sheet = await openSheet(page, "Ranchita simple");
   await expect(cta(sheet)).toHaveText(`Agregar al pedido · ${formatARS(RANCHITA)}`);
@@ -280,6 +281,21 @@ test("the add button cannot fire twice (one click adds one product)", async ({ p
   await cta(sheet).dblclick();
   await expect(sheet).toBeHidden();
   await expect(cartCount(page)).toHaveText("1");
+});
+
+test("two activations in the same tick add exactly one product and show one toast", async ({ page }) => {
+  await gotoStore(page);
+  const sheet = await openSheet(page, "Melt simple");
+  await cta(sheet).evaluate((el: HTMLElement) => {
+    el.click();
+    el.click();
+  });
+  await expect(sheet).toBeHidden();
+  await expect(cartCount(page)).toHaveText("1");
+  await expect(toast(page)).toHaveCount(1);
+  await orderBar(page).click();
+  await expect(page.getByTestId("cart-line")).toHaveCount(1);
+  await expect(page.getByTestId("cart-line-quantity-value")).toHaveText("1");
 });
 
 test("closed store: paused sheet, no order bar, disabled continue, and a stale sheet cannot add", async ({ page }) => {

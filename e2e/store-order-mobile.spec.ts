@@ -33,6 +33,7 @@ async function expectTapTargets(locator: Locator, { square = true }: { square?: 
 }
 
 test("the sheet, the order bar and the cart fit a phone @mobile", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" }); // screenshots show the settled selected state
   const viewport = page.viewportSize()!;
   await gotoStore(page);
   expect(await noHorizontalOverflow(page)).toBe(true);
@@ -99,6 +100,7 @@ test("the sheet, the order bar and the cart fit a phone @mobile", async ({ page 
 });
 
 test("the cart page with several groups is comfortable on a phone @mobile", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   const [ranchita, melt, cuarto] = await Promise.all([
     findProduct("Ranchita simple"),
     findProduct("Melt doble"),

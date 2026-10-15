@@ -4,6 +4,7 @@ import { findProduct, modifierIdByName } from "./helpers/db";
 import { reloadUntil } from "./helpers/public-menu";
 import { shot, shotViewport } from "./helpers/shots";
 import {
+  CART_KEY,
   addProduct,
   cartCount,
   cta,
@@ -32,6 +33,7 @@ const PAPAS = 100000;
 const names = (page: import("@playwright/test").Page) => page.getByTestId("cart-line").getByTestId("cart-line-name");
 
 test("cart page: steppers, undo, edit, remove and the empty state", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" }); // screenshots show the settled selected state
   const [ranchita, melt, cuarto] = await Promise.all([
     findProduct("Ranchita simple"),
     findProduct("Melt simple"),
@@ -66,6 +68,8 @@ test("cart page: steppers, undo, edit, remove and the empty state", async ({ pag
   await toast(page).getByRole("button", { name: "Deshacer" }).click();
   await expect(names(page)).toHaveText(["Ranchita simple", "Melt simple", "Cuarto de libra simple"]);
   await expect(subtotal).toHaveText(formatARS(RANCHITA + MELT + DIPS + CUARTO));
+  // Restored lines have no price snapshot: that must not look like a price change.
+  await expect(page.getByTestId("issues-banner")).toHaveCount(0);
 
   // Same for a group in the MIDDLE removed with "Quitar".
   await lines.nth(1).getByRole("button", { name: "Quitar", exact: true }).click();
@@ -234,4 +238,56 @@ test("a price change, a removed option and a missing product are explained in Sp
   await expect(banner).toContainText("Un producto que ya no está disponible se quitó de tu pedido");
   await expect(page.getByTestId("cart-line")).toHaveCount(1);
   await shot(page, "cart-issues-banner-desktop");
+});
+
+test("saving an edit whose line vanished meanwhile adds the edited configuration", async ({ page }) => {
+  const [ranchita, melt] = await Promise.all([findProduct("Ranchita simple"), findProduct("Melt simple")]);
+  const dips = await modifierIdByName("+ Dips de cheddar");
+  await seedCart(page, [{ productId: ranchita.id }, { productId: melt.id, modifierIds: [dips] }], "/carrito");
+  const lines = page.getByTestId("cart-line");
+  await expect(lines).toHaveCount(2);
+  await lines.nth(1).getByRole("button", { name: "Editar" }).click();
+  const sheet = sheetOf(page);
+  await expect(sheet).toBeVisible();
+
+  // Another tab removes the Melt line.
+  const other = await page.context().newPage();
+  await gotoStore(other);
+  await other.evaluate(
+    ([key, value]) => localStorage.setItem(key, value),
+    [CART_KEY, JSON.stringify({ v: 1, lines: [{ id: "seed-0", productId: ranchita.id, modifierIds: [], note: "" }], prices: {} })] as const,
+  );
+  await expect(lines).toHaveCount(1); // the storage event reached the first tab (behind the modal)
+
+  await modifierRow(sheet, "Sin lechuga").click();
+  await expect(cta(sheet)).toHaveText(`Guardar cambios · ${formatARS(MELT + DIPS)}`);
+  await cta(sheet).click();
+  await expect(sheet).toBeHidden();
+  await expect(toast(page)).toContainText("Agregado al pedido");
+  await expect(toast(page)).not.toContainText("Pedido actualizado");
+  await expect(lines).toHaveCount(2);
+  await expect(lines.nth(1).getByTestId("cart-line-name")).toHaveText("Melt simple");
+  await expect(lines.nth(1).getByTestId("cart-chip")).toHaveText(["Sin lechuga", /^\+ Dips de cheddar/]);
+  await other.close();
+});
+
+test("browser Back closes an open sheet instead of leaving a modal over another page", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  const melt = await findProduct("Melt simple");
+  await seedCart(page, [{ productId: melt.id }]);
+  await page.getByTestId("cart-button").click();
+  await expect(page).toHaveURL(/\/carrito$/);
+  await page.getByTestId("cart-line").getByRole("button", { name: "Editar" }).click();
+  await expect(sheetOf(page)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe("hidden");
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(sheetOf(page)).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe("");
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
 });
