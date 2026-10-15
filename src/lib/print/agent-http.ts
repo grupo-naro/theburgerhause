@@ -21,9 +21,11 @@ export type AgentAuth = { ok: true; station: AgentStation } | { ok: false; respo
  * a VALID token always passes (nine agents share the venue's IP and a misconfigured sibling must not lock the rest out).
  */
 export async function authorizeAgent(request: Request, db: Db): Promise<AgentAuth> {
+  // Read outside the try: touching request.headers is how Next detects a dynamic route at build time, and that signal must not be swallowed.
+  const authorization = request.headers.get("authorization");
   let station: AgentStation | null;
   try {
-    station = await authenticateStation(db, request.headers.get("authorization"));
+    station = await authenticateStation(db, authorization);
   } catch (err) {
     const code = (err as { code?: unknown } | null)?.code;
     console.error(`[print] agent auth lookup failed${typeof code === "string" ? ` (${code})` : ""}`);
