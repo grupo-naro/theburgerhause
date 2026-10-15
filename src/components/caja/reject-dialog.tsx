@@ -67,7 +67,7 @@ export function RejectDialog({ orderNumber, busy, error, onCancel, onConfirm }: 
                 disabled={busy}
                 aria-pressed={reason === q}
                 onClick={() => setReason((r) => applyQuickReason(r, q))}
-                className={`min-h-12 rounded-full border px-4 text-base font-semibold transition-colors disabled:opacity-60 ${
+                className={`min-h-12 rounded-full border px-4 text-base font-semibold disabled:opacity-60 ${
                   reason === q
                     ? "border-brand-600 bg-brand-600 text-white"
                     : "border-line bg-surface text-ink hover:bg-brand-50"
