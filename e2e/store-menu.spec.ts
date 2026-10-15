@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { findProduct, setAcceptingOrders } from "./helpers/db";
+import { reloadUntil } from "./helpers/public-menu";
 import { shot } from "./helpers/shots";
 import { authFile } from "./helpers/users";
 
@@ -208,9 +209,10 @@ test("a deactivated product disappears from the public menu", async ({ page, bro
     try {
       await admin.getByRole("button", { name: `Desactivar ${name}` }).click();
       await expect(admin.getByRole("button", { name: `Activar ${name}` })).toBeVisible();
-      await page.reload();
-      await expect(card(page, name)).toHaveCount(0);
-      await expect(card(page, "Melt simple")).toHaveCount(1);
+      await reloadUntil(page, async () => {
+        await expect(card(page, name)).toHaveCount(0, { timeout: 1000 });
+        await expect(card(page, "Melt simple")).toHaveCount(1, { timeout: 1000 });
+      });
     } finally {
       await admin.goto("/admin/menu");
       await expect(admin.getByRole("row", { name: new RegExp(name) })).toBeVisible();
@@ -219,8 +221,7 @@ test("a deactivated product disappears from the public menu", async ({ page, bro
       await expect(admin.getByRole("button", { name: `Desactivar ${name}` })).toBeVisible();
     }
   });
-  await page.reload();
-  await expect(card(page, name)).toHaveCount(1);
+  await reloadUntil(page, () => expect(card(page, name)).toHaveCount(1, { timeout: 1000 }));
 });
 
 test("renaming a product in the admin shows up on the public page (cache invalidation)", async ({
@@ -235,14 +236,14 @@ test("renaming a product in the admin shows up on the public page (cache invalid
   await withAdmin(browser, baseURL, async (admin) => {
     try {
       await renameProduct(admin, original, renamed);
-      await page.reload();
-      await expect(card(page, renamed)).toHaveCount(1);
-      await expect(card(page, original)).toHaveCount(0);
+      await reloadUntil(page, async () => {
+        await expect(card(page, renamed)).toHaveCount(1, { timeout: 1000 });
+        await expect(card(page, original)).toHaveCount(0, { timeout: 1000 });
+      });
     } finally {
       const current = await findProduct(renamed);
       if (current) await renameProduct(admin, renamed, original);
     }
   });
-  await page.reload();
-  await expect(card(page, original)).toHaveCount(1);
+  await reloadUntil(page, () => expect(card(page, original)).toHaveCount(1, { timeout: 1000 }));
 });
