@@ -68,7 +68,7 @@ export function CopyRow({
         <code
           ref={valueRef}
           data-testid={testId}
-          className="block select-all break-all font-mono text-sm font-semibold tracking-tight sm:text-base text-ink"
+          className="block select-all break-all font-mono text-[0.78rem] font-semibold tracking-tight sm:text-base text-ink"
         >
           {value}
         </code>
