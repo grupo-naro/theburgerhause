@@ -1,0 +1,61 @@
+"use server";
+
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { getDb } from "@/db/client";
+import { authenticate, roleHome, safeNextPath } from "@/lib/auth/login";
+import { checkLoginRate } from "@/lib/auth/login-rate-limit";
+import { setSessionCookie } from "@/lib/auth/session";
+import { createSession, setSessionStation } from "@/lib/auth/session-store";
+import { getStationCookie } from "@/lib/auth/station-cookie";
+import { findStation } from "@/lib/stations";
+
+export type LoginState = { error: string | null };
+
+const GENERIC_ERROR = "Usuario o contraseña incorrectos";
+const RATE_LIMIT_ERROR = "Demasiados intentos. Probá de nuevo en unos minutos.";
+
+const credentials = z.object({
+  username: z.string().trim().min(1).max(64),
+  password: z.string().min(1).max(256),
+});
+
+async function clientIp(): Promise<string> {
+  const forwarded = (await headers()).get("x-forwarded-for");
+  return forwarded?.split(",")[0]?.trim() || "unknown";
+}
+
+export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
+  const parsed = credentials.safeParse({ username: formData.get("username"), password: formData.get("password") });
+  if (!parsed.success) return { error: GENERIC_ERROR };
+  const { username, password } = parsed.data;
+
+  if (!checkLoginRate(await clientIp(), username).ok) return { error: RATE_LIMIT_ERROR };
+
+  const db = getDb();
+  const user = await authenticate(db, { username, password });
+  if (!user) return { error: GENERIC_ERROR };
+
+  const rawNext = formData.get("next");
+  const next = typeof rawNext === "string" ? rawNext : null;
+
+  const { token } = await createSession(db, { userId: user.id });
+  await setSessionCookie(token);
+
+  let destination: string;
+  if (user.role === "admin") {
+    destination = safeNextPath(next, "/admin");
+  } else {
+    const stationId = await getStationCookie();
+    const station = stationId === null ? null : await findStation(db, stationId);
+    if (station) {
+      await setSessionStation(db, token, station.id);
+      destination = safeNextPath(next, roleHome(user.role));
+    } else {
+      const safe = safeNextPath(next, "");
+      destination = safe ? `/estacion?next=${encodeURIComponent(safe)}` : "/estacion";
+    }
+  }
+  redirect(destination);
+}
