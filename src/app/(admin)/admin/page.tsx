@@ -1,6 +1,5 @@
-import { StaffPlaceholder } from "@/components/staff-placeholder";
+import { redirect } from "next/navigation";
 
-// Placeholder: replaced by the real screen in a later sprint.
-export default function Page() {
-  return <StaffPlaceholder title="Administración" path="/admin" roles={["admin"]} />;
+export default function AdminIndex(): never {
+  redirect("/admin/menu");
 }

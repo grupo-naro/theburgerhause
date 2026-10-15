@@ -15,7 +15,7 @@ import {
 
 const db = () => testDb();
 const img = (n: number) => `123e4567-e89b-42d3-a456-42661417400${n}.webp`;
-const deleter = () => vi.fn(async (_name: string) => {});
+const deleter = () => vi.fn<(name: string) => Promise<void>>(async () => {});
 
 async function cat(name: string, extra: Record<string, unknown> = {}) {
   const r = await saveCategory(db(), { name, active: true, ...extra });
