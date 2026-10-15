@@ -55,7 +55,7 @@ export async function claimPendingJobs(db: Db | DbTransaction, stationId: number
     UPDATE print_jobs
     SET status = 'printing', claimed_at = ${at}::timestamptz, attempts = attempts + 1, updated_at = ${at}::timestamptz
     WHERE id IN (SELECT id FROM picked)
-    RETURNING id, order_id, type, payload, attempts, (extract(epoch from created_at) * 1000)::float8 AS created_ms`);
+    RETURNING id, order_id, type, payload, attempts, round(extract(epoch from date_trunc('milliseconds', created_at)) * 1000)::float8 AS created_ms`);
   return (res.rows as Row[])
     .map((r) => ({
       id: r.id as number,
