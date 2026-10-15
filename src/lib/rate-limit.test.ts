@@ -79,3 +79,43 @@ describe("createRateLimiter", () => {
     expect(rl.size()).toBeLessThanOrEqual(5);
   });
 });
+
+describe("createRateLimiter peek / record", () => {
+  it("peek never consumes; record consumes", () => {
+    const c = clock();
+    const rl = createRateLimiter({ limit: 2, windowMs: 1000, now: c.now });
+    for (let i = 0; i < 10; i++) expect(rl.peek("a").ok).toBe(true);
+    rl.record("a");
+    expect(rl.peek("a").ok).toBe(true);
+    rl.record("a");
+    expect(rl.peek("a")).toEqual({ ok: false, retryAfterMs: 1000 });
+  });
+
+  it("record is not capped by the limit (creations that already happened always count)", () => {
+    const rl = createRateLimiter({ limit: 1, windowMs: 1000, now: clock().now });
+    rl.record("a");
+    rl.record("a");
+    expect(rl.peek("a").ok).toBe(false);
+  });
+
+  it("recorded hits expire with the window", () => {
+    const c = clock();
+    const rl = createRateLimiter({ limit: 1, windowMs: 1000, now: c.now });
+    rl.record("a");
+    c.advance(1001);
+    expect(rl.peek("a").ok).toBe(true);
+  });
+
+  it("peek on an unknown key does not create state; record respects maxKeys", () => {
+    const rl = createRateLimiter({ limit: 1, windowMs: 1000, maxKeys: 3, now: clock().now });
+    rl.peek("x");
+    expect(rl.size()).toBe(0);
+    for (let i = 0; i < 10; i++) rl.record(`k${i}`);
+    expect(rl.size()).toBeLessThanOrEqual(3);
+  });
+
+  it("check keeps its semantics (peek + record only when allowed)", () => {
+    const rl = createRateLimiter({ limit: 2, windowMs: 1000, now: clock().now });
+    expect([rl.check("a").ok, rl.check("a").ok, rl.check("a").ok]).toEqual([true, true, false]);
+  });
+});

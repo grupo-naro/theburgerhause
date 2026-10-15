@@ -3,6 +3,10 @@ export type RateLimitResult = { ok: boolean; retryAfterMs: number };
 export type RateLimiter = {
   /** Records an attempt for `key` (only while allowed) and says whether it may proceed. */
   check(key: string): RateLimitResult;
+  /** Says whether `key` could proceed WITHOUT recording anything. */
+  peek(key: string): RateLimitResult;
+  /** Records a hit for `key` unconditionally (an event that already happened). */
+  record(key: string): void;
   /** Number of keys currently tracked (for tests / monitoring). */
   size(): number;
 };
@@ -35,24 +39,44 @@ export function createRateLimiter({
     }
   }
 
+  function fresh(key: string, t: number): number[] {
+    return (hits.get(key) ?? []).filter((h) => h > t - windowMs);
+  }
+
+  function store(key: string, list: number[]): void {
+    hits.delete(key); // re-insert so Map order tracks recency of last hit
+    hits.set(key, list);
+    while (hits.size > maxKeys) {
+      const oldest = hits.keys().next().value as string;
+      hits.delete(oldest);
+    }
+  }
+
+  function verdict(list: number[], t: number): RateLimitResult {
+    return list.length >= limit ? { ok: false, retryAfterMs: list[0] + windowMs - t } : { ok: true, retryAfterMs: 0 };
+  }
+
   return {
     check(key) {
       const t = now();
       sweep(t);
-      const fresh = (hits.get(key) ?? []).filter((h) => h > t - windowMs);
-      if (fresh.length >= limit) {
-        hits.delete(key);
-        hits.set(key, fresh);
-        return { ok: false, retryAfterMs: fresh[0] + windowMs - t };
-      }
-      fresh.push(t);
-      hits.delete(key); // re-insert so Map order tracks recency of last hit
-      hits.set(key, fresh);
-      while (hits.size > maxKeys) {
-        const oldest = hits.keys().next().value as string;
-        hits.delete(oldest);
-      }
-      return { ok: true, retryAfterMs: 0 };
+      const list = fresh(key, t);
+      const v = verdict(list, t);
+      if (v.ok) list.push(t);
+      store(key, list);
+      return v;
+    },
+    peek(key) {
+      const t = now();
+      sweep(t);
+      return verdict(fresh(key, t), t);
+    },
+    record(key) {
+      const t = now();
+      sweep(t);
+      const list = fresh(key, t);
+      list.push(t);
+      store(key, list);
     },
     size: () => hits.size,
   };
