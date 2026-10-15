@@ -50,3 +50,24 @@ export async function linkedGroupIds(productId: number): Promise<number[]> {
     .where(eq(s.productModifierGroups.productId, productId));
   return rows.map((r) => r.groupId).sort((a, b) => a - b);
 }
+
+export async function findCadet(name: string) {
+  const [row] = await db().select().from(s.cadets).where(eq(s.cadets.name, name));
+  return row;
+}
+
+export async function findUser(username: string) {
+  const [row] = await db().select().from(s.users).where(eq(s.users.username, username));
+  return row;
+}
+
+export async function findStation(name: string) {
+  const [row] = await db().select().from(s.stations).where(eq(s.stations.name, name));
+  return row;
+}
+
+/** Raw jsonb value of one settings key (null when the row does not exist). */
+export async function settingValue(key: string): Promise<unknown> {
+  const [row] = await db().select().from(s.settings).where(eq(s.settings.key, key));
+  return row ? row.value : null;
+}
