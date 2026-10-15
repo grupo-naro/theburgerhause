@@ -110,8 +110,14 @@ describe("loadConfig: validation errors (Spanish, naming the key)", () => {
 
   it("windows needs PRINTER_NAME, and a safe one", () => {
     expect(errors(load({ ...base, PRINTER_BACKEND: "windows" }))[0]).toContain("PRINTER_NAME");
-    for (const name of ["a;b", "x`y", "$(calc)", "a|b", "x'y", 'x"y', "a".repeat(101), "a\nb", "a<b"]) {
+    for (const name of ["a;b", "x`y", "$(calc)", "a|b", 'x"y', "-Verbose", "a".repeat(101), "a\nb", "a<b"]) {
       expect(errors(load({ ...base, PRINTER_BACKEND: "windows", PRINTER_NAME: name }))[0]).toContain("PRINTER_NAME");
+    }
+  });
+
+  it("accepts Spanish-Windows and shared printer names", () => {
+    for (const name of ["Impresora Térmica 80mm", "Ñandú-1", "\\\\PC\\EPSON"]) {
+      expect(ok(load({ ...base, PRINTER_BACKEND: "windows", PRINTER_NAME: name })).printerName).toBe(name);
     }
   });
 

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CODEPAGES, type Codepage } from "./codepages";
 import type { PaperWidth } from "./escpos";
+import { isValidPrinterName, PRINTER_NAME_HELP } from "./printer/printer-name";
 
 export const BACKENDS = ["windows", "tcp", "file", "console"] as const;
 export type BackendName = (typeof BACKENDS)[number];
@@ -24,7 +25,7 @@ export type AgentConfig = {
 };
 export type ConfigResult = { ok: true; config: AgentConfig } | { ok: false; errors: string[] };
 
-export const PRINTER_NAME_PATTERN = /^[\w .\-()#/&+]{1,100}$/;
+export { PRINTER_NAME_PATTERN } from "./printer/printer-name";
 const TOKEN_PATTERN = /^bhst_[A-Za-z0-9_-]{43}$/;
 const HOST_PATTERN = /^[A-Za-z0-9.\-:[\]]{1,253}$/;
 const KEYS = [
@@ -100,7 +101,7 @@ export function loadConfig(input: { env: Record<string, string | undefined>; fil
   let printerName: string | undefined;
   if (printerBackend === "windows") {
     if (!v.PRINTER_NAME) fail("PRINTER_NAME", "falta el nombre de la impresora de Windows (listalas con «print-agent check»)");
-    else if (!PRINTER_NAME_PATTERN.test(v.PRINTER_NAME)) fail("PRINTER_NAME", "tiene caracteres no permitidos (solo letras, números, espacios y . - _ ( ) # / & +, máximo 100)");
+    else if (!isValidPrinterName(v.PRINTER_NAME)) fail("PRINTER_NAME", `nombre no válido: ${PRINTER_NAME_HELP}`);
     else printerName = v.PRINTER_NAME;
   }
 

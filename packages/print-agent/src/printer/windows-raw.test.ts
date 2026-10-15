@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PrintError } from "./types";
+import { ATTR_BLOCK_MASK, STATUS_BLOCK_MASK } from "./printer-status";
 import { listPrinters, WindowsRawBackend, type SpawnLike } from "./windows-raw";
 import { RAW_PRINT_SCRIPT, scriptHash } from "./windows-script";
 
@@ -60,6 +61,21 @@ describe("WindowsRawBackend: script construction", () => {
     expect(calls[0].bytesAtSpawn).toEqual(bytes); // the temp file existed, with the exact bytes, while the process ran
   });
 
+  it("passes the status masks from the table as arguments, and the script checks the state BEFORE StartDocPrinter", async () => {
+    const { spawn, calls } = fakeSpawn({});
+    await make(spawn).print(Buffer.from("x"), { jobId: 1 });
+    const { args } = calls[0];
+    expect(args[args.indexOf("-StatusMask") + 1]).toBe(String(STATUS_BLOCK_MASK));
+    expect(args[args.indexOf("-AttrMask") + 1]).toBe(String(ATTR_BLOCK_MASK));
+    const sp = RAW_PRINT_SCRIPT;
+    expect(sp).toContain("GetPrinterW");
+    expect(sp).toContain("PRINTER_INFO_2");
+    expect(sp.indexOf("ReadState(h")).toBeGreaterThan(-1);
+    expect(sp.indexOf("statusMask")).toBeLessThan(sp.indexOf("StartDocPrinter(h"));
+    expect(sp).toContain("exit 6");
+    expect(/^[\x00-\x7f]*$/.test(sp)).toBe(true); // pure ASCII (PowerShell 5.1 reads BOM-less files as ANSI)
+  });
+
   it("never interpolates config values into the script text", async () => {
     const { spawn } = fakeSpawn({});
     await make(spawn, { printerName: "Evil (1)" }).print(Buffer.from("x"), { jobId: 1 });
@@ -101,7 +117,7 @@ describe("WindowsRawBackend: script construction", () => {
 });
 
 describe("WindowsRawBackend: validation", () => {
-  it.each(["a;b", "x`y", "$(calc)", "a|b", "x'y", 'x"y', "a".repeat(101), "a\nb", "a<b", ""])("rejects the printer name %j without spawning anything", async (name) => {
+  it.each(["a;b", "x`y", "$(calc)", "a|b", 'x"y', "-Verbose", "a".repeat(101), "a\nb", "a<b", ""])("rejects the printer name %j without spawning anything", async (name) => {
     const { spawn, calls } = fakeSpawn({});
     await expect(new WindowsRawBackend({ printerName: name, dataDir: dir, spawn }).print(Buffer.from("x"), { jobId: 1 })).rejects.toBeInstanceOf(PrintError);
     expect(calls).toHaveLength(0);
@@ -109,10 +125,10 @@ describe("WindowsRawBackend: validation", () => {
 
   it("accepts the usual names", async () => {
     const { spawn, calls } = fakeSpawn({});
-    for (const name of ["POS-80", "EPSON TM-T20II Receipt", "XP-80C (copy 2)", "Generic / Text Only", "Ticketera #1", "A&B+C"]) {
+    for (const name of ["POS-80", "EPSON TM-T20II Receipt", "XP-80C (copy 2)", "Generic / Text Only", "Ticketera #1", "A&B+C", "Impresora Térmica 80mm", "\\\\PC\\POS", "Ñandú-1"]) {
       await new WindowsRawBackend({ printerName: name, dataDir: dir, spawn }).print(Buffer.from("x"), { jobId: 1 });
     }
-    expect(calls).toHaveLength(6);
+    expect(calls).toHaveLength(9);
   });
 });
 
@@ -132,6 +148,14 @@ describe("WindowsRawBackend: error mapping", () => {
 
   it("exit 5 = the Windows print spooler is not running", async () => {
     expect((await run({ code: 5, stderr: "SPOOLER_DOWN 1722" }))?.message).toBe("El servicio de impresión de Windows (Spooler) no está activo");
+  });
+
+  it("exit 6 = the printer is not ready (offline, no paper...): the Spooler would accept the job but nothing would print", async () => {
+    expect((await run({ code: 6, stderr: "PRINTER_STATE 16 0" }))?.message).toBe("La impresora no está lista: sin papel");
+    expect((await run({ code: 6, stderr: "PRINTER_STATE 0 1024" }))?.message).toBe("La impresora no está lista: desconectada");
+    expect((await run({ code: 6, stderr: "PRINTER_STATE 144 0" }))?.message).toBe("La impresora no está lista: desconectada, sin papel");
+    expect((await run({ code: 6, stderr: "garbage" }))?.message).toBe("La impresora no está lista");
+    expect(await run({ code: 6, stderr: "PRINTER_STATE 16 0" })).toBeInstanceOf(PrintError);
   });
 
   it("exit 3 = the printer did not accept the data", async () => {

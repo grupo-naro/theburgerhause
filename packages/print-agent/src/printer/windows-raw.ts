@@ -2,7 +2,8 @@ import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from "node:c
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { PRINTER_NAME_PATTERN } from "../config";
+import { isValidPrinterName } from "./printer-name";
+import { ATTR_BLOCK_MASK, STATUS_BLOCK_MASK, stateMessage } from "./printer-status";
 import { PrintError, type PrinterBackend, type PrintContext } from "./types";
 import { RAW_PRINT_SCRIPT, scriptHash } from "./windows-script";
 
@@ -78,7 +79,7 @@ export class WindowsRawBackend implements PrinterBackend {
 
   async print(bytes: Buffer, ctx: PrintContext): Promise<void> {
     const name = this.opts.printerName;
-    if (!PRINTER_NAME_PATTERN.test(name)) throw new PrintError("El nombre de la impresora tiene caracteres no permitidos");
+    if (!isValidPrinterName(name)) throw new PrintError("El nombre de la impresora no es válido (revisá PRINTER_NAME)");
     const script = this.ensureScript();
     const tmpDir = path.join(this.opts.dataDir, "tmp");
     const dataFile = path.join(tmpDir, `job-${ctx.jobId}-${randomBytes(6).toString("hex")}.bin`);
@@ -89,11 +90,15 @@ export class WindowsRawBackend implements PrinterBackend {
       throw new PrintError("No se pudo preparar el archivo temporal de impresión");
     }
     try {
-      const args = [...FIXED_FLAGS, "-File", script, "-PrinterName", name, "-DataPath", dataFile, "-DocName", `BurgerHouse job ${ctx.jobId}`];
+      const args = [...FIXED_FLAGS, "-File", script, "-PrinterName", name, "-DataPath", dataFile, "-DocName", `BurgerHouse job ${ctx.jobId}`, "-StatusMask", String(STATUS_BLOCK_MASK), "-AttrMask", String(ATTR_BLOCK_MASK)];
       const r = await run(this.spawn, args, this.timeoutMs, "La impresora no respondió a tiempo");
       if (r.code === 0) return;
       if (r.code === 2) throw new PrintError(`No se encontró la impresora «${name}»`);
       if (r.code === 3) throw new PrintError("La impresora no responde");
+      if (r.code === 6) {
+        const m = /PRINTER_STATE (\d+) (\d+)/.exec(r.stderr);
+        throw new PrintError(m ? stateMessage(Number(m[1]), Number(m[2])) : "La impresora no está lista");
+      }
       if (r.code === 5) throw new PrintError("El servicio de impresión de Windows (Spooler) no está activo");
       throw new PrintError(`Falló la impresión en Windows (código ${r.code ?? "?"})`);
     } finally {
