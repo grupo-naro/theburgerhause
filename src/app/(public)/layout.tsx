@@ -3,8 +3,10 @@ import { CartProvider } from "@/components/cart/cart-provider";
 import { ClosedBanner } from "@/components/menu/closed-banner";
 import { MenuProvider } from "@/components/menu/menu-provider";
 import { MenuSkeleton } from "@/components/menu/menu-skeleton";
+import { ShellErrorBoundary } from "@/components/menu/shell-error-boundary";
 import { StoreFooter } from "@/components/menu/store-footer";
-import { StoreHeader, StoreHeaderFallback } from "@/components/menu/store-header";
+import { StoreHeader } from "@/components/menu/store-header";
+import { StoreHeaderFallback } from "@/components/menu/store-header-fallback";
 import { StoreStatusProvider } from "@/components/menu/store-status";
 import { ProductSheetProvider } from "@/components/product/sheet-context";
 import { getMenu } from "@/lib/menu/queries";
@@ -49,15 +51,17 @@ async function MenuShell({ children }: { children: ReactNode }) {
 /** Public storefront shell: no auth. Header/footer read cached store info; the closed banner is a dynamic hole. */
 export default function PublicLayout({ children }: LayoutProps<"/">) {
   return (
-    <Suspense
-      fallback={
-        <>
-          <StoreHeaderFallback />
-          <MenuSkeleton />
-        </>
-      }
-    >
-      <MenuShell>{children}</MenuShell>
-    </Suspense>
+    <ShellErrorBoundary>
+      <Suspense
+        fallback={
+          <>
+            <StoreHeaderFallback />
+            <MenuSkeleton />
+          </>
+        }
+      >
+        <MenuShell>{children}</MenuShell>
+      </Suspense>
+    </ShellErrorBoundary>
   );
 }
