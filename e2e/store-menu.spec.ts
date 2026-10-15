@@ -39,6 +39,23 @@ async function withAdmin(browser: Browser, baseURL: string | undefined, fn: (pag
   }
 }
 
+/** Resolves once the page stopped scrolling (programmatic smooth scrolls take ~1s). */
+const scrollSettled = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        let last = -1;
+        const tick = () => {
+          if (window.scrollY === last) resolve();
+          else {
+            last = window.scrollY;
+            setTimeout(tick, 150);
+          }
+        };
+        tick();
+      }),
+  );
+
 async function renameProduct(page: Page, from: string, to: string): Promise<void> {
   const { id } = await findProduct(from);
   await page.goto(`/admin/menu/productos/${id}`);
@@ -142,9 +159,12 @@ test("closed banner appears without moving the page, and the scrollspy still wor
     await nav.getByRole("link", { name: DOUBLE }).click();
     await expect(nav.getByRole("link", { name: DOUBLE })).toHaveAttribute("aria-current", "true");
     await expect(page.getByRole("heading", { name: DOUBLE, level: 2 })).toBeInViewport();
+    await scrollSettled(page); // the chip click smooth-scrolls; do not race it
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(nav.getByRole("link", { name: SIMPLE })).toHaveAttribute("aria-current", "true");
-    await shot(page, "store-closed");
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    // Viewport shot (fixed elements are meaningless in a stitched full-page capture).
+    await page.screenshot({ path: "test-results/shots/store-closed.png", animations: "disabled" });
   } finally {
     await setAcceptingOrders(true);
   }
