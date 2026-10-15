@@ -22,8 +22,11 @@ export function waitUntil(cond: () => boolean, notifiers: EventEmitter[], what: 
       cleanup();
       reject(new Error(`timeout (${timeoutMs} ms) waiting for ${what}`));
     }, timeoutMs);
+    // a safety net for state that changes without an event (e.g. a file written by the agent)
+    const poll = setInterval(check, 25);
     const cleanup = () => {
       clearTimeout(timer);
+      clearInterval(poll);
       for (const n of notifiers) n.off("change", check);
     };
     for (const n of notifiers) n.on("change", check);

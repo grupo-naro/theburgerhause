@@ -135,10 +135,10 @@ export class AckDelivery implements AckSink {
         state.recordAckAttempt(ack.jobId);
         const r = await api.postAck(ack.jobId, ack.status, ack.error);
         if (r.kind === "delivered") {
-          state.removeAck(ack.jobId);
+          state.removeAck(ack.jobId, ack.status);
           this.streak = 0;
         } else if (r.kind === "rejected") {
-          state.removeAck(ack.jobId);
+          state.removeAck(ack.jobId, ack.status);
           logger.warn("ack descartado: el servidor lo rechazó", { job: ack.jobId, http: r.httpStatus });
         } else {
           failed = true;

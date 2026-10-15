@@ -109,9 +109,10 @@ export class StateStore {
     }
   }
 
-  removeAck(jobId: number): void {
+  /** With `status`, only removes the entry if it is still that one (a newer done must survive a delivered failed). */
+  removeAck(jobId: number, status?: "done" | "failed"): void {
     const before = this.acks.length;
-    this.acks = this.acks.filter((a) => a.jobId !== jobId);
+    this.acks = this.acks.filter((a) => a.jobId !== jobId || (status !== undefined && a.status !== status));
     if (this.acks.length !== before) this.save();
   }
 

@@ -137,3 +137,17 @@ describe("StateStore", () => {
     fs.rmSync(dir, { force: true });
   });
 });
+
+describe("StateStore.removeAck with a status guard", () => {
+  it("a delivered failed ack does not remove a newer done ack for the same job", () => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "agent-state-"));
+    const s = StateStore.load(d, now);
+    s.enqueueAck({ jobId: 5, status: "failed", error: "x" });
+    s.enqueueAck({ jobId: 5, status: "done" }); // replaced while the failed one was in flight
+    s.removeAck(5, "failed");
+    expect(s.pendingAcks().map((a) => a.status)).toEqual(["done"]);
+    s.removeAck(5, "done");
+    expect(s.pendingAcks()).toEqual([]);
+    fs.rmSync(d, { recursive: true, force: true });
+  });
+});
