@@ -102,7 +102,7 @@ export function CategoryBar({ categories }: { categories: Chip[] }) {
     <nav
       ref={navRef}
       aria-label="Categorías del menú"
-      className="sticky top-[calc(var(--header-h)+var(--banner-h))] z-20 h-[var(--bar-h)] border-b border-line bg-bg/95 backdrop-blur"
+      className="sticky top-[var(--header-h)] z-20 h-[var(--bar-h)] border-b border-line bg-bg/95 backdrop-blur"
     >
       <div
         ref={scrollerRef}

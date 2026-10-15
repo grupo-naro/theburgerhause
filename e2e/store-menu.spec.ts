@@ -63,6 +63,12 @@ test("home renders the store name, every active category and product", async ({ 
   expect(html).not.toContain("kitchenLabel");
   expect(html).not.toContain("SIN CHEDDAR");
 
+  // Photos load (first two seeded products have one).
+  for (const name of ["Ranchita simple", "Melt simple"]) {
+    const img = card(page, name).locator("img");
+    await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+  }
+
   await shot(page, "store-home-desktop");
 });
 
@@ -111,21 +117,33 @@ test("the header search button focuses the search box", async ({ page }) => {
   await expect(page.getByRole("searchbox", { name: "Buscar en el menú" })).toBeFocused();
 });
 
-test("shows the closed banner while orders are paused", async ({ page }) => {
+test("closed banner appears without moving the page, and the scrollspy still works", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("closed-banner")).toHaveCount(0);
+  const first = card(page, "Ranchita simple");
+  await expect(first).toBeVisible();
+  const before = (await first.boundingBox())!;
   await setAcceptingOrders(false);
   try {
     await page.reload();
     const banner = page.getByTestId("closed-banner");
     await expect(banner).toBeVisible();
     await expect(banner).toContainText("Por el momento no estamos tomando pedidos");
-    // Menu is still browsable and the category bar sticks below the banner.
-    await expect(card(page, "Ranchita simple")).toBeVisible();
+    // No layout shift: the notice floats instead of pushing the content.
+    const after = (await first.boundingBox())!;
+    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1);
+    // Menu is still browsable, the notice and the bars stay in view while scrolling.
+    const nav = page.getByRole("navigation", { name: "Categorías del menú" });
     await page.mouse.wheel(0, 900);
     await expect(banner).toBeInViewport();
-    await expect(page.getByRole("navigation", { name: "Categorías del menú" })).toBeInViewport();
-    await page.mouse.wheel(0, -900);
+    await expect(nav).toBeInViewport();
+    // Scrollspy and chip clicks still pick the right section.
+    await nav.getByRole("link", { name: DOUBLE }).click();
+    await expect(nav.getByRole("link", { name: DOUBLE })).toHaveAttribute("aria-current", "true");
+    await expect(page.getByRole("heading", { name: DOUBLE, level: 2 })).toBeInViewport();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(nav.getByRole("link", { name: SIMPLE })).toHaveAttribute("aria-current", "true");
     await shot(page, "store-closed");
   } finally {
     await setAcceptingOrders(true);

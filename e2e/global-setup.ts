@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { chromium, expect, type FullConfig } from "@playwright/test";
-import { prepareDatabase } from "./prepare-db";
+import { closeDb } from "../src/db/client";
+import { assertDatabasePrepared } from "./prepare-db";
 import { authFile, USERS, type UserKey } from "./helpers/users";
 
 async function loginThroughUi(key: UserKey, baseURL: string, headers: Record<string, string>): Promise<void> {
@@ -25,8 +26,9 @@ async function loginThroughUi(key: UserKey, baseURL: string, headers: Record<str
 }
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
-  // Clean slate: migrations, seed, product photos, known users (also run before the build, see playwright.config).
-  await prepareDatabase();
+  // The DB was seeded by the webServer command BEFORE the build; it must NOT be reseeded here.
+  await assertDatabasePrepared();
+  await closeDb();
 
   // Log in once per role through the real UI and keep the cookies.
   mkdirSync("e2e/.auth", { recursive: true });

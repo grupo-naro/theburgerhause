@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
 /**
  * Product sheet entry point. Task 4.2 replaces this stub with the real
@@ -12,8 +12,7 @@ const noop: SheetApi = { openProduct: () => {} };
 const SheetContext = createContext<SheetApi>(noop);
 
 export function ProductSheetProvider({ children }: { children: ReactNode }) {
-  const api = useMemo<SheetApi>(() => ({ openProduct: () => {} }), []);
-  return <SheetContext.Provider value={api}>{children}</SheetContext.Provider>;
+  return <SheetContext.Provider value={noop}>{children}</SheetContext.Provider>;
 }
 
 export function useProductSheet(): SheetApi {

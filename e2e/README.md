@@ -42,3 +42,14 @@ a random `X-Forwarded-For` per process so repeated runs do not interfere.
 
 UI tasks extend e2e AND look at the screenshots they produce (open the PNGs) before being declared
 done. A green run says nothing about spacing, overflow or contrast.
+
+## Build-time database rule
+
+The public menu (`/`) is prerendered and cached from the DB at `next build` time. So the test DB is
+seeded exactly once per server start, BEFORE the build: the `webServer` command runs
+`e2e/prepare-db-cli.ts` (migrate, wipe, seed, product photos, users, plus an `e2e_prepared_at` marker
+in `settings`) and then `next build`. Global setup does NOT reseed (new ids/image uuids would no longer
+match the cached menu); it only checks the marker and logs the users in. If you reuse a server that is
+already running on :3100 after something wiped the DB (e.g. `pnpm test:int`, which shares
+`burgerhause_test`), global setup fails with an explicit message: stop that server so Playwright
+restarts it.

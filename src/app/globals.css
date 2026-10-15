@@ -32,12 +32,11 @@ body {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
-/* Storefront sticky chrome: header + (optional) closed banner + category bar. */
+/* Storefront sticky chrome: header + category bar (the closed notice floats, it never shifts content). */
 :root {
   --header-h: 3.5rem;
   --bar-h: 3.75rem;
-  --banner-h: 0px;
-  --chrome-h: calc(var(--header-h) + var(--banner-h) + var(--bar-h));
+  --chrome-h: calc(var(--header-h) + var(--bar-h));
 }
 
 @utility no-scrollbar {

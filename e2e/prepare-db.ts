@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { closeDb } from "../src/db/client";
 import migrateTestDatabase from "../src/db/global-setup.int";
 import { seed } from "../src/db/seed";
@@ -19,8 +20,10 @@ async function upsertStaff(user: (typeof USERS)[Exclude<UserKey, "admin">]): Pro
 
 /**
  * Migrates the test DB, wipes it and loads the seed, the product photos and the known users.
- * Runs BEFORE `next build` (the public menu is prerendered from the DB at build time) and
- * again in global setup. Needs E2E_SERVER_DATABASE_URL (the server URL) in the environment.
+ * Runs ONLY BEFORE `next build`: the public menu is prerendered from the DB at build time, so the DB must
+ * not be reseeded afterwards (ids and image paths would diverge from what was built). Global setup only
+ * checks the marker below.
+ * Needs E2E_SERVER_DATABASE_URL (the server URL) in the environment.
  */
 export async function prepareDatabase(): Promise<void> {
   process.env.DATABASE_URL = process.env.E2E_SERVER_DATABASE_URL!;
@@ -31,5 +34,22 @@ export async function prepareDatabase(): Promise<void> {
   await upsertAdmin(testDb(), { username: USERS.admin.username, password: USERS.admin.password });
   await upsertStaff(USERS.cajera);
   await upsertStaff(USERS.encargada);
+  await testDb()
+    .insert(s.settings)
+    .values({ key: PREPARED_MARKER_KEY, value: new Date().toISOString() })
+    .onConflictDoNothing();
   await closeDb();
+}
+
+/** Settings row written by prepareDatabase(); global setup refuses to run without it. */
+export const PREPARED_MARKER_KEY = "e2e_prepared_at";
+
+export async function assertDatabasePrepared(): Promise<void> {
+  const [row] = await testDb().select().from(s.settings).where(eq(s.settings.key, PREPARED_MARKER_KEY));
+  if (!row) {
+    throw new Error(
+      "The e2e database was not prepared for the running build. Stop any server on :3100 so Playwright " +
+        "restarts it (that runs e2e/prepare-db-cli.ts BEFORE `next build`), or run that script and rebuild.",
+    );
+  }
 }
