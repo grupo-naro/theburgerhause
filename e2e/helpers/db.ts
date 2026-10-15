@@ -127,3 +127,26 @@ export const currentSettings = () => getSettings(db());
 export async function setProductActiveInDb(name: string, active: boolean): Promise<void> {
   await db().update(s.products).set({ active }).where(eq(s.products.name, name));
 }
+
+/** The order row of a public token. */
+export async function orderByToken(token: string) {
+  const [row] = await db().select().from(s.orders).where(eq(s.orders.publicToken, token));
+  return row;
+}
+
+/**
+ * Moves an order to `status` (and optionally its payment status) straight in the DB, with the audit
+ * event a real transition leaves, the way staff screens will. Orders are per-test, so nothing to restore.
+ */
+export async function setOrderStatusInDb(
+  token: string,
+  status: (typeof s.orders.$inferSelect)["status"],
+  paymentStatus?: (typeof s.orders.$inferSelect)["paymentStatus"],
+): Promise<void> {
+  const order = await orderByToken(token);
+  await db()
+    .update(s.orders)
+    .set({ status, ...(paymentStatus ? { paymentStatus } : {}) })
+    .where(eq(s.orders.id, order.id));
+  await db().insert(s.orderEvents).values({ orderId: order.id, fromStatus: order.status, toStatus: status, userId: null, note: "e2e" });
+}

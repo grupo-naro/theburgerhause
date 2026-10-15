@@ -14,3 +14,10 @@ export function normalizeWhatsapp(raw: string): WhatsappResult {
   if (digits.length < MIN_DIGITS || digits.length > MAX_DIGITS) return { ok: false };
   return { ok: true, digits };
 }
+
+/** wa.me link to the STORE with a message prefilled for this order. Null when the store has no number. */
+export function orderWhatsappLink(storeWhatsapp: string, orderNumber: number): string | null {
+  const digits = storeWhatsapp.replace(/\D/g, "");
+  if (!digits) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(`Hola! Consulto por mi pedido #${orderNumber}`)}`;
+}

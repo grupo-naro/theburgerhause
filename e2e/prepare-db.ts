@@ -13,6 +13,7 @@ import { USERS, type UserKey } from "./helpers/users";
 export const E2E_STORE_SETTINGS = {
   store_address: "Av. Siempreviva 742, Springfield",
   store_phone: "+54 11 5555-0000",
+  whatsapp: "5491155550000",
   opening_hours_text: "Lun a Dom de 20 a 00",
   bank_alias: "burger.house.e2e",
   bank_cbu: "0000003100099999999999",

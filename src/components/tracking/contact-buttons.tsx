@@ -1,16 +1,10 @@
 import Link from "next/link";
 import { ChatIcon, PhoneIcon } from "@/components/menu/icons";
 import { buttonClass } from "@/components/ui/button";
+import { orderWhatsappLink } from "@/lib/orders/whatsapp";
 
 const digits = (s: string) => s.replace(/\D/g, "");
 const tap = "min-h-11 gap-2 px-5";
-
-/** wa.me link with a message prefilled for this order. Null when the store has no WhatsApp. */
-export function whatsappHref(storeWhatsapp: string, number: number): string | null {
-  const wa = digits(storeWhatsapp);
-  if (!wa) return null;
-  return `https://wa.me/${wa}?text=${encodeURIComponent(`Hola! Consulto por mi pedido #${number}`)}`;
-}
 
 /** WhatsApp (hidden without a configured number), optional phone and the way back to the menu. */
 export function ContactButtons({
@@ -25,7 +19,7 @@ export function ContactButtons({
   /** The cancelled card also offers a phone call. */
   showPhone: boolean;
 }) {
-  const wa = whatsappHref(whatsapp, number);
+  const wa = orderWhatsappLink(whatsapp, number);
   const tel = digits(phone);
   return (
     <div className="flex flex-wrap gap-3">

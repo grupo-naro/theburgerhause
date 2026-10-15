@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeWhatsapp, WHATSAPP_MESSAGE } from "./whatsapp";
+import { normalizeWhatsapp, orderWhatsappLink, WHATSAPP_MESSAGE } from "./whatsapp";
 
 describe("normalizeWhatsapp", () => {
   it.each([
@@ -32,5 +32,18 @@ describe("normalizeWhatsapp", () => {
 
   it("exposes the user-facing message", () => {
     expect(WHATSAPP_MESSAGE).toBe("Ingresá un número de WhatsApp válido (solo números, con característica)");
+  });
+});
+
+describe("orderWhatsappLink", () => {
+  it("builds a wa.me link with the order number prefilled", () => {
+    expect(orderWhatsappLink("+54 9 11 5555-1234", 123)).toBe(
+      "https://wa.me/5491155551234?text=Hola!%20Consulto%20por%20mi%20pedido%20%23123",
+    );
+  });
+
+  it("is null when the store has no WhatsApp configured", () => {
+    expect(orderWhatsappLink("", 1)).toBeNull();
+    expect(orderWhatsappLink("  - ", 1)).toBeNull();
   });
 });
