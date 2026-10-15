@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CartGroup } from "@/lib/cart/types";
 import { ProductSheet } from "./product-sheet";
@@ -25,6 +26,8 @@ export function ProductSheetProvider({ children }: { children: ReactNode }) {
   const [request, setRequest] = useState<Request | null>(null);
   const opener = useRef<Element | null>(null);
   const nonce = useRef(0);
+  const pathname = usePathname();
+  const lastPath = useRef(pathname);
 
   const open = useCallback<SheetApi["open"]>((productId, options = {}) => {
     opener.current = options.opener ?? document.activeElement;
@@ -32,6 +35,13 @@ export function ProductSheetProvider({ children }: { children: ReactNode }) {
     setRequest({ productId, editGroup: options.editGroup, nonce: nonce.current });
   }, []);
   const close = useCallback(() => setRequest(null), []);
+
+  // A route change (browser / Android Back) must not leave a modal open over another page.
+  useEffect(() => {
+    if (lastPath.current === pathname) return;
+    lastPath.current = pathname;
+    setRequest(null);
+  }, [pathname]);
 
   // Return focus to the opener once the sheet is gone (the opener may have been replaced meanwhile).
   useEffect(() => {
