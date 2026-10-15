@@ -15,10 +15,13 @@ export function createRateLimiter({
   limit,
   windowMs,
   now = Date.now,
+  maxKeys = 10_000,
 }: {
   limit: number;
   windowMs: number;
   now?: () => number;
+  /** Hard cap on tracked keys; oldest keys are evicted beyond it. */
+  maxKeys?: number;
 }): RateLimiter {
   const hits = new Map<string, number[]>();
   let lastSweep = now();
@@ -38,11 +41,17 @@ export function createRateLimiter({
       sweep(t);
       const fresh = (hits.get(key) ?? []).filter((h) => h > t - windowMs);
       if (fresh.length >= limit) {
+        hits.delete(key);
         hits.set(key, fresh);
         return { ok: false, retryAfterMs: fresh[0] + windowMs - t };
       }
       fresh.push(t);
+      hits.delete(key); // re-insert so Map order tracks recency of last hit
       hits.set(key, fresh);
+      while (hits.size > maxKeys) {
+        const oldest = hits.keys().next().value as string;
+        hits.delete(oldest);
+      }
       return { ok: true, retryAfterMs: 0 };
     },
     size: () => hits.size,

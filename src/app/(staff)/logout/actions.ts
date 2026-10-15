@@ -7,8 +7,11 @@ import { revokeSession } from "@/lib/auth/session-store";
 
 /** Revokes the DB session (so a copied cookie is dead too) and clears the cookie. */
 export async function logout(): Promise<void> {
-  const token = await getSessionToken();
-  if (token) await revokeSession(getDb(), token);
-  await clearSessionCookie();
+  try {
+    const token = await getSessionToken();
+    if (token) await revokeSession(getDb(), token);
+  } finally {
+    await clearSessionCookie();
+  }
   redirect("/login");
 }

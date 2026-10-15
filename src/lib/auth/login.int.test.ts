@@ -54,4 +54,14 @@ describe("authenticate", () => {
     expect(await authenticate(db(), { username: "", password: "" })).toBeNull();
     expect(await authenticate(db(), { username: "%_'\"; --", password: "x".repeat(10_000) })).toBeNull();
   });
+
+  it("logs a fixed string and returns null on unexpected errors", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const boom = Object.assign(new Error("secret-pass leaked in $2 params"), { code: "57P01" });
+    const failing = { select: () => { throw boom; } } as unknown as Parameters<typeof authenticate>[0];
+    expect(await authenticate(failing, { username: "ana", password: "secret-pass" })).toBeNull();
+    expect(spy).toHaveBeenCalledWith("authenticate failed (code 57P01)");
+    expect(JSON.stringify(spy.mock.calls)).not.toContain("secret-pass");
+    spy.mockRestore();
+  });
 });

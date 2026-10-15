@@ -18,3 +18,8 @@ export function checkLoginRate(ip: string, username: string): { ok: boolean } {
   const b = pair.check(`${ip}|${username.trim().toLowerCase()}`);
   return { ok: a.ok && b.ok };
 }
+
+/** Test hook: forget all counters. */
+export function resetLoginRateLimit(): void {
+  g.__loginLimiters = undefined;
+}

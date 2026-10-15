@@ -17,6 +17,7 @@ export async function authenticate(
   db: Db,
   { username, password }: { username: string; password: string },
 ): Promise<AuthUser | null> {
+  if (typeof username !== "string" || typeof password !== "string") return null;
   try {
     const [row] = await db
       .select()
@@ -25,7 +26,15 @@ export async function authenticate(
     const ok = await verifyPassword(password, row ? row.passwordHash : await getDummyHash());
     if (!row || !ok) return null;
     return { id: row.id, name: row.name, username: row.username, role: row.role };
-  } catch {
+  } catch (err) {
+    // Unexpected (DB outage, bug): log fixed text + pg code only, never the error
+    // object/message (Drizzle errors embed bound params). Still fail closed.
+    let code: string | undefined;
+    for (let e: unknown = err, depth = 0; e && !code && depth < 5; e = (e as { cause?: unknown }).cause, depth++) {
+      const c = (e as { code?: unknown }).code;
+      if (typeof c === "string") code = c;
+    }
+    console.error(code ? `authenticate failed (code ${code})` : "authenticate failed");
     return null;
   }
 }

@@ -9,6 +9,7 @@ import { checkLoginRate } from "@/lib/auth/login-rate-limit";
 import { setSessionCookie } from "@/lib/auth/session";
 import { createSession, setSessionStation } from "@/lib/auth/session-store";
 import { getStationCookie } from "@/lib/auth/station-cookie";
+import { clientIp } from "@/lib/client-ip";
 import { findStation } from "@/lib/stations";
 
 export type LoginState = { error: string | null };
@@ -21,17 +22,12 @@ const credentials = z.object({
   password: z.string().min(1).max(256),
 });
 
-async function clientIp(): Promise<string> {
-  const forwarded = (await headers()).get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || "unknown";
-}
-
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const parsed = credentials.safeParse({ username: formData.get("username"), password: formData.get("password") });
   if (!parsed.success) return { error: GENERIC_ERROR };
   const { username, password } = parsed.data;
 
-  if (!checkLoginRate(await clientIp(), username).ok) return { error: RATE_LIMIT_ERROR };
+  if (!checkLoginRate(clientIp(await headers()), username).ok) return { error: RATE_LIMIT_ERROR };
 
   const db = getDb();
   const user = await authenticate(db, { username, password });
