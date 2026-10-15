@@ -150,6 +150,14 @@ describe("escpos: encoding", () => {
   });
 });
 
+describe("escpos: Unicode normalization", () => {
+  it("a decomposed n + combining tilde prints as ñ, not n?", () => {
+    expect(body("n\u0303", "cp858")).toEqual([0xa4]);
+    expect(body("a\u0301e\u0301", "cp858")).toEqual([0xa0, 0x82]);
+    expect(body("N\u0303", "wpc1252")).toEqual([0xd1]);
+  });
+});
+
 describe("escpos: robustness", () => {
   it("never throws on garbage input", () => {
     const garbage = [null, undefined, {}, { blocks: null }, { blocks: [null, 5, "x", { type: "nope" }, { type: "text" }, { type: "text", text: 5 }] }] as unknown[];

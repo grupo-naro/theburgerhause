@@ -221,6 +221,27 @@ describe("StreamClient: 401", () => {
   });
 });
 
+describe("StreamClient: 401 streak after a good connection", () => {
+  it("a token rotated later backs off from 5 s again, not from the 5-minute cap", async () => {
+    server.streamPlan = [{ status: 401 }, { status: 401 }, { status: 401 }];
+    make().start();
+    for (const expected of [5000, 10_000, 20_000]) {
+      await clock.waitForTimer("reconnect");
+      expect(reconnectDelay()).toBe(expected);
+      await clock.fire("reconnect");
+    }
+    await server.waitForStreams(1); // the token works now
+    server.stream.hello();
+    await log.waitFor("conectado");
+    server.streamPlan = [{ status: 401 }];
+    server.stream.end();
+    await clock.fire("reconnect"); // 1 s: ordinary reconnect
+    await server.waitForStreamRequests(5);
+    await clock.waitForTimer("reconnect");
+    expect(reconnectDelay()).toBe(5000);
+  });
+});
+
 describe("StreamClient: 429", () => {
   it("honors Retry-After (seconds)", async () => {
     server.streamPlan = [{ status: 429, headers: { "retry-after": "42" } }];

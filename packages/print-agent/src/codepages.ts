@@ -52,7 +52,8 @@ function printable(ch: string, table: Record<string, number>): string {
 export function normalizeText(text: string, codepage: Codepage): string {
   const table = TABLES[codepage];
   let out = "";
-  for (const ch of text.replace(/\r\n?/g, "\n")) {
+  // NFC first: a decomposed "n" + U+0303 must print as the single character "ñ"
+  for (const ch of text.normalize("NFC").replace(/\r\n?/g, "\n")) {
     if (ch === "\n") out += ch;
     else if (ch === "\t") out += " ";
     else if (/[\u0000-\u001f\u007f-\u009f]/.test(ch)) continue;

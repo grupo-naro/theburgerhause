@@ -40,6 +40,7 @@ export class StreamClient {
   private current: AbortController | null = null;
   private loop: Promise<void> | null = null;
   private _connected = false;
+  private established = false;
 
   constructor(private readonly opts: StreamClientOptions) {}
 
@@ -62,8 +63,10 @@ export class StreamClient {
     let failures = 0;
     let authFailures = 0;
     while (!this.abort.signal.aborted) {
+      this.established = false;
       const outcome = await this.connectOnce();
       if (this.abort.signal.aborted) return;
+      if (this.established) authFailures = 0; // the token worked: a later rotation backs off from 5 s again
       let wait: number;
       switch (outcome.kind) {
         case "unauthorized":
@@ -124,6 +127,7 @@ export class StreamClient {
       return { kind: "error", reason: `HTTP ${res.status}` };
     }
 
+    this.established = true;
     const connectedAt = clock.now();
     const parser = new SseParser();
     let replaced = false;
