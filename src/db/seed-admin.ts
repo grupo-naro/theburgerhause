@@ -43,7 +43,14 @@ if (process.argv[1] && path.basename(process.argv[1]) === "seed-admin.ts") {
       if (!provided) console.log(`Generated password (shown once, store it now): ${password}`);
     })
     .catch((err) => {
-      console.error(err);
+      // Never log the error object/message: Drizzle query errors embed the bound
+      // params (which include the password hash). Log only fixed text and the pg code.
+      let code: string | undefined;
+      for (let e: unknown = err; e && !code; e = (e as { cause?: unknown }).cause) {
+        const c = (e as { code?: unknown }).code;
+        if (typeof c === "string") code = c;
+      }
+      console.error(code ? `seed-admin failed (code ${code})` : "seed-admin failed");
       process.exitCode = 1;
     })
     .finally(() => closeDb());

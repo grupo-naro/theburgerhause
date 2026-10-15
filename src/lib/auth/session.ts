@@ -5,14 +5,17 @@ import { validateSessionToken } from "@/lib/auth/session-store";
 
 export const SESSION_COOKIE = "bh_session";
 
+/** Long browser lifetime; the DB row is the only authority on session expiry (12 h sliding). */
+export const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+
 /** Thin Next glue: all session logic lives in session-store.ts. */
-export async function setSessionCookie(token: string, expiresAt: Date): Promise<void> {
+export async function setSessionCookie(token: string): Promise<void> {
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
     secure: process.env.NODE_ENV === "production",
-    expires: expiresAt,
+    maxAge: COOKIE_MAX_AGE_SECONDS,
   });
 }
 
