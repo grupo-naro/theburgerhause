@@ -15,7 +15,7 @@ import { ORDERS_CHANNEL, PRINT_CHANNEL, parseEventPayload } from "./channels";
 
 export const LISTENER_APP_NAME = "bh-listener";
 export type ListenerStatus = "connecting" | "live" | "down";
-export type ListenerOptions = { connectionString?: string; backoff?: Backoff };
+export type ListenerOptions = { connectionString?: string; backoff?: Backoff; connectTimeoutMs?: number };
 
 type State = {
   status: ListenerStatus;
@@ -24,6 +24,7 @@ type State = {
   attempt: number;
   stopped: boolean;
   connectionString: string;
+  connectTimeoutMs: number;
   backoff: Backoff;
 };
 
@@ -40,13 +41,22 @@ function logFailure(what: string, err: unknown): void {
 
 export function startListener(opts: ListenerOptions = {}): void {
   if (g.__bhListener && !g.__bhListener.stopped) return; // idempotent
+  let connectionString: string;
+  try {
+    connectionString = opts.connectionString ?? getEnv().DATABASE_URL;
+  } catch {
+    // Invalid/missing env must never crash server start (register() calls this); fixed log, no details.
+    console.error("[events] listener not started: invalid configuration");
+    return;
+  }
   const state: State = {
     status: "connecting",
     client: null,
     timer: null,
     attempt: 0,
     stopped: false,
-    connectionString: opts.connectionString ?? getEnv().DATABASE_URL,
+    connectionString,
+    connectTimeoutMs: opts.connectTimeoutMs ?? 10_000,
     backoff: opts.backoff ?? DEFAULT_BACKOFF,
   };
   g.__bhListener = state;
@@ -60,6 +70,8 @@ async function connect(state: State): Promise<void> {
     connectionString: state.connectionString,
     application_name: LISTENER_APP_NAME,
     keepAlive: true,
+    // A blackholed host must fail (and enter the backoff loop) instead of hanging forever.
+    connectionTimeoutMillis: state.connectTimeoutMs,
   });
   state.client = client;
 
