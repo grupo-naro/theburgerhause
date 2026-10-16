@@ -27,7 +27,7 @@ test.describe("cashier", () => {
     await page.goto("/caja");
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
     const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Caja", "Mostrador"]);
+    await expect(nav.getByRole("link")).toHaveText(["Caja", "Mostrador", "Despacho"]);
     await expect(nav.getByRole("link", { name: "Caja" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("station-name")).toHaveText("Estación: Mostrador 1");
 
