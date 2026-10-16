@@ -1,5 +1,6 @@
 "use client";
 
+import { TrashIcon } from "@/components/menu/icons";
 import { useMenuIndex } from "@/components/menu/menu-provider";
 import { formatARS } from "@/domain/money";
 import { selectedModifiers } from "@/lib/cart/display";
@@ -9,7 +10,6 @@ import type { CartGroup } from "@/lib/cart/types";
 import type { PublicModifier } from "@/lib/menu/public";
 import { PencilIcon } from "./pos-icons";
 import { PosStepper } from "./pos-stepper";
-import { TrashIcon } from "@/components/menu/icons";
 
 type Props = {
   groups: CartGroup[];
@@ -26,23 +26,24 @@ const KIND_CHIP: Record<PublicModifier["kind"], string> = {
   swap: "bg-cheddar-400/25 text-ink ring-cheddar-600/40",
 };
 
-/** Grouped ticket lines: qty stepper, chips for the modifications, note, line total and Editar / Quitar. */
+const iconBtn = "grid size-11 shrink-0 place-items-center rounded-full";
+
+/**
+ * Compact grouped ticket lines (part of the ONE scroller of the ticket body): row 1 name + line
+ * total; row 2 stepper, modification chips and icon-only Editar / Quitar (44px targets, labelled).
+ * Chips get their own full-width row under the stepper.
+ */
 export function TicketLines({ groups, flash, onQuantity, onEdit, onRemove }: Props) {
   const index = useMenuIndex();
   return (
-    <ul data-testid="ticket-lines" className="flex max-h-[max(19rem,40dvh)] flex-col divide-y divide-line overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] scroll-shadows">
+    <ul data-testid="ticket-lines" className="flex flex-col divide-y divide-line">
       {groups.map((g) => {
         const product = index.products.get(g.productId);
         const mods = product ? selectedModifiers(product, g.modifierIds) : [];
         const flashing = flash?.signature === g.signature;
+        const name = product?.name ?? "producto";
         return (
-          <li
-            key={g.signature}
-            data-testid="ticket-line"
-            data-product-id={g.productId}
-            data-quantity={g.quantity}
-            className="py-3"
-          >
+          <li key={g.signature} data-testid="ticket-line" data-product-id={g.productId} data-quantity={g.quantity} className="py-2">
             <div key={flashing ? flash.nonce : "idle"} className={`-mx-2 rounded-xl px-2 ${flashing ? "animate-pos-line-flash" : ""}`}>
               <div className="flex items-start justify-between gap-3">
                 <p data-testid="line-name" className="min-w-0 text-lg leading-tight font-bold text-ink">
@@ -52,59 +53,60 @@ export function TicketLines({ groups, flash, onQuantity, onEdit, onRemove }: Pro
                   {formatARS(lineTotalFor(g, index))}
                 </p>
               </div>
-              {(mods.length > 0 || g.note) && (
-                <ul className="mt-1.5 flex flex-wrap gap-1.5">
-                  {mods.map((m) => {
-                    const d = modifierDisplay(m);
-                    return (
-                      <li
-                        key={m.id}
-                        data-testid="line-chip"
-                        className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ring-1 ${KIND_CHIP[d.kind]}`}
-                      >
-                        {d.label}
-                        {d.priceLabel && <span className="ml-1 tabular-nums">{d.priceLabel}</span>}
-                      </li>
-                    );
-                  })}
-                  {g.note && (
-                    <li data-testid="line-note" className="rounded-lg bg-bg px-2.5 py-0.5 text-sm text-ink-muted italic ring-1 ring-line">
-                      Nota: {g.note}
-                    </li>
-                  )}
-                </ul>
-              )}
-              <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="mt-1 grid grid-cols-[auto_1fr_auto] items-center gap-x-2">
                 <PosStepper
+                  compact
                   value={g.quantity}
                   min={0}
                   max={99}
                   onChange={(n) => onQuantity(g.signature, n)}
-                  label={`unidades de ${product?.name ?? "producto"}`}
+                  label={`unidades de ${name}`}
                   testId="line-qty"
                 />
-                <div className="flex items-center">
-                  {product && (
-                    <button
-                      type="button"
-                      data-testid="line-edit"
-                      onClick={(e) => onEdit(g, e.currentTarget)}
-                      aria-label={`Editar ${product.name}`}
-                      className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 rounded-full px-0 text-base font-bold text-brand-600 hover:bg-brand-50 @[22rem]/ticket:px-3.5"
-                    >
-                      <PencilIcon className="size-4.5" />
-                      <span className="hidden @[22rem]/ticket:inline">Editar</span>
-                    </button>
+                <div className="col-span-3 row-start-2">
+                  {(mods.length > 0 || g.note) && (
+                    <ul className="flex flex-wrap gap-1 py-1">
+                      {mods.map((m) => {
+                        const d = modifierDisplay(m);
+                        return (
+                          <li
+                            key={m.id}
+                            data-testid="line-chip"
+                            className={`rounded-full px-2 py-0.5 text-sm font-semibold ring-1 ${KIND_CHIP[d.kind]}`}
+                          >
+                            {d.label}
+                            {d.priceLabel && <span className="ml-1 tabular-nums">{d.priceLabel}</span>}
+                          </li>
+                        );
+                      })}
+                      {g.note && (
+                        <li data-testid="line-note" className="rounded-lg bg-bg px-2 py-0.5 text-sm text-ink-muted italic ring-1 ring-line">
+                          Nota: {g.note}
+                        </li>
+                      )}
+                    </ul>
                   )}
+                </div>
+                <div className="col-start-3 row-start-1 flex items-center justify-self-end">
+                  <button
+                    type="button"
+                    data-testid="line-edit"
+                    onClick={(e) => onEdit(g, e.currentTarget)}
+                    aria-label={`Editar ${name}`}
+                    title="Editar"
+                    className={`${iconBtn} text-brand-600 hover:bg-brand-50`}
+                  >
+                    <PencilIcon className="size-5" />
+                  </button>
                   <button
                     type="button"
                     data-testid="line-remove"
                     onClick={() => onRemove(g)}
-                    aria-label={`Quitar ${product?.name ?? "producto"}`}
-                    className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 rounded-full px-0 text-base font-bold text-state-error hover:bg-red-50 @[22rem]/ticket:px-3.5"
+                    aria-label={`Quitar ${name}`}
+                    title="Quitar"
+                    className={`${iconBtn} text-state-error hover:bg-red-50`}
                   >
-                    <TrashIcon className="size-4.5" />
-                    <span className="hidden @[22rem]/ticket:inline">Quitar</span>
+                    <TrashIcon className="size-5" />
                   </button>
                 </div>
               </div>

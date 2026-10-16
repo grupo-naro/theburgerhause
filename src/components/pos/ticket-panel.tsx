@@ -85,11 +85,11 @@ export function TicketPanel({ sale, pagers, flash, onQuantity, onEdit, onRemove,
         )}
       </header>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-3 [scrollbar-width:thin] scroll-shadows">
+      <div data-testid="ticket-body" className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-3 [scrollbar-width:thin] scroll-shadows">
         {sale.unitMessages && (
           <Banner tone="warn" onDismiss={sale.dismissUnitMessages}>
             <div data-testid="unit-issues">
-              <p>Algunos productos ya no están disponibles. Los quitamos del ticket:</p>
+              <p>Quitamos estas unidades del ticket (podés volver a agregarlas):</p>
               <ul className="mt-1 list-disc pl-5 font-medium">
                 {sale.unitMessages.map((m) => (
                   <li key={m}>{m}</li>
@@ -133,6 +133,22 @@ export function TicketPanel({ sale, pagers, flash, onQuantity, onEdit, onRemove,
           <TicketLines groups={cart.groups} flash={flash} onQuantity={onQuantity} onEdit={onEdit} onRemove={onRemove} />
         )}
 
+        <div>
+          <label htmlFor="pos-customer-name" className="sr-only">
+            Nombre (opcional)
+          </label>
+          <input
+            id="pos-customer-name"
+            value={sale.name}
+            maxLength={80}
+            autoComplete="off"
+            onChange={(e) => sale.setName(e.target.value)}
+            placeholder="Nombre (opcional)"
+            data-testid="customer-name"
+            className="min-h-12 w-full rounded-xl border border-line bg-surface px-3 text-lg"
+          />
+        </div>
+
         <PaymentSection
           payment={sale.payment}
           onPayment={sale.choosePayment}
@@ -152,21 +168,6 @@ export function TicketPanel({ sale, pagers, flash, onQuantity, onEdit, onRemove,
           onNextFree={sale.pickNextFree}
         />
 
-        <div>
-          <label htmlFor="pos-customer-name" className="mb-1 block font-display text-base font-extrabold tracking-wide text-ink-muted uppercase">
-            Nombre <span className="font-sans text-sm font-semibold tracking-normal normal-case">(opcional)</span>
-          </label>
-          <input
-            id="pos-customer-name"
-            value={sale.name}
-            maxLength={80}
-            autoComplete="off"
-            onChange={(e) => sale.setName(e.target.value)}
-            placeholder="Ej.: Ana"
-            data-testid="customer-name"
-            className="min-h-12 w-full rounded-xl border border-line bg-surface px-3 text-lg"
-          />
-        </div>
       </div>
 
       <ChargeFooter total={sale.totals.total} charge={sale.charge} change={sale.change} busy={sale.busy} onCharge={sale.submit} />

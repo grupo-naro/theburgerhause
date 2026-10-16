@@ -7,13 +7,16 @@ type Props = {
   max?: number;
   label: string;
   testId?: string;
+  /** 44px buttons instead of 48px (ticket lines). */
+  compact?: boolean;
 };
 
-const btn =
+const btnBase =
   "grid size-12 shrink-0 place-items-center rounded-full border border-line bg-surface text-ink transition-colors hover:bg-brand-50 active:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface";
 
 /** `- n +` with 48px targets (POS flavor of the storefront stepper). */
-export function PosStepper({ value, onChange, min = 1, max = 10, label, testId }: Props) {
+export function PosStepper({ value, onChange, min = 1, max = 10, label, testId, compact = false }: Props) {
+  const btn = compact ? btnBase.replace("size-12", "size-11") : btnBase;
   return (
     <div role="group" aria-label={label} data-testid={testId} className="inline-flex items-center">
       <button type="button" className={btn} aria-label={`Menos ${label}`} disabled={value <= min} onClick={() => onChange(value - 1)}>
