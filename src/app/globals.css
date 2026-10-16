@@ -159,6 +159,7 @@ html {
  */
 @media print {
   @page { margin: 8mm; }
+  body:has([data-print-receipt]) { background: #fff !important; }
   body:has([data-print-receipt]) :not(:has([data-print-receipt])):not([data-print-receipt]):not([data-print-receipt] *) {
     display: none !important;
   }
