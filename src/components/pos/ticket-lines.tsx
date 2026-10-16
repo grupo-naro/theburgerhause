@@ -30,7 +30,7 @@ const KIND_CHIP: Record<PublicModifier["kind"], string> = {
 export function TicketLines({ groups, flash, onQuantity, onEdit, onRemove }: Props) {
   const index = useMenuIndex();
   return (
-    <ul data-testid="ticket-lines" className="flex max-h-[max(17rem,34dvh)] flex-col divide-y divide-line overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]">
+    <ul data-testid="ticket-lines" className="flex max-h-[max(19rem,40dvh)] flex-col divide-y divide-line overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] scroll-shadows">
       {groups.map((g) => {
         const product = index.products.get(g.productId);
         const mods = product ? selectedModifiers(product, g.modifierIds) : [];

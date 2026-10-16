@@ -85,7 +85,7 @@ export function TicketPanel({ sale, pagers, flash, onQuantity, onEdit, onRemove,
         )}
       </header>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-3 [scrollbar-width:thin]">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-3 [scrollbar-width:thin] scroll-shadows">
         {sale.unitMessages && (
           <Banner tone="warn" onDismiss={sale.dismissUnitMessages}>
             <div data-testid="unit-issues">

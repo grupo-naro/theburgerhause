@@ -140,3 +140,15 @@ html {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
+
+/* Soft shadows at the edges of a scroller that has more content (no JS): tells the cashier the ticket scrolls. */
+@utility scroll-shadows {
+  background:
+    linear-gradient(var(--color-surface) 30%, transparent) center top,
+    linear-gradient(transparent, var(--color-surface) 70%) center bottom,
+    radial-gradient(farthest-side at 50% 0, rgb(11 31 58 / 0.14), transparent) center top,
+    radial-gradient(farthest-side at 50% 100%, rgb(11 31 58 / 0.14), transparent) center bottom;
+  background-repeat: no-repeat;
+  background-size: 100% 2.5rem, 100% 2.5rem, 100% 0.75rem, 100% 0.75rem;
+  background-attachment: local, local, scroll, scroll;
+}
