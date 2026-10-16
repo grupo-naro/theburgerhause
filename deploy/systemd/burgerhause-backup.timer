@@ -1,0 +1,15 @@
+# Runs burgerhause-backup.service every day at 04:30 (server time). Persistent=true: if the machine was off
+# at 04:30, the backup runs as soon as it boots.
+# Install as /etc/systemd/system/burgerhause-backup.timer, then:
+#   systemctl daemon-reload && systemctl enable --now burgerhause-backup.timer
+#   systemctl list-timers burgerhause-backup.timer       # shows NEXT and LAST run
+[Unit]
+Description=The Burger Hause - daily backup at 04:30
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+Unit=burgerhause-backup.service
+
+[Install]
+WantedBy=timers.target
