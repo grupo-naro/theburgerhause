@@ -93,9 +93,10 @@ test.describe("cashier", () => {
     }
   });
 
-  test("the cashier cannot open Despacho (goes home) and sees no Admin link", async ({ page }) => {
+  test("the cashier can open Despacho (restricted) and sees no Admin link", async ({ page }) => {
     await page.goto("/despacho");
-    await expect(page).toHaveURL(/\/caja$/);
+    await expect(page).toHaveURL(/\/despacho$/);
+    await expect(page.getByTestId("readonly-note")).toBeVisible();
     await expect(page.getByRole("link", { name: "Administración" })).toHaveCount(0);
   });
 
