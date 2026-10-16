@@ -84,6 +84,22 @@ const SETTINGS: Record<string, unknown> = {
   accepting_orders: true,
 };
 
+/**
+ * The demo seed loads fake products/prices/stations/cadets and OPEN settings: it must never reach a real
+ * database. In production use `pnpm db:init-prod`. Override only with ALLOW_DEMO_SEED=1 (exactly).
+ */
+export function assertSeedAllowed(env: Record<string, string | undefined>): void {
+  if (env.NODE_ENV === "production" && env.ALLOW_DEMO_SEED !== "1") {
+    throw new Error(
+      [
+        "REFUSING TO RUN: pnpm db:seed loads DEMO products, prices, stations and cadets and must NEVER run in production (NODE_ENV=production).",
+        "For a real installation run: pnpm db:init-prod",
+        "If you are sure this is a throwaway database, set ALLOW_DEMO_SEED=1 explicitly.",
+      ].join("\n"),
+    );
+  }
+}
+
 export async function seed(db: Db): Promise<void> {
   await db.transaction(async (tx) => {
     await tx
@@ -171,6 +187,12 @@ if (process.argv[1] && path.basename(process.argv[1]) === "seed.ts") {
     process.loadEnvFile?.();
   } catch {
     // no .env file; rely on the existing environment
+  }
+  try {
+    assertSeedAllowed(process.env);
+  } catch (err) {
+    console.error((err as Error).message);
+    process.exit(1);
   }
   seed(getDb())
     .then(() => console.log("Seed complete."))

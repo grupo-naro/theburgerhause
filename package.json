@@ -14,6 +14,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
     "db:seed-admin": "tsx src/db/seed-admin.ts",
+    "db:init-prod": "tsx src/db/init-prod.ts",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "db:up": "docker compose up -d",
