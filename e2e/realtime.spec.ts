@@ -21,7 +21,7 @@ test.describe("staff", () => {
   test.use({ storageState: authFile("cajera") });
 
   test("stream headers and hello frame", async ({ page }) => {
-    await page.goto("/caja");
+    await page.goto("/retiro");
     const headers = await page.evaluate(async () => {
       const ac = new AbortController();
       const res = await fetch("/api/events", { signal: ac.signal });
@@ -46,12 +46,12 @@ test.describe("staff", () => {
   });
 
   test("the staff page shows the live indicator", async ({ page }) => {
-    await page.goto("/caja");
+    await page.goto("/retiro");
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
   });
 
   test("an order created elsewhere reaches an open stream without reloading", async ({ page }) => {
-    await page.goto("/caja");
+    await page.goto("/retiro");
     await collectEvents(page);
     await expect.poll(async () => (await framesOf(page, "hello")).length).toBe(1);
 
@@ -65,7 +65,7 @@ test.describe("staff", () => {
   });
 
   test("a real checkout in another browser context notifies the staff stream", async ({ page, browser, baseURL }) => {
-    await page.goto("/caja");
+    await page.goto("/retiro");
     await collectEvents(page);
     await expect.poll(async () => (await framesOf(page, "hello")).length).toBe(1);
 
@@ -100,7 +100,7 @@ test.describe("staff", () => {
   });
 
   test("killing the server-side listener connection yields a resync, then events flow again", async ({ page }) => {
-    await page.goto("/caja");
+    await page.goto("/retiro");
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
     await collectEvents(page);
     await expect.poll(async () => (await framesOf(page, "hello")).length).toBe(1);

@@ -20,7 +20,7 @@ export const USERS = {
     username: "cajera",
     password: "cajera-e2e-pass-1",
     station: "Mostrador 1",
-    home: "/caja",
+    home: "/mostrador",
   },
   encargada: {
     role: "encargada_delivery",
@@ -28,7 +28,7 @@ export const USERS = {
     username: "encargada",
     password: "encargada-e2e-pass-1",
     station: "Delivery 1",
-    home: "/despacho",
+    home: "/delivery",
   },
 } as const satisfies Record<string, E2EUser>;
 

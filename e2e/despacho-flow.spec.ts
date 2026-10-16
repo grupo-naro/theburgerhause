@@ -23,7 +23,9 @@ import {
 import { shot, shotViewport } from "./helpers/shots";
 import { authFile } from "./helpers/users";
 
-test.use({ storageState: authFile("encargada") });
+// The full board (every lane, counters) is the admin general view /despacho; the sector workspaces reuse its components
+// and are covered by sector-workspaces.spec.ts and delivery-workspace.spec.ts.
+test.use({ storageState: authFile("admin") });
 test.beforeEach(cleanBoard);
 test.afterAll(cleanBoard);
 test.afterEach(runCleanups);
@@ -96,7 +98,7 @@ test("en camino actions: deliver, fail with a reason, re-assign; cash stays pend
   const group = cadetGroup(page, c1.id);
   await expect(group.getByTestId("cash-pending")).toHaveText(formatARS(a.total + b.total + d.total));
   await expect(group.getByText("El efectivo se rinde cuando vuelve el cadete.")).toBeVisible();
-  await expect(group.getByTestId("render-link")).toHaveAttribute("href", `/despacho/rendicion?cadet=${c1.id}`);
+  await expect(group.getByTestId("render-link")).toHaveAttribute("href", `/delivery/rendicion?cadet=${c1.id}`);
 
   // Transfer order: one click, no dialog.
   await routeOrder(page, c.number).getByTestId("deliver").click();

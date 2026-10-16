@@ -41,22 +41,38 @@ function tabCount(tab: TabId, sector: Sector, pending: CajaOrder[], board: Board
 }
 
 /**
- * One workspace per sector (Retiro en local / Gestión Delivery): the cashier's approval flow and the
- * dispatch lanes of ONE sector behind tabs. Both boards stay mounted so the new-order alert, the
- * ready alert, the assignment selection and the tab title survive a tab change. It opens no event
- * stream: the staff shell's LiveRefresh re-renders the page with fresh data.
+ * One workspace per sector. Gestión Delivery: the approval flow and the dispatch lanes behind tabs
+ * (both boards stay mounted so the new-order alert, the ready alert, the assignment selection and
+ * the tab title survive a tab change). Retiro en local: everything at once, in the order the cashier
+ * works (por aprobar, the lanes, recientes). It opens no event stream: the staff shell's LiveRefresh
+ * re-renders the page with fresh data.
  */
 export function SectorWorkspace({ sector, role, initialTab, pending, recent, failed, board, serverNow, hasStation, title, path }: Props) {
   const [tab, setTab] = useState<TabId>(initialTab);
   const baseId = useId();
   const tabs = tabsFor(sector);
 
+  if (tabs.length === 0) {
+    return (
+      <CajaBoard
+        pending={pending}
+        recent={recent}
+        failed={failed}
+        serverNow={serverNow}
+        hasStation={hasStation}
+        titleBase={title}
+        stationNext={path}
+        between={<DispatchBoard board={board} role={role} serverNow={serverNow} sector={sector} manageTitle={false} />}
+      />
+    );
+  }
+
   const select = (id: TabId) => {
     setTab(id);
     try {
       const url = new URL(window.location.href);
       url.searchParams.set("tab", id);
-      window.history.replaceState(window.history.state, "", url);
+      window.history.replaceState(null, "", url); // native History API: Next syncs it with its router (see docs)
     } catch {
       /* the URL is a convenience only */
     }
@@ -120,7 +136,7 @@ export function SectorWorkspace({ sector, role, initialTab, pending, recent, fai
           titleBase={title}
           stationNext={path}
         />
-        <DispatchBoard board={board} role={role} serverNow={serverNow} sector={sector} lanes={tabLanes(tab, sector)} manageTitle={false} />
+        <DispatchBoard board={board} role={role} serverNow={serverNow} sector={sector} lanes={tabLanes(tab)} manageTitle={false} />
       </div>
     </div>
   );

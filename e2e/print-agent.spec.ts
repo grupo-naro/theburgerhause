@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { markJobsDone, openCaja, orderCard, parkPendingOrders, placeCajaOrder, printJobsOf, recentRow } from "./helpers/caja";
+import { markJobsDone, openRetiro, orderCard, parkPendingOrders, placeRetiroOrder, printJobsOf, recentRow } from "./helpers/caja";
 import { agentFetch, FakeAgent, freshStationToken, resetStationAgentState, settleStationJobs } from "./helpers/agent";
 import { findStation } from "./helpers/db";
 import { authFile } from "./helpers/users";
@@ -34,8 +34,8 @@ test.describe("cashier flows", () => {
     await settleStationJobs(STATION);
     await parkPendingOrders();
     const token = await freshStationToken(STATION);
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     const agent = track(await FakeAgent.connect(baseURL!, token));
     await expect(page.getByTestId("printer-indicator")).toBeVisible();
 
@@ -69,8 +69,8 @@ test.describe("cashier flows", () => {
     await settleStationJobs(STATION);
     await parkPendingOrders();
     const token = await freshStationToken(STATION);
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     const agent = track(await FakeAgent.connect(baseURL!, token));
     await approveFromUi(page, o.number);
     const [kitchen, ticket] = await agent.jobs(2, 2000);
@@ -107,8 +107,8 @@ test.describe("cashier flows", () => {
     await settleStationJobs(STATION);
     await parkPendingOrders();
     const token = await freshStationToken(STATION);
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     await approveFromUi(page, o.number);
     const pending = await printJobsOf(o.id);
     expect(pending.map((j) => [j.type, j.status, j.attempts])).toEqual([
@@ -139,8 +139,8 @@ test.describe("cashier flows", () => {
     await first.reader.event("replaced", 3000);
     expect(await first.reader.waitEnd(3000)).toBe(true);
 
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     await approveFromUi(page, o.number);
     const got = await second.jobs(2, 2000);
     expect(got).toHaveLength(2);

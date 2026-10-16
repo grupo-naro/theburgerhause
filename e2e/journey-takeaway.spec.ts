@@ -4,9 +4,9 @@ import * as s from "../src/db/schema";
 import { formatARS } from "../src/domain/money";
 import { formatPesosInput } from "../src/lib/rendicion/parse-pesos";
 import { resetStationAgentState, settleStationJobs } from "./helpers/agent";
-import { eventsOf, openCaja, orderById, orderCard, parkPendingOrders, placeCajaOrder, printJobsOf, recentRow } from "./helpers/caja";
+import { eventsOf, openDelivery, openRetiro, orderById, orderCard, parkPendingOrders, placeDeliveryOrder, placeRetiroOrder, printJobsOf, recentRow } from "./helpers/caja";
 import { db } from "./helpers/db";
-import { cleanBoard, dcard, lane, openDespacho, runCleanups } from "./helpers/despacho";
+import { cleanBoard, dcard, lane, runCleanups } from "./helpers/despacho";
 import { customerContext, staffContext } from "./helpers/journey";
 import { cadetCard, deliveredFor, ensureCadet, openDetail, retireCadets, settlementsOf, tag } from "./helpers/rendicion";
 import { shot, shotViewport } from "./helpers/shots";
@@ -23,7 +23,10 @@ test.afterEach(async () => {
 });
 test.afterAll(() => resetStationAgentState(STATION));
 
-/** J3: web takeaway paid in cash, a rejected order, and a cadet settlement with a shortage. */
+/**
+ * J3: web takeaway paid in cash at the counter (cashier, Retiro en local), a delivery order rejected by the
+ * delivery manager (it never shows on the cashier's screen), and a cadet settlement with a shortage.
+ */
 test("J3 takeaway with cash collected at pickup, a rejection with a reason, and a settlement with a shortage", async ({ page, browser, baseURL }) => {
   test.setTimeout(150_000);
   await parkPendingOrders();
@@ -35,15 +38,17 @@ test("J3 takeaway with cash collected at pickup, a rejection with a reason, and 
   const cadet = await ensureCadet(`Faltante ${tag()}`);
 
   try {
-    await openCaja(page);
-    await openDespacho(dispatch);
-    const takeaway = await placeCajaOrder({ fulfillment: "takeaway", paymentMethod: "cash", single: true });
-    const rejected = await placeCajaOrder({ fulfillment: "delivery", paymentMethod: "cash", single: true });
+    await openRetiro(page);
+    await openDelivery(dispatch);
+    const takeaway = await placeRetiroOrder({ paymentMethod: "cash", single: true });
+    const rejected = await placeDeliveryOrder({ paymentMethod: "cash", single: true });
 
     await test.step("the cashier approves the takeaway order: payment stays pending, two jobs for the station", async () => {
       const card = orderCard(page, takeaway.number);
       await expect(card).toBeVisible();
-      await expect(orderCard(page, rejected.number)).toBeVisible();
+      await expect(orderCard(dispatch, rejected.number)).toBeVisible(); // the delivery order is on the delivery manager's screen...
+      await expect(orderCard(dispatch, takeaway.number)).toHaveCount(0);
+      await expect(orderCard(page, rejected.number)).toHaveCount(0); // ...and NOT on the cashier's
       await card.getByTestId("approve").click();
       await expect(card).toHaveCount(0);
       const row = await orderById(takeaway.id);
@@ -55,13 +60,13 @@ test("J3 takeaway with cash collected at pickup, a rejection with a reason, and 
     });
 
     await test.step("Listo, then Para retirar; delivering needs the collect dialog and then marks it paid", async () => {
-      await dcard(dispatch, takeaway.number).getByTestId("mark-ready").click();
-      await expect(dcard(dispatch, takeaway.number).getByTestId("pickup-name")).toBeVisible();
-      await dcard(dispatch, takeaway.number).getByTestId("call-pickup").click();
-      const picked = lane(dispatch, "pickup").locator(`[data-order-number="${takeaway.number}"]`);
+      await dcard(page, takeaway.number).getByTestId("mark-ready").click();
+      await expect(dcard(page, takeaway.number).getByTestId("pickup-name")).toBeVisible();
+      await dcard(page, takeaway.number).getByTestId("call-pickup").click();
+      const picked = lane(page, "pickup").locator(`[data-order-number="${takeaway.number}"]`);
       await expect(picked).toBeVisible();
       await picked.getByTestId("deliver").click();
-      const dialog = dispatch.getByTestId("collect-dialog");
+      const dialog = page.getByTestId("collect-dialog");
       await expect(dialog).toContainText(`Cobrá ${formatARS(takeaway.total)} antes de entregar`);
       await expect(dialog.getByTestId("collect-confirm")).toBeDisabled();
       expect((await orderById(takeaway.id)).status).toBe("para_retirar"); // nothing moved yet
@@ -73,14 +78,15 @@ test("J3 takeaway with cash collected at pickup, a rejection with a reason, and 
       expect((await eventsOf(takeaway.id)).map((e) => e.toStatus)).toEqual(["pendiente_aprobacion", "en_preparacion", "listo_despacho", "para_retirar", "entregado"]);
     });
 
-    await test.step("the second order is rejected with a reason: cancelled, no print jobs, the customer sees it", async () => {
-      const card = orderCard(page, rejected.number);
+    await test.step("the delivery manager rejects the second order with a reason: cancelled, no print jobs, the customer sees it", async () => {
+      const card = orderCard(dispatch, rejected.number);
       await card.getByTestId("reject").click();
-      const dialog = page.getByTestId("reject-dialog");
+      const dialog = dispatch.getByTestId("reject-dialog");
       await dialog.getByRole("button", { name: "Zona sin cobertura" }).click();
       await dialog.getByRole("button", { name: "Rechazar pedido" }).click();
       await expect(card).toHaveCount(0);
-      await expect(recentRow(page, rejected.number).getByTestId("status-chip")).toHaveText("Cancelado");
+      await dispatch.getByTestId("tab-recent").click();
+      await expect(recentRow(dispatch, rejected.number).getByTestId("status-chip")).toHaveText("Cancelado");
       expect(await orderById(rejected.id)).toMatchObject({ status: "cancelado", paymentStatus: "pending" });
       expect(await printJobsOf(rejected.id)).toHaveLength(0);
       expect((await eventsOf(rejected.id)).at(-1)).toMatchObject({ toStatus: "cancelado", note: "Zona sin cobertura" });

@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { FakeAgent, freshStationToken, resetStationAgentState } from "./helpers/agent";
-import { countEventSources, failPrintJob, openCaja, recentRow } from "./helpers/caja";
-import { findStation, findUser, setProductActiveInDb } from "./helpers/db";
+import { countEventSources, failPrintJob, openRetiro, recentRow } from "./helpers/caja";
+import { eq } from "drizzle-orm";
+import * as s from "../src/db/schema";
+import { db, findStation, findUser, setProductActiveInDb } from "./helpers/db";
 import {
   chargeButton,
   counterOrderCount,
@@ -41,7 +43,7 @@ test("cash sale: disabled reasons in sequence, change, charge, DB rows, two tick
   const total = ranchita + melt;
   const token = await freshStationToken(STATION);
   const caja = await context.newPage();
-  await openCaja(caja);
+  await openRetiro(caja);
   await openPos(page);
   const agent = await FakeAgent.connect(baseURL!, token);
   try {
@@ -293,7 +295,9 @@ test("stale item: a product deactivated while in the ticket is named, removed, n
 test("the ticket persists per station: reload keeps it, another station has its own", async ({ page }) => {
   await releaseCounterState();
   const station = await findStation(STATION);
-  const other = await findStation("Delivery 1");
+  // A cashier only works at Mostrador-kind stations, so the second terminal is a second Mostrador station.
+  const [other] = await db().insert(s.stations).values({ name: "Mostrador 2 E2E", kind: "mostrador" }).returning();
+  try {
   await openPos(page);
   await tileMain(page, "Ranchita simple").click();
   await tileMain(page, "Ranchita simple").click();
@@ -311,7 +315,7 @@ test("the ticket persists per station: reload keeps it, another station has its 
 
   // Switch this terminal to another station: its ticket is separate.
   await page.goto("/estacion?next=/mostrador");
-  await page.getByRole("button", { name: /Delivery 1/ }).click();
+  await page.getByRole("button", { name: /Mostrador 2 E2E/ }).click();
   await expect(page).toHaveURL(/\/mostrador$/);
   await expect(page.getByTestId("pos-board")).toHaveAttribute("data-ready", "true");
   await expect(page.getByTestId("ticket-empty")).toBeVisible();
@@ -324,6 +328,9 @@ test("the ticket persists per station: reload keeps it, another station has its 
   await expect(page.getByTestId("pos-board")).toHaveAttribute("data-ready", "true");
   await expect(ticketLines(page)).toHaveCount(2);
   await expect(linesOf(page, "Cuarto de libra simple")).toHaveCount(0);
+  } finally {
+    await db().delete(s.stations).where(eq(s.stations.id, other.id));
+  }
 });
 
 test("exactly one EventSource, and a sale from another terminal does not open a second one", async ({ page, context }) => {

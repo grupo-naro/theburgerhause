@@ -32,7 +32,7 @@ test("lists the users without any password data", async ({ page }) => {
   await shot(page, "admin-usuarios");
 });
 
-test("create a cashier who logs in and reaches /caja; deactivating kills her session", async ({
+test("create a cashier who logs in and reaches her workspace; deactivating kills her session", async ({
   page,
   browser,
   baseURL,

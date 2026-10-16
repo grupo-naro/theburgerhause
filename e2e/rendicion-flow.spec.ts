@@ -118,7 +118,7 @@ test("exact settlement: dialog repeats the numbers, receipt, DB and live updates
 
   // The board still shows only the en-route cash (the settled orders left the balance).
   const board = await context.newPage();
-  await board.goto("/despacho");
+  await board.goto("/delivery?tab=enroute");
   const group = board.locator(`[data-testid="cadet-group"][data-cadet-id="${cadet.id}"]`);
   await expect(group.getByTestId("cash-pending")).toHaveText(formatARS(route.total));
   await board.close();
@@ -181,7 +181,7 @@ test("race: stale second confirm gets a Spanish message and no second settlement
     // The stale tab never hears about the settlement: its live stream is cut.
     await admin.route("**/api/events", (r) => r.abort());
     const stale = await admin.newPage();
-    await stale.goto(`/despacho/rendicion?cadet=${cadet.id}`);
+    await stale.goto(`/delivery/rendicion?cadet=${cadet.id}`);
     await expect(stale.getByTestId("cadet-detail")).toBeVisible();
     await stale.getByTestId("confirm-settlement").click();
     await expect(stale.getByTestId("confirm-dialog")).toBeVisible();
@@ -242,7 +242,7 @@ test("double click on 'Sí, confirmar' settles once", async ({ page }) => {
 
 test("unknown or invalid cadet shows a friendly state inside the shell", async ({ page }) => {
   for (const q of ["999999", "abc", "0", "99999999999"]) {
-    const res = await page.goto(`/despacho/rendicion?cadet=${q}`);
+    const res = await page.goto(`/delivery/rendicion?cadet=${q}`);
     expect(res?.status()).toBeLessThan(500);
     await expect(page.getByTestId("cadet-not-found")).toBeVisible();
     await expect(page.getByTestId("station-name")).toBeVisible();

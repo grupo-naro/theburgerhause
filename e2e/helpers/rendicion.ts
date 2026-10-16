@@ -39,13 +39,13 @@ export const cadetCard = (page: Page, cadetId: number): Locator =>
 
 /** Opens a cadet's detail and waits for the live connection (events created afterwards are not missed). */
 export async function openDetail(page: Page, cadetId: number): Promise<void> {
-  await page.goto(`/despacho/rendicion?cadet=${cadetId}`);
+  await page.goto(`/delivery/rendicion?cadet=${cadetId}`);
   await expect(page.getByTestId("cadet-detail")).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
 }
 
 export async function openList(page: Page): Promise<void> {
-  await page.goto("/despacho/rendicion");
+  await page.goto("/delivery/rendicion");
   await expect(page.getByTestId("rendicion-list")).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
 }

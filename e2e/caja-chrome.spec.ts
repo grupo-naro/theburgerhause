@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import * as s from "../src/db/schema";
 import { noHorizontalOverflow } from "./helpers/checkout";
-import { countEventSources, failPrintJob, markJobsDone, openCaja, orderCard, parkPendingOrders, placeCajaOrder, printJobsOf, recentRow, setStationSeen } from "./helpers/caja";
+import { countEventSources, failPrintJob, markJobsDone, openDelivery, openRetiro, orderCard, parkPendingOrders, placeDeliveryOrder, placeRetiroOrder, printJobsOf, recentRow, setStationSeen } from "./helpers/caja";
 import { db } from "./helpers/db";
 import { shot, shotViewport } from "./helpers/shots";
 import { authFile } from "./helpers/users";
@@ -10,6 +10,11 @@ import { authFile } from "./helpers/users";
 const MIN = 60_000;
 const backdate = (id: number, minutes: number) =>
   db().update(s.orders).set({ createdAt: new Date(Date.now() - minutes * MIN) }).where(eq(s.orders.id, id));
+
+const VIEWPORTS = [
+  ["desktop", { width: 1280, height: 800 }],
+  ["tablet", { width: 768, height: 1024 }],
+] as const;
 
 test.describe("anonymous", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
@@ -24,11 +29,11 @@ test.describe("cashier", () => {
 
   test("shell: nav by role, station, printer indicator from the heartbeat, one event stream", async ({ page, context }) => {
     const streams = countEventSources(context);
-    await page.goto("/caja");
+    await page.goto("/retiro");
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
     const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Caja", "Mostrador", "Despacho"]);
-    await expect(nav.getByRole("link", { name: "Caja" })).toHaveAttribute("aria-current", "page");
+    await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local"]);
+    await expect(nav.getByRole("link", { name: "Retiro en local" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("station-name")).toHaveText("Estación: Mostrador 1");
 
     // Truthful before the agent exists: never seen -> offline.
@@ -53,7 +58,7 @@ test.describe("cashier", () => {
     await page.reload();
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
     const before = streams.count();
-    const o = await placeCajaOrder();
+    const o = await placeRetiroOrder();
     await expect(orderCard(page, o.number)).toBeVisible();
     expect(streams.count()).toBe(before);
   });
@@ -64,7 +69,7 @@ test.describe("cashier", () => {
     await setStationSeen("Mostrador 1", new Date());
     try {
       await page.clock.install({ time: new Date() });
-      await page.goto("/caja");
+      await page.goto("/retiro");
       const printer = page.getByTestId("printer-indicator");
       await expect(printer).toHaveText("Impresora lista");
 
@@ -82,7 +87,7 @@ test.describe("cashier", () => {
   });
 
   test("every staff page opens exactly one /api/events connection", async ({ context }) => {
-    for (const path of ["/caja", "/mostrador"]) {
+    for (const path of ["/retiro", "/mostrador", "/mostrador/pedidos"]) {
       const fresh = await context.newPage();
       const streams = countEventSources(context);
       await fresh.goto(path);
@@ -93,25 +98,120 @@ test.describe("cashier", () => {
     }
   });
 
-  test("the cashier can open Despacho (restricted) and sees no Admin link", async ({ page }) => {
+  test("the old /despacho and /caja send the cashier to her workspace; Mostrador has no delivery lanes and no Admin link", async ({ page }) => {
     await page.goto("/despacho");
-    await expect(page).toHaveURL(/\/despacho$/);
-    await expect(page.getByTestId("readonly-note")).toBeVisible();
+    await expect(page).toHaveURL(/\/mostrador\/pedidos$/);
+    await expect(page.getByTestId("dispatch-board")).toBeVisible();
+    await expect(page.getByTestId("lane-enroute")).toHaveCount(0);
+    await expect(page.getByTestId("lane-ready-delivery")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Administración" })).toHaveCount(0);
+    await page.goto("/caja");
+    await expect(page).toHaveURL(/\/retiro$/);
   });
 
-  for (const [label, viewport] of [
-    ["desktop", { width: 1280, height: 800 }],
-    ["tablet", { width: 768, height: 1024 }],
-  ] as const) {
-    test(`board at ${label}: no horizontal overflow and screenshots of every state`, async ({ page }) => {
+  for (const [label, viewport] of VIEWPORTS) {
+    test(`Retiro en local at ${label}: no horizontal overflow and screenshots of every state`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await parkPendingOrders();
-      const urgent = await placeCajaOrder({ paymentMethod: "cash", fulfillment: "takeaway", unitNote: "Sin sal, por favor" });
-      const transfer = await placeCajaOrder({ paymentMethod: "transfer", fulfillment: "delivery" });
-      const longOne = await placeCajaOrder({
+      const urgent = await placeRetiroOrder({ paymentMethod: "cash", unitNote: "Sin sal, por favor" });
+      const transfer = await placeRetiroOrder({ paymentMethod: "transfer" });
+      const longOne = await placeRetiroOrder({
         paymentMethod: "cash",
-        fulfillment: "delivery",
+        unitNote: "Hamburguesa bien cocida y sin pepinos, el pan bien tostado, cortada al medio y bien separada de las papas por favor",
+      });
+      await backdate(urgent.id, 12);
+      await backdate(transfer.id, 6);
+
+      await openRetiro(page);
+      await boardChecks(page, label, "retiro", { urgent, transfer, longOne });
+    });
+  }
+});
+
+/** Shared visual checks of an approvals board (urgency badges, sound hint, approve states, reject dialog, failed print + Recientes). */
+async function boardChecks(
+  page: Page,
+  label: string,
+  workspace: "retiro" | "delivery",
+  o: { urgent: { id: number; number: number }; transfer: { id: number; number: number }; longOne: { id: number; number: number } },
+) {
+  for (const x of [o.urgent, o.transfer, o.longOne]) await expect(orderCard(page, x.number)).toBeVisible();
+  await expect(page.getByTestId("sound-hint")).toBeVisible();
+  await expect(orderCard(page, o.urgent.number).getByTestId("elapsed")).toHaveAttribute("data-urgency", "urgent");
+  await expect(orderCard(page, o.transfer.number).getByTestId("elapsed")).toHaveAttribute("data-urgency", "warning");
+  expect(await noHorizontalOverflow(page)).toBe(true);
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await shot(page, `${workspace}-board-${label}`);
+  await orderCard(page, o.urgent.number).screenshot({ path: `test-results/shots/${workspace}-card-urgent-${label}.png` });
+  await page.getByTestId("sound-hint").screenshot({ path: `test-results/shots/${workspace}-sound-hint-${label}.png` });
+
+  // Approve disabled vs enabled (transfer).
+  const tcard = orderCard(page, o.transfer.number);
+  await tcard.screenshot({ path: `test-results/shots/${workspace}-approve-disabled-${label}.png` });
+  await tcard.getByRole("checkbox").check();
+  await tcard.screenshot({ path: `test-results/shots/${workspace}-approve-enabled-${label}.png` });
+
+  // Reject dialog.
+  await orderCard(page, o.longOne.number).getByTestId("reject").click();
+  await page.getByRole("button", { name: "Pago no acreditado" }).click();
+  await shotViewport(page, `${workspace}-reject-dialog-${label}`);
+  await page.keyboard.press("Escape");
+
+  // Recientes + failed alert: approve one order, fail its kitchen print.
+  await orderCard(page, o.longOne.number).getByTestId("approve").click();
+  await expect(orderCard(page, o.longOne.number)).toHaveCount(0);
+  if (workspace === "delivery") await page.getByTestId("tab-recent").click();
+  const row = recentRow(page, o.longOne.number);
+  if (label === "tablet") {
+    await page.getByRole("button", { name: "Mostrar" }).click();
+  }
+  await expect(row).toBeVisible();
+  const [kitchen] = await printJobsOf(o.longOne.id);
+  try {
+    await failPrintJob(kitchen.id, "La impresora no responde (sin papel o desconectada)");
+    await expect(page.getByTestId("failed-print-alert")).toBeVisible();
+    expect(await noHorizontalOverflow(page)).toBe(true);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, `${workspace}-failed-and-recientes-${label}`);
+    await recentRow(page, o.longOne.number).screenshot({ path: `test-results/shots/${workspace}-recent-row-${label}.png` });
+  } finally {
+    await markJobsDone(o.longOne.id);
+  }
+}
+
+test.describe("delivery manager", () => {
+  test.use({ storageState: authFile("encargada") });
+
+  test("nav shows Gestión Delivery and Rendición only; one stream per page; the old URLs send her to her workspace", async ({ page, context }) => {
+    await page.goto("/delivery");
+    await expect(page.getByTestId("station-name")).toHaveText("Estación: Delivery 1");
+    const nav = page.getByRole("navigation", { name: "Secciones" });
+    await expect(nav.getByRole("link")).toHaveText(["Gestión Delivery", "Rendición"]);
+    await expect(nav.getByRole("link", { name: "Gestión Delivery" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("heading", { name: "Gestión Delivery", exact: true })).toBeAttached();
+
+    const streams = countEventSources(context);
+    await page.goto("/delivery");
+    await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
+    await page.waitForTimeout(500);
+    expect(streams.count()).toBe(1);
+
+    for (const old of ["/caja", "/despacho"]) {
+      await page.goto(old);
+      await expect(page).toHaveURL(/\/delivery$/);
+    }
+    await page.goto("/despacho/rendicion");
+    await expect(page).toHaveURL(/\/delivery\/rendicion$/);
+  });
+
+  for (const [label, viewport] of VIEWPORTS) {
+    test(`Gestión Delivery at ${label}: no horizontal overflow and screenshots of every state`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await parkPendingOrders();
+      const urgent = await placeDeliveryOrder({ paymentMethod: "cash", unitNote: "Sin sal, por favor" });
+      const transfer = await placeDeliveryOrder({ paymentMethod: "transfer" });
+      const longOne = await placeDeliveryOrder({
+        paymentMethod: "cash",
         address: "Avenida del Libertador General San Martín 4567, piso 12, departamento B, torre norte",
         crossStreets: "Entre Dr. Luis Agote y Presidente Roque Sáenz Peña",
         notes: "Portón verde, tocar timbre 3 veces y esperar. Si no atienden llamar al WhatsApp del cliente antes de dejar el pedido.",
@@ -120,77 +220,19 @@ test.describe("cashier", () => {
       await backdate(urgent.id, 12);
       await backdate(transfer.id, 6);
 
-      await openCaja(page);
-      for (const o of [urgent, transfer, longOne]) await expect(orderCard(page, o.number)).toBeVisible();
-      await expect(page.getByTestId("sound-hint")).toBeVisible();
-      await expect(orderCard(page, urgent.number).getByTestId("elapsed")).toHaveAttribute("data-urgency", "urgent");
-      await expect(orderCard(page, transfer.number).getByTestId("elapsed")).toHaveAttribute("data-urgency", "warning");
-      expect(await noHorizontalOverflow(page)).toBe(true);
-      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-      await shot(page, `caja-board-${label}`);
-      await orderCard(page, urgent.number).screenshot({ path: `test-results/shots/caja-card-urgent-${label}.png` });
-      await page.getByTestId("sound-hint").screenshot({ path: `test-results/shots/caja-sound-hint-${label}.png` });
-
-      // Approve disabled vs enabled (transfer).
-      const tcard = orderCard(page, transfer.number);
-      await tcard.screenshot({ path: `test-results/shots/caja-approve-disabled-${label}.png` });
-      await tcard.getByRole("checkbox").check();
-      await tcard.screenshot({ path: `test-results/shots/caja-approve-enabled-${label}.png` });
-
-      // Reject dialog.
-      await orderCard(page, longOne.number).getByTestId("reject").click();
-      await page.getByRole("button", { name: "Pago no acreditado" }).click();
-      await shotViewport(page, `caja-reject-dialog-${label}`);
-      await page.keyboard.press("Escape");
-
-      // Recientes + failed alert: approve one order, fail its kitchen print.
-      await orderCard(page, longOne.number).getByTestId("approve").click();
-      await expect(orderCard(page, longOne.number)).toHaveCount(0);
-      const row = recentRow(page, longOne.number);
-      if (label === "tablet") {
-        await page.getByRole("button", { name: "Mostrar" }).click();
-      }
-      await expect(row).toBeVisible();
-      const [kitchen] = await printJobsOf(longOne.id);
-      try {
-        await failPrintJob(kitchen.id, "La impresora no responde (sin papel o desconectada)");
-        await expect(page.getByTestId("failed-print-alert")).toBeVisible();
-        expect(await noHorizontalOverflow(page)).toBe(true);
-        await page.evaluate(() => window.scrollTo(0, 0));
-        await shot(page, `caja-failed-and-recientes-${label}`);
-        await recentRow(page, longOne.number).screenshot({ path: `test-results/shots/caja-recent-row-${label}.png` });
-      } finally {
-        await markJobsDone(longOne.id);
-      }
+      await openDelivery(page);
+      await boardChecks(page, label, "delivery", { urgent, transfer, longOne });
     });
   }
-});
-
-test.describe("delivery manager", () => {
-  test.use({ storageState: authFile("encargada") });
-
-  test("can open /caja; nav shows Despacho, Rendición and Caja only; the placeholder keeps one stream", async ({ page, context }) => {
-    await page.goto("/caja");
-    await expect(page.getByTestId("station-name")).toHaveText("Estación: Delivery 1");
-    const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Despacho", "Rendición", "Caja"]);
-    await expect(page.getByRole("heading", { name: "Caja", exact: true })).toBeAttached();
-
-    const streams = countEventSources(context);
-    await page.goto("/despacho");
-    await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
-    await page.waitForTimeout(500);
-    expect(streams.count()).toBe(1);
-    await expect(page.getByRole("heading", { name: "Despacho" })).toBeVisible();
-  });
 });
 
 test.describe("admin", () => {
   test.use({ storageState: authFile("admin") });
 
-  test("sees every staff link plus Administración", async ({ page }) => {
+  test("sees every workspace, both general views and Administración", async ({ page }) => {
     await page.goto("/caja");
     const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Caja", "Mostrador", "Despacho", "Rendición", "Administración"]);
+    await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local", "Gestión Delivery", "Rendición", "Vista general", "Tablero general", "Administración"]);
+    await expect(nav.getByRole("link", { name: "Vista general" })).toHaveAttribute("aria-current", "page");
   });
 });

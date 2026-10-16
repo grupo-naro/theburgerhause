@@ -7,7 +7,7 @@ import * as s from "../src/db/schema";
 import { startAgent, type AgentConfig, type AgentHandle } from "../packages/print-agent/src/index";
 import { createLogger } from "../packages/print-agent/src/logger";
 import { CaptureLog, FakeClock } from "../packages/print-agent/src/testing/support";
-import { openCaja, orderCard, parkPendingOrders, placeCajaOrder, printJobsOf, recentRow } from "./helpers/caja";
+import { openRetiro, orderCard, parkPendingOrders, placeRetiroOrder, printJobsOf, recentRow } from "./helpers/caja";
 import { freshStationToken, resetStationAgentState, settleStationJobs } from "./helpers/agent";
 import { db } from "./helpers/db";
 import { authFile } from "./helpers/users";
@@ -84,8 +84,8 @@ test.describe("real agent, cashier flows", () => {
     await settleStationJobs(STATION);
     await parkPendingOrders();
     const token = await freshStationToken(STATION);
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     const a = launch(baseURL!, token);
     await a.log.waitFor("Agente conectado");
     await expect(page.getByTestId("printer-indicator")).toBeVisible();
@@ -122,8 +122,8 @@ test.describe("real agent, cashier flows", () => {
     await settleStationJobs(STATION);
     await parkPendingOrders();
     const token = await freshStationToken(STATION);
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     await approveFromUi(page, o.number);
     expect((await printJobsOf(o.id)).map((j) => [j.type, j.status, j.attempts])).toEqual([
       ["kitchen", "pending", 0],
@@ -145,8 +145,8 @@ test.describe("real agent, cashier flows", () => {
     await settleStationJobs(STATION);
     await parkPendingOrders();
     const token = await freshStationToken(STATION);
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     const first = launch(baseURL!, token);
     await first.log.waitFor("Agente conectado");
     await approveFromUi(page, o.number);
@@ -174,8 +174,8 @@ test.describe("real agent, cashier flows", () => {
     await second.log.waitFor("Agente conectado");
     await first.log.waitFor("Otro agente se conectó");
 
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     await approveFromUi(page, o.number);
     await expect.poll(() => files(second.outDir).length, { timeout: 10_000 }).toBe(2);
     expect(files(first.outDir)).toHaveLength(0);

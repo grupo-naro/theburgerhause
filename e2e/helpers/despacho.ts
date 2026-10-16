@@ -17,9 +17,16 @@ export const routeOrder = (page: Page, number: number): Locator =>
 export const cadetGroup = (page: Page, cadetId: number): Locator => page.locator(`[data-testid="cadet-group"][data-cadet-id="${cadetId}"]`);
 export const lane = (page: Page, id: string): Locator => page.getByTestId(`lane-${id}`);
 
-/** Opens /despacho and waits for the live connection (events created afterwards are not missed). */
+/** Opens /despacho (admin general board, every lane) and waits for the live connection (events created afterwards are not missed). */
 export async function openDespacho(page: Page): Promise<void> {
   await page.goto("/despacho");
+  await expect(page.getByTestId("dispatch-board")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
+}
+
+/** Cashier workspace: opens /mostrador/pedidos (counter orders: Mostrador) and waits for the live connection. */
+export async function openPedidos(page: Page): Promise<void> {
+  await page.goto("/mostrador/pedidos");
   await expect(page.getByTestId("dispatch-board")).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
 }
@@ -71,14 +78,24 @@ async function actors() {
   const cajera = await findUser("cajera");
   const encargada = await findUser("encargada");
   const station = await findStation("Mostrador 1");
-  return { cajera, encargada, station };
+  const deliveryStation = await findStation("Delivery 1");
+  return { cajera, encargada, station, deliveryStation };
 }
 
-/** A web order approved by the cashier (so it sits in "En preparación"). */
+/**
+ * A web order approved the way the sectors work: delivery orders by the delivery manager at Delivery 1, takeaway
+ * orders by the cashier at Mostrador 1 (so it sits in "En preparación" and its print jobs belong to that station).
+ */
 export async function placeApproved(o: Parameters<typeof placeCajaOrder>[0] = {}): Promise<CajaOrderFixture> {
   const fx = await placeCajaOrder({ single: true, ...o });
-  const { cajera, station } = await actors();
-  const r = await approveOrder(db(), { orderId: fx.id, userId: cajera.id, stationId: station.id, paymentVerified: (o.paymentMethod ?? "cash") === "transfer" });
+  const { cajera, encargada, station, deliveryStation } = await actors();
+  const delivery = (o.fulfillment ?? "delivery") === "delivery";
+  const r = await approveOrder(db(), {
+    orderId: fx.id,
+    userId: delivery ? encargada.id : cajera.id,
+    stationId: delivery ? deliveryStation.id : station.id,
+    paymentVerified: (o.paymentMethod ?? "cash") === "transfer",
+  });
   if (!r.ok) throw new Error(`approve failed: ${r.message}`);
   return fx;
 }

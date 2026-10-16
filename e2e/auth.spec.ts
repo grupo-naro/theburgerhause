@@ -54,17 +54,19 @@ test.describe("cashier session", () => {
     // No station cookie yet -> station picker.
     await expect(page).toHaveURL(/\/estacion/);
     await expect(page.getByRole("heading", { name: "¿Dónde estás trabajando?" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Delivery 1/ })).toBeVisible();
+    // One workspace per sector: a cashier is only offered Mostrador stations.
+    await expect(page.getByRole("button", { name: /Mostrador 1/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Delivery 1/ })).toHaveCount(0);
     await shot(page, "estacion");
 
     await page.getByRole("button", { name: /Mostrador 1/ }).click();
-    await expect(page).toHaveURL(/\/caja$/);
+    await expect(page).toHaveURL(/\/mostrador$/);
     await expect(page.getByTestId("station-name")).toHaveText("Estación: Mostrador 1");
     await expect(page.getByTestId("user-name")).toHaveText(user.name);
 
     // Wrong role area -> bounced to her own home.
     await page.goto("/admin/menu");
-    await expect(page).toHaveURL(/\/caja$/);
+    await expect(page).toHaveURL(/\/mostrador$/);
 
     const [session] = (await context.cookies()).filter((c) => c.name === "bh_session");
     expect(session).toBeDefined();
@@ -87,14 +89,14 @@ test.describe("cashier session", () => {
     await page.getByLabel("Contraseña").fill(user.password);
     await page.getByRole("button", { name: "Ingresar" }).click();
     await page.getByRole("button", { name: /Mostrador 1/ }).click();
-    await expect(page).toHaveURL(/\/caja$/);
+    await expect(page).toHaveURL(/\/mostrador$/);
     await page.getByRole("button", { name: "Cerrar sesión" }).click();
     await expect(page).toHaveURL(/\/login/);
 
     await page.getByLabel("Usuario").fill(user.username);
     await page.getByLabel("Contraseña").fill(user.password);
     await page.getByRole("button", { name: "Ingresar" }).click();
-    await expect(page).toHaveURL(/\/caja$/);
+    await expect(page).toHaveURL(/\/mostrador$/);
   });
 });
 
@@ -103,14 +105,14 @@ test.describe("saved sessions", () => {
     test.use({ storageState: authFile("cajera") });
     test("is kept out of /admin/menu", async ({ page }) => {
       await page.goto("/admin/menu");
-      await expect(page).toHaveURL(/\/caja$/);
+      await expect(page).toHaveURL(/\/mostrador$/);
     });
   });
 
   test.describe("delivery manager", () => {
     test.use({ storageState: authFile("encargada") });
-    test("lands on /despacho with her station", async ({ page }) => {
-      await page.goto("/despacho");
+    test("lands on Gestión Delivery (/delivery) with her station", async ({ page }) => {
+      await page.goto("/delivery");
       await expect(page.getByTestId("station-name")).toHaveText("Estación: Delivery 1");
       await expect(page.getByTestId("user-name")).toHaveText(USERS.encargada.name);
     });

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { formatARS } from "../src/domain/money";
-import { audioContexts, beeps, eventsOf, failPrintJob, markJobsDone, openCaja, orderById, orderCard, parkPendingOrders, placeCajaOrder, printJobsOf, recentRow, stubAudio } from "./helpers/caja";
+import { audioContexts, beeps, eventsOf, failPrintJob, markJobsDone, openRetiro, orderById, orderCard, parkPendingOrders, placeRetiroOrder, printJobsOf, recentRow, stubAudio } from "./helpers/caja";
 import { findStation, findUser } from "./helpers/db";
 import { currentStep, openTracking } from "./helpers/tracking";
 import { authFile } from "./helpers/users";
@@ -22,11 +22,11 @@ test.describe("arrival and alerts", () => {
   test("a new order shows up live with its details; sound toggle persists and beeps exactly once per order", async ({ page }) => {
     await stubAudio(page);
     await parkPendingOrders();
-    await openCaja(page);
+    await openRetiro(page);
     await expect(page.getByTestId("pending-empty")).toBeVisible();
-    await expect(page).toHaveTitle("Caja");
+    await expect(page).toHaveTitle("Retiro en local");
 
-    const first = await placeCajaOrder({ paymentMethod: "cash", unitNote: "bien cocida" });
+    const first = await placeRetiroOrder({ paymentMethod: "cash", unitNote: "bien cocida" });
     const card = orderCard(page, first.number);
     await expect(card).toBeVisible(); // arrived through SSE, no reload
     await expect(card.getByRole("heading", { level: 3 })).toHaveText(`#${first.number}`);
@@ -38,7 +38,7 @@ test.describe("arrival and alerts", () => {
     await expect(card.getByTestId("order-total")).toHaveText(formatARS(first.total));
     await expect(card).toHaveAttribute("data-fresh", "true");
     await expect(pendingCount(page)).toHaveText("1");
-    await expect(page).toHaveTitle(/^\(1\) (Caja|¡Nuevo pedido!)$/);
+    await expect(page).toHaveTitle(/^\(1\) (Retiro en local|¡Nuevo pedido!)$/);
     await expect(page.getByTestId("caja-announcer")).toHaveText(`Nuevo pedido #${first.number}`);
     // Sound is off by default: nothing played, and the page says how to turn it on.
     expect(await beeps(page)).toBe(0);
@@ -54,7 +54,7 @@ test.describe("arrival and alerts", () => {
     expect(afterToggle).toBe(1);
 
     // ON: exactly one beep for the next arrival.
-    const second = await placeCajaOrder({ paymentMethod: "transfer", fulfillment: "takeaway" });
+    const second = await placeRetiroOrder({ paymentMethod: "transfer", fulfillment: "takeaway" });
     await expect(orderCard(page, second.number)).toBeVisible();
     await expect(pendingCount(page)).toHaveText("2");
     expect(await beeps(page)).toBe(afterToggle + 1);
@@ -68,7 +68,7 @@ test.describe("arrival and alerts", () => {
     // OFF: silence for the next arrival, and OFF persists too.
     await page.getByTestId("sound-toggle").click();
     await expect(page.getByTestId("sound-toggle")).toHaveAttribute("aria-pressed", "false");
-    const third = await placeCajaOrder({ paymentMethod: "cash" });
+    const third = await placeRetiroOrder({ paymentMethod: "cash" });
     await expect(orderCard(page, third.number)).toBeVisible();
     await expect(pendingCount(page)).toHaveText("3");
     expect(await beeps(page)).toBe(0);
@@ -80,8 +80,8 @@ test.describe("arrival and alerts", () => {
     await stubAudio(page);
     await page.addInitScript(() => window.localStorage.setItem("caja:sound", "on"));
     await parkPendingOrders();
-    const o = await placeCajaOrder();
-    await openCaja(page);
+    const o = await placeRetiroOrder();
+    await openRetiro(page);
     await expect(orderCard(page, o.number)).toBeVisible();
     await expect(page.getByTestId("sound-toggle")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("sound-hint")).toContainText("Tocá cualquier parte");
@@ -90,7 +90,7 @@ test.describe("arrival and alerts", () => {
     await page.mouse.click(5, 5); // any gesture
     await expect(page.getByTestId("sound-hint")).toHaveCount(0);
     expect(await audioContexts(page)).toBe(1);
-    const next = await placeCajaOrder();
+    const next = await placeRetiroOrder();
     await expect(orderCard(page, next.number)).toBeVisible();
     expect(await beeps(page)).toBe(1);
   });
@@ -100,18 +100,18 @@ test.describe("arrival and alerts", () => {
       document.hasFocus = () => false;
     });
     await parkPendingOrders();
-    await openCaja(page);
-    const o = await placeCajaOrder();
+    await openRetiro(page);
+    const o = await placeRetiroOrder();
     await expect(orderCard(page, o.number)).toBeVisible();
-    await expect(page).toHaveTitle(/¡Nuevo pedido!/); // alternates with "(1) Caja"
+    await expect(page).toHaveTitle(/¡Nuevo pedido!/); // alternates with "(1) Retiro en local"
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await expect(page).toHaveTitle("(1) Caja");
+    await expect(page).toHaveTitle("(1) Retiro en local");
   });
 
   test("the highlight on a new card expires by itself", async ({ page }) => {
     await parkPendingOrders();
-    await openCaja(page);
-    const o = await placeCajaOrder();
+    await openRetiro(page);
+    const o = await placeRetiroOrder();
     const card = orderCard(page, o.number);
     await expect(card).toHaveAttribute("data-fresh", "true");
     await expect(card).not.toHaveAttribute("data-fresh", "true", { timeout: 8000 });
@@ -121,8 +121,8 @@ test.describe("arrival and alerts", () => {
 test.describe("approve", () => {
   test("cash: Aprobar moves it to Recientes en preparación with pending print chips; 2 print jobs for Mostrador 1", async ({ page, browser, baseURL }) => {
     await parkPendingOrders();
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     const card = orderCard(page, o.number);
     await expect(card.getByTestId("approve")).toHaveText("Aprobar");
     await expect(card.getByText("El cobro queda pendiente (lo cobra el cadete / en el local)")).toBeVisible();
@@ -160,8 +160,8 @@ test.describe("approve", () => {
 
   test("transfer: the button stays disabled until the payment is verified; then it is paid and the ticket says so", async ({ page }) => {
     await parkPendingOrders();
-    const o = await placeCajaOrder({ paymentMethod: "transfer", fulfillment: "takeaway" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "transfer", fulfillment: "takeaway" });
+    await openRetiro(page);
     const card = orderCard(page, o.number);
     const approve = card.getByTestId("approve");
     const check = card.getByRole("checkbox", { name: `Verifiqué la acreditación del pago de ${formatARS(o.total)}` });
@@ -184,9 +184,9 @@ test.describe("approve", () => {
 
   test("double click and Enter twice fire the action once", async ({ page }) => {
     await parkPendingOrders();
-    const a = await placeCajaOrder({ paymentMethod: "cash" });
-    const b = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const a = await placeRetiroOrder({ paymentMethod: "cash" });
+    const b = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     const actions: string[] = [];
     page.on("request", (r) => {
       if (r.method() === "POST" && r.headers()["next-action"]) actions.push(r.url());
@@ -211,18 +211,18 @@ test.describe("approve", () => {
     await expect(page.getByTestId("card-conflict")).toHaveCount(0);
   });
 
-  test("two cashiers approving at once: one wins, the other sees the Spanish conflict message", async ({ browser, baseURL }) => {
+  test("two cashier terminals approving at once: one wins, the other sees the Spanish conflict message", async ({ browser, baseURL }) => {
     await parkPendingOrders();
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    const open = async (user: "cajera" | "encargada") => {
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    const open = async (user: "cajera") => {
       const context = await browser.newContext({ baseURL, storageState: authFile(user), extraHTTPHeaders: test.info().project.use.extraHTTPHeaders });
       const page = await context.newPage();
-      await openCaja(page);
+      await openRetiro(page);
       await expect(orderCard(page, o.number)).toBeVisible();
       return { context, page };
     };
     const a = await open("cajera");
-    const b = await open("encargada");
+    const b = await open("cajera");
     try {
       await Promise.all([orderCard(a.page, o.number).getByTestId("approve").click(), orderCard(b.page, o.number).getByTestId("approve").click()]);
 
@@ -251,8 +251,8 @@ test.describe("approve", () => {
 test.describe("reject", () => {
   test("the dialog needs a reason of 3+ characters; a quick reason fills it; the order is cancelled without print jobs", async ({ page, browser, baseURL }) => {
     await parkPendingOrders();
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     const card = orderCard(page, o.number);
     await card.getByTestId("reject").click();
 
@@ -304,8 +304,8 @@ test.describe("reject", () => {
 test.describe("failed prints", () => {
   test("the red alert appears live, Reimprimir queues new jobs for THIS station and the alert clears", async ({ page }) => {
     await parkPendingOrders();
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     await approveFromUi(page, o.number);
     await expect(recentRow(page, o.number)).toBeVisible();
     const station = await findStation("Mostrador 1");
@@ -348,8 +348,8 @@ test.describe("failed prints", () => {
 
   test("Reimprimir from Recientes (Cocina / Ticket / Ambas) queues the right jobs for the current station", async ({ page }) => {
     await parkPendingOrders();
-    const o = await placeCajaOrder({ paymentMethod: "cash" });
-    await openCaja(page);
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
     await approveFromUi(page, o.number);
     const row = recentRow(page, o.number);
     await expect(row).toBeVisible();
@@ -366,9 +366,9 @@ test.describe("failed prints", () => {
 test.describe("urgency", () => {
   test("the elapsed badge turns amber after 5 minutes and red after 10, without reloading", async ({ page }) => {
     await parkPendingOrders();
-    const o = await placeCajaOrder();
+    const o = await placeRetiroOrder();
     await page.clock.install({ time: new Date() });
-    await openCaja(page);
+    await openRetiro(page);
     const badge = orderCard(page, o.number).getByTestId("elapsed");
     await expect(badge).toHaveAttribute("data-urgency", "normal");
 

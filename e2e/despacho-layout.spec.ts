@@ -18,7 +18,9 @@ import {
 import { shot, shotViewport } from "./helpers/shots";
 import { authFile } from "./helpers/users";
 
-test.use({ storageState: authFile("encargada") });
+// The full board (every lane, counters) is the admin general view /despacho; the sector workspaces reuse its components
+// and are covered by sector-workspaces.spec.ts and delivery-workspace.spec.ts.
+test.use({ storageState: authFile("admin") });
 test.afterAll(cleanBoard);
 test.afterEach(runCleanups);
 

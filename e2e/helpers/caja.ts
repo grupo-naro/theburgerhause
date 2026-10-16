@@ -112,10 +112,35 @@ export const orderCard = (page: Page, number: number): Locator =>
 export const recentRow = (page: Page, number: number): Locator =>
   page.locator(`[data-testid="recent-row"][data-order-number="${number}"]`);
 
-/** Opens /caja and waits for the live connection, so events created afterwards are not missed. */
+/** A web TAKEAWAY order: what the counter sector (cashier, Retiro en local) handles. */
+export const placeRetiroOrder = (o: Parameters<typeof placeCajaOrder>[0] = {}): Promise<CajaOrderFixture> =>
+  placeCajaOrder({ fulfillment: "takeaway", ...o });
+
+/** A web DELIVERY order: what the delivery sector (encargada, Gestión Delivery) handles. */
+export const placeDeliveryOrder = (o: Parameters<typeof placeCajaOrder>[0] = {}): Promise<CajaOrderFixture> =>
+  placeCajaOrder({ fulfillment: "delivery", ...o });
+
+async function waitLive(page: Page): Promise<void> {
+  await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
+}
+
+/** Cashier workspace: opens /retiro (Retiro en local) and waits for the live connection, so events created afterwards are not missed. */
+export async function openRetiro(page: Page): Promise<void> {
+  await page.goto("/retiro");
+  await waitLive(page);
+}
+
+/** Delivery workspace: opens /delivery (optionally on a tab) and waits for the live connection. */
+export async function openDelivery(page: Page, tab?: "pending" | "preparing" | "ready" | "enroute" | "recent"): Promise<void> {
+  await page.goto(tab ? `/delivery?tab=${tab}` : "/delivery");
+  await expect(page.getByTestId("workspace-tabs")).toBeVisible();
+  await waitLive(page);
+}
+
+/** Admin general view (/caja): every sector's approvals and recents. */
 export async function openCaja(page: Page): Promise<void> {
   await page.goto("/caja");
-  await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
+  await waitLive(page);
 }
 
 /** Counts connections to /api/events made by a context's pages. */

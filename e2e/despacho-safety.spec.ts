@@ -22,7 +22,9 @@ import {
 import { shotViewport } from "./helpers/shots";
 import { authFile } from "./helpers/users";
 
-test.use({ storageState: authFile("encargada") });
+// The full board (every lane, counters) is the admin general view /despacho; the sector workspaces reuse its components
+// and are covered by sector-workspaces.spec.ts and delivery-workspace.spec.ts.
+test.use({ storageState: authFile("admin") });
 test.beforeEach(cleanBoard);
 test.afterAll(cleanBoard);
 test.afterEach(runCleanups);
@@ -48,7 +50,7 @@ test("a stale board loses the race: the Spanish message lists the orders and the
   await dcardSelect(stale, b.number);
   await stale.getByTestId("cadet-select").selectOption(String(c2.id));
 
-  // The encargada wins first.
+  // The first board wins first.
   await openDespacho(page);
   await page.getByTestId("select-all").click();
   await page.getByTestId("cadet-select").selectOption(String(c1.id));
@@ -130,7 +132,7 @@ test("an inactive cadet never shows in the selector and cannot be assigned", asy
 test("an inactive cadet chosen on a stale screen is refused with a message", async ({ browser }) => {
   const gone = await ensureCadet(`Baja ${tag()}`);
   const o = await placeReady({ paymentMethod: "cash" });
-  const stale = await secondUser(browser, "encargada", true);
+  const stale = await secondUser(browser, "admin", true);
   await stale.goto("/despacho");
   await dcardSelect(stale, o.number);
   await stale.getByTestId("cadet-select").selectOption(String(gone.id));

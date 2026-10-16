@@ -13,7 +13,7 @@ test.describe("encargada de delivery", () => {
   test.use({ storageState: authFile("encargada") });
   test("is sent to her home, not to the till", async ({ page }) => {
     await page.goto("/mostrador");
-    await expect(page).toHaveURL(/\/despacho$/);
+    await expect(page).toHaveURL(/\/delivery$/);
   });
 });
 
@@ -31,9 +31,9 @@ test.describe("admin without a station", () => {
 
 test.describe("cajera", () => {
   test.use({ storageState: authFile("cajera") });
-  test("the nav highlights Mostrador and the page title is set", async ({ page }) => {
+  test("the nav highlights Venta and the page title is set", async ({ page }) => {
     await page.goto("/mostrador");
-    await expect(page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Mostrador" })).toHaveAttribute("aria-current", "page");
-    await expect(page).toHaveTitle("Mostrador · The Burger House 828");
+    await expect(page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Venta" })).toHaveAttribute("aria-current", "page");
+    await expect(page).toHaveTitle("Venta · The Burger House 828");
   });
 });

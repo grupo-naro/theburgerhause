@@ -3,10 +3,10 @@ import { inArray } from "drizzle-orm";
 import * as s from "../src/db/schema";
 import { formatARS } from "../src/domain/money";
 import { freshStationToken, resetStationAgentState, settleStationJobs } from "./helpers/agent";
-import { eventsOf, openCaja, orderById, orderCard, parkPendingOrders, printJobsOf, recentRow } from "./helpers/caja";
+import { eventsOf, openDelivery, orderById, orderCard, parkPendingOrders, printJobsOf, recentRow } from "./helpers/caja";
 import { choosePayment, fillCustomer, fillDelivery, submitButton, unique, uniquePhone } from "./helpers/checkout";
 import { currentSettings, db, findStation, findUser, ordersOf } from "./helpers/db";
-import { cadetGroup, cleanBoard, dcard, ensureCadet, lane, openDespacho, placeReady, routeOrder, runCleanups, tag } from "./helpers/despacho";
+import { cadetGroup, cleanBoard, dcard, ensureCadet, lane, placeReady, routeOrder, runCleanups, tag } from "./helpers/despacho";
 import { cleanupAgents, CUT_HEX, INIT_HEX, latin1, launchAgent, printedFiles, readPrinted, staffContext } from "./helpers/journey";
 import { modifierDelta, priceOf } from "./helpers/pos";
 import { openDetail, retireCadets, settlementLines, settlementsOf } from "./helpers/rendicion";
@@ -14,7 +14,8 @@ import { shot } from "./helpers/shots";
 import { cartCount, cta, gotoStore, modifierRow, openSheet, orderBar, sheetOf } from "./helpers/store";
 import { currentStep, headline, openTracking } from "./helpers/tracking";
 
-const STATION = "Mostrador 1";
+// Delivery orders are approved (and printed) at the Delivery station by the delivery manager.
+const STATION = "Delivery 1";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 test.afterEach(async () => {
@@ -26,10 +27,10 @@ test.afterEach(async () => {
 test.afterAll(() => resetStationAgentState(STATION));
 
 /**
- * J1: a customer's web delivery order, from the phone to the cadet's cash settlement, through every
- * role and the REAL print agent. One long test: a failure names the step that broke.
+ * J1: a customer's web delivery order, from the phone to the cadet's cash settlement, through the
+ * delivery manager's workspace (Gestión Delivery) and the REAL print agent of the Delivery station. One long test: a failure names the step that broke.
  */
-test("J1 web delivery order end to end: customer, cashier, print agent, dispatch, cadet, settlement @mobile", async ({ page, browser, baseURL }) => {
+test("J1 web delivery order end to end: customer, delivery manager, print agent, cadet, settlement @mobile", async ({ page, browser, baseURL }) => {
   test.setTimeout(240_000);
   await settleStationJobs(STATION);
   await parkPendingOrders();
@@ -44,10 +45,11 @@ test("J1 web delivery order end to end: customer, cashier, print agent, dispatch
   const sinCheddar = await modifierDelta("Sin cheddar");
   const expectedTotal = 2 * ranchita + sinCheddar + dips + melt + settings.deliveryFee;
 
-  const cashierCtx = await staffContext(browser, baseURL, "cajera");
   const dispatchCtx = await staffContext(browser, baseURL, "encargada");
-  const cashier = await cashierCtx.newPage();
   const dispatch = await dispatchCtx.newPage();
+  // The cashier's screen (Retiro en local) must never show this delivery order.
+  const cashierCtx = await staffContext(browser, baseURL, "cajera");
+  const cashier = await cashierCtx.newPage();
   const cadet = await ensureCadet(`Cadete ${tag()}`);
 
   try {
@@ -55,12 +57,12 @@ test("J1 web delivery order end to end: customer, cashier, print agent, dispatch
     let orderNumber = 0;
     let trackingUrl = "";
 
-    // The print agent of Mostrador 1 and both staff screens are up BEFORE the customer orders.
+    // The print agent of the Delivery station and both staff screens are up BEFORE the customer orders.
     const agent = launchAgent(baseURL!, await freshStationToken(STATION));
     await agent.log.waitFor("Agente conectado");
-    await openCaja(cashier);
-    await expect(cashier.getByTestId("printer-indicator")).toHaveAttribute("data-online", "true");
-    await openDespacho(dispatch);
+    await openDelivery(dispatch);
+    await expect(dispatch.getByTestId("printer-indicator")).toHaveAttribute("data-online", "true");
+    await cashier.goto("/retiro");
 
     await test.step("the customer builds a per-unit order on a phone and confirms (delivery + transfer)", async () => {
       await gotoStore(page);
@@ -107,9 +109,10 @@ test("J1 web delivery order end to end: customer, cashier, print agent, dispatch
       await shot(page, "journey-1-tracking-received-mobile");
     });
 
-    await test.step("the cashier sees the order LIVE in /caja (no reload), verifies the transfer and approves", async () => {
-      const card = orderCard(cashier, orderNumber);
-      await expect(card).toBeVisible(); // /caja was opened before the customer ordered: it came through the live stream
+    await test.step("the delivery manager sees the order LIVE in Gestión Delivery (no reload), verifies the transfer and approves; the cashier never sees it", async () => {
+      const card = orderCard(dispatch, orderNumber);
+      await expect(card).toBeVisible(); // the page was opened before the customer ordered: it came through the live stream
+      await expect(orderCard(cashier, orderNumber)).toHaveCount(0);
       await expect(card.getByTestId("customer")).toContainText(name);
       await expect(card.getByTestId("order-total")).toHaveText(formatARS(expectedTotal));
       await expect(card.getByTestId("order-line")).toHaveCount(3);
@@ -117,7 +120,8 @@ test("J1 web delivery order end to end: customer, cashier, print agent, dispatch
       await card.getByRole("checkbox").check(); // "verifiqué la transferencia"
       await card.getByTestId("approve").click();
       await expect(card).toHaveCount(0);
-      await shot(cashier, "journey-1-caja-approved");
+      await expect(dispatch.getByTestId("tab-preparing-count")).toHaveText(/^[1-9]/);
+      await shot(dispatch, "journey-1-delivery-approved");
     });
 
     await test.step("the real agent prints the kitchen order and the ticket (ESC/POS bytes)", async () => {
@@ -154,8 +158,9 @@ test("J1 web delivery order end to end: customer, cashier, print agent, dispatch
       expect(t).toContain(`TOTAL: ${formatARS(expectedTotal).replace(/ /g, " ")}`); // the printer has no nbsp
     });
 
-    await test.step("Caja 'Recientes' shows the print chip ok, live", async () => {
-      await expect(recentRow(cashier, orderNumber).getByTestId("print-chip")).toHaveText("Impresión: ok");
+    await test.step("Recientes shows the print chip ok, live", async () => {
+      await dispatch.getByTestId("tab-recent").click();
+      await expect(recentRow(dispatch, orderNumber).getByTestId("print-chip")).toHaveText("Impresión: ok");
     });
 
     await test.step("the customer's tracking page moves to 'En preparación' by itself (clock-driven polling)", async () => {
@@ -167,9 +172,11 @@ test("J1 web delivery order end to end: customer, cashier, print agent, dispatch
     });
 
     let extra: Awaited<ReturnType<typeof placeReady>>[] = [];
-    await test.step("dispatch sees it in preparation and marks it Listo; two more cash orders are ready", async () => {
+    await test.step("En preparación: she marks it Listo; two more cash orders are ready", async () => {
+      await dispatch.getByTestId("tab-preparing").click();
       await expect(lane(dispatch, "preparing").locator(`[data-order-number="${orderNumber}"]`)).toBeVisible();
       await dcard(dispatch, orderNumber).getByTestId("mark-ready").click();
+      await dispatch.getByTestId("tab-ready").click();
       await expect(lane(dispatch, "ready-delivery").locator(`[data-order-number="${orderNumber}"]`)).toBeVisible();
       // two extra delivery orders paid in cash, approved and ready (set up through the cores)
       extra = [await placeReady({ fulfillment: "delivery", paymentMethod: "cash" }), await placeReady({ fulfillment: "delivery", paymentMethod: "cash" })];
@@ -183,6 +190,7 @@ test("J1 web delivery order end to end: customer, cashier, print agent, dispatch
       await expect(bar.getByTestId("assign-cash")).toContainText(`Efectivo a cobrar ${formatARS(extra[0].total + extra[1].total)}`);
       await bar.getByTestId("cadet-select").selectOption(String(cadet.id));
       await bar.getByRole("button", { name: `Asignar a ${cadet.name}` }).click();
+      await dispatch.getByTestId("tab-enroute").click();
       await expect(cadetGroup(dispatch, cadet.id).getByTestId("route-count")).toHaveText("3 pedidos");
       await expect(async () => {
         await page.clock.runFor(8000);
@@ -218,13 +226,12 @@ test("J1 web delivery order end to end: customer, cashier, print agent, dispatch
     });
 
     await test.step("final state across the whole cycle (DB)", async () => {
-      const cajera = await findUser("cajera");
       const encargada = await findUser("encargada");
       const station = await findStation(STATION);
 
-      expect(await orderById(orderId)).toMatchObject({ status: "entregado", paymentStatus: "paid", approvedBy: cajera.id, stationId: station.id, cadetId: cadet.id });
+      expect(await orderById(orderId)).toMatchObject({ status: "entregado", paymentStatus: "paid", approvedBy: encargada.id, stationId: station.id, cadetId: cadet.id });
       for (const e of extra) {
-        expect(await orderById(e.id)).toMatchObject({ status: "entregado", paymentStatus: "paid", approvedBy: cajera.id, stationId: station.id, cadetId: cadet.id });
+        expect(await orderById(e.id)).toMatchObject({ status: "entregado", paymentStatus: "paid", approvedBy: encargada.id, stationId: station.id, cadetId: cadet.id });
       }
 
       // print jobs: 2 per approved order, all printed once by the real agent
@@ -254,7 +261,7 @@ test("J1 web delivery order end to end: customer, cashier, print agent, dispatch
         ["listo_despacho", "en_camino"],
         ["en_camino", "entregado"],
       ]);
-      expect(events.map((e) => e.userId)).toEqual([null, cajera.id, encargada.id, encargada.id, encargada.id]);
+      expect(events.map((e) => e.userId)).toEqual([null, encargada.id, encargada.id, encargada.id, encargada.id]);
       for (let i = 1; i < events.length; i++) expect(events[i].at.getTime()).toBeGreaterThanOrEqual(events[i - 1].at.getTime());
     });
   } finally {

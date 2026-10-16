@@ -4,7 +4,7 @@ import * as s from "../src/db/schema";
 import { FileBackend } from "../packages/print-agent/src/printer/file";
 import { PrintError, type PrinterBackend, type PrintContext } from "../packages/print-agent/src/printer/types";
 import { freshStationToken, resetStationAgentState, settleStationJobs } from "./helpers/agent";
-import { openCaja, orderCard, parkPendingOrders, placeCajaOrder, printJobsOf, recentRow } from "./helpers/caja";
+import { openRetiro, orderCard, parkPendingOrders, placeRetiroOrder, printJobsOf, recentRow } from "./helpers/caja";
 import { db } from "./helpers/db";
 import { cleanupAgents, latin1, launchAgent, printedFiles, readPrinted, tempDir } from "./helpers/journey";
 import { authFile } from "./helpers/users";
@@ -48,10 +48,10 @@ test("J4 station without agent: pending jobs, delivery once the agent starts, cr
   await parkPendingOrders();
   const token = await freshStationToken(STATION);
 
-  await openCaja(page);
+  await openRetiro(page);
 
   await test.step("with NO agent: approving leaves 2 pending jobs and the indicator says 'Sin agente'", async () => {
-    const a = await placeCajaOrder({ paymentMethod: "cash", single: true });
+    const a = await placeRetiroOrder({ paymentMethod: "cash", single: true });
     await expect(orderCard(page, a.number)).toBeVisible();
     await approve(page, a.number);
     expect((await printJobsOf(a.id)).map((j) => [j.type, j.status, j.attempts])).toEqual([
@@ -73,7 +73,7 @@ test("J4 station without agent: pending jobs, delivery once the agent starts, cr
   });
 
   await test.step("a crash after printing but before the ack: after the stuck timeout the job is re-delivered and NOT printed twice", async () => {
-    const b = await placeCajaOrder({ paymentMethod: "cash", single: true, unitNote: "sin sal" });
+    const b = await placeRetiroOrder({ paymentMethod: "cash", single: true, unitNote: "sin sal" });
     await expect(orderCard(page, b.number)).toBeVisible();
     await approve(page, b.number); // no agent yet: both jobs wait
     const [kitchenJob, ticketJob] = await printJobsOf(b.id);
@@ -110,7 +110,7 @@ test("J4 station without agent: pending jobs, delivery once the agent starts, cr
   });
 
   await test.step("a printer without paper: 3 failed attempts raise the red alert live; Reimprimir creates new jobs that print", async () => {
-    const c = await placeCajaOrder({ paymentMethod: "cash", single: true });
+    const c = await placeRetiroOrder({ paymentMethod: "cash", single: true });
     await expect(orderCard(page, c.number)).toBeVisible();
     await approve(page, c.number);
     const [kitchenJob] = await printJobsOf(c.id);

@@ -30,7 +30,7 @@ test.describe("encargada", () => {
     await countEventSources(page);
     await openList(page);
     await expect(nav(page).getByRole("link", { name: "Rendición" })).toHaveAttribute("aria-current", "page");
-    await expect(nav(page).getByRole("link", { name: "Despacho" })).not.toHaveAttribute("aria-current", "page");
+    await expect(nav(page).getByRole("link", { name: "Gestión Delivery" })).not.toHaveAttribute("aria-current", "page");
     expect(await page.evaluate(() => (window as unknown as { __es: number }).__es)).toBe(1);
     const cadet = await ensureCadet(`Uno ${tag()}`);
     cadets.push(cadet.id);
@@ -73,13 +73,13 @@ test.describe("encargada", () => {
     await expect(modal).toHaveCount(0);
   });
 
-  test("the Despacho 'Rendir' link opens the cadet detail", async ({ page }) => {
+  test("the Gestión Delivery 'Rendir' link opens the cadet detail", async ({ page }) => {
     const cadet = await ensureCadet(`Link ${tag()}`);
     cadets.push(cadet.id);
     await deliveredFor(cadet.id, { delivered: false });
-    await page.goto("/despacho");
+    await page.goto("/delivery?tab=enroute");
     await page.locator(`[data-testid="cadet-group"][data-cadet-id="${cadet.id}"]`).getByTestId("render-link").click();
-    await expect(page).toHaveURL(new RegExp(`/despacho/rendicion\\?cadet=${cadet.id}$`));
+    await expect(page).toHaveURL(new RegExp(`/delivery/rendicion\\?cadet=${cadet.id}$`));
     await expect(page.getByTestId("cadet-detail")).toBeVisible();
     await expect(page.getByTestId("nothing-to-settle")).toBeVisible();
     await expect(page.getByTestId("inroute-row")).toHaveCount(1);
@@ -89,7 +89,7 @@ test.describe("encargada", () => {
 test.describe("admin", () => {
   test.use({ storageState: authFile("admin") });
   test("is allowed and sees Rendición in the nav", async ({ page }) => {
-    await page.goto("/despacho/rendicion");
+    await page.goto("/delivery/rendicion");
     await expect(page.getByTestId("rendicion-list")).toBeVisible();
     await expect(nav(page).getByRole("link", { name: "Rendición" })).toBeVisible();
   });
@@ -99,7 +99,7 @@ test.describe("cajera", () => {
   test.use({ storageState: authFile("cajera") });
   test("is redirected away and has no Rendición link", async ({ page }) => {
     await page.goto("/despacho/rendicion");
-    await expect(page).toHaveURL(/\/caja/);
+    await expect(page).toHaveURL(/\/mostrador$/);
     await expect(page.getByTestId("rendicion-list")).toHaveCount(0);
     await expect(nav(page).getByRole("link", { name: "Rendición" })).toHaveCount(0);
   });

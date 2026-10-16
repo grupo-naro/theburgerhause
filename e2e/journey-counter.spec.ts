@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { formatARS } from "../src/domain/money";
 import { freshStationToken, resetStationAgentState } from "./helpers/agent";
-import { openCaja, recentRow } from "./helpers/caja";
-import { cleanBoard, dcard, lane, openDespacho } from "./helpers/despacho";
-import { cleanupAgents, CUT_HEX, latin1, launchAgent, printedFiles, readPrinted, staffContext } from "./helpers/journey";
+import { openRetiro, recentRow } from "./helpers/caja";
+import { cleanBoard, dcard, lane, openPedidos } from "./helpers/despacho";
+import { cleanupAgents, CUT_HEX, latin1, launchAgent, printedFiles, readPrinted } from "./helpers/journey";
 import {
   chargeButton,
   jobsOf,
@@ -33,7 +33,7 @@ test.afterEach(async () => {
 test.afterAll(() => resetStationAgentState(STATION));
 
 /** J2: a counter sale with a pager, from the POS to the handover, with the real print agent. */
-test("J2 counter sale: POS, pager 7, real printing, dispatch pickup lane, pager reuse rules", async ({ page, browser, baseURL }) => {
+test("J2 counter sale: POS, pager 7, real printing, dispatch pickup lane, pager reuse rules", async ({ page, baseURL }) => {
   test.setTimeout(150_000);
   await releaseCounterState();
   await cleanBoard();
@@ -42,14 +42,14 @@ test("J2 counter sale: POS, pager 7, real printing, dispatch pickup lane, pager 
   const total = cuarto + melt;
   const customer = `Mostrador ${Date.now().toString(36)}`;
 
-  const dispatchCtx = await staffContext(browser, baseURL, "encargada");
-  const dispatch = await dispatchCtx.newPage();
+  // The same cashier works three screens: the POS (Venta), the counter orders (Mostrador) and Retiro en local (Recientes).
+  const dispatch = await page.context().newPage();
   const caja = await page.context().newPage();
   try {
     const agent = launchAgent(baseURL!, await freshStationToken(STATION));
     await agent.log.waitFor("Agente conectado");
-    await openCaja(caja);
-    await openDespacho(dispatch);
+    await openRetiro(caja);
+    await openPedidos(dispatch);
     await openPos(page);
 
     await test.step("POS: a customized unit + a plain one, cash with change, pager 7", async () => {
@@ -99,7 +99,7 @@ test("J2 counter sale: POS, pager 7, real printing, dispatch pickup lane, pager 
       await expect(recentRow(caja, orderNumber).getByTestId("print-chip")).toHaveText("Impresión: ok");
     });
 
-    await test.step("Despacho: it is in the counter lanes; Listo, then Llamar / Para retirar, then Entregado", async () => {
+    await test.step("Mostrador: it is in the counter lanes; Listo, then Llamar / Para retirar, then Entregado", async () => {
       await expect(lane(dispatch, "preparing").locator(`[data-order-number="${orderNumber}"]`)).toBeVisible();
       await dcard(dispatch, orderNumber).getByTestId("mark-ready").click();
       const ready = lane(dispatch, "ready-counter").locator(`[data-order-number="${orderNumber}"]`);
@@ -144,7 +144,7 @@ test("J2 counter sale: POS, pager 7, real printing, dispatch pickup lane, pager 
       expect((await jobsOf(orderId)).every((j) => j.status === "done")).toBe(true);
     });
   } finally {
-    await dispatchCtx.close();
+    await dispatch.close();
     await caja.close();
   }
 });

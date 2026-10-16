@@ -2,7 +2,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
 
 /**
  * Logs a staff user in through the real login form in a FRESH browser context
- * (no shared cookies), picks the cashier station and lands on /caja.
+ * (no shared cookies), picks the cashier station and lands on her workspace (/mostrador).
  */
 export async function loginInFreshContext(
   browser: Browser,
@@ -23,6 +23,6 @@ export async function loginInFreshContext(
   await page.getByRole("button", { name: "Ingresar" }).click();
   await expect(page).toHaveURL(/\/estacion/);
   await page.getByRole("button", { name: /Mostrador 1/ }).click();
-  await expect(page).toHaveURL(/\/caja$/);
+  await expect(page).toHaveURL(/\/mostrador$/);
   return { context, page };
 }
