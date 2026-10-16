@@ -25,7 +25,7 @@ export type ApproveOrderInput = {
   stationId: number | null;
   paymentVerified: boolean;
   /** Sector of the approving station (null/undefined = admin, exempt). */
-  sector?: Sector | null;
+  sector: Sector | null;
 };
 export type ApproveOrderData = {
   orderId: number;
@@ -63,7 +63,7 @@ export async function approveOrder(db: Db, raw: ApproveOrderInput): Promise<Orde
         return failure("VALIDATION", PAYMENT_NOT_VERIFIED_MESSAGE);
       }
 
-      const moved = await transitionOrder(tx, {
+      const moved = await transitionOrder(tx, { sector: raw.sector,
         orderId,
         to: "en_preparacion",
         userId,

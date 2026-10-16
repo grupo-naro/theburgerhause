@@ -6,10 +6,12 @@ import { LiveRefresh } from "@/components/live/live-refresh";
 import { LogoutButton } from "@/components/logout-button";
 import type { AuthSession } from "@/lib/auth/roles";
 import { navLinksFor } from "@/lib/caja/nav";
+import { listPendingApproval } from "@/lib/orders/caja-queries";
 import { derivePrinterStatus } from "@/lib/caja/printer-status";
 import { getStationHeader } from "@/lib/stations/header";
 import { PrinterHeartbeatRefresh } from "./printer-heartbeat-refresh";
 import { PrinterIndicator } from "./printer-indicator";
+import { ShellOrderAlert } from "./shell-order-alert";
 import { StaffNav } from "./staff-nav";
 
 /**
@@ -17,11 +19,18 @@ import { StaffNav } from "./staff-nav";
  * user, logout) and the page. It owns the page's ONE live connection (`LiveRefresh`): screens
  * inside it must not mount another. Reads request data: render it inside <Suspense>.
  */
-export async function StaffShell({ session, children }: { session: AuthSession; children: ReactNode }) {
+export async function StaffShell({ session, ownsOrderAlert = false, children }: { session: AuthSession; ownsOrderAlert?: boolean; children: ReactNode }) {
   const station = session.stationId === null ? null : await getStationHeader(getDb(), session.stationId);
   const printer = station
     ? derivePrinterStatus({ lastSeenAt: station.lastSeenAt, failedCount: station.failedCount, now: new Date() })
     : null;
+
+  // New web orders of the sector wait for approval on the workspace page; everywhere else the shell announces them
+  // (nav badge always, beep/title only when the page has no alert of its own: never two beeps).
+  const ownSector = session.user.role === "cajera" ? "mostrador" : session.user.role === "encargada_delivery" ? "delivery" : null;
+  const sector = ownSector !== null && session.stationKind === ownSector ? ownSector : null;
+  const waiting = sector === null ? [] : await listPendingApproval(getDb(), { sector, channel: "web" });
+  const badges = sector === null || waiting.length === 0 ? {} : { [sector === "mostrador" ? "/retiro" : "/delivery"]: waiting.length };
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[14rem_1fr] lg:grid-rows-[auto_1fr]">
@@ -45,7 +54,8 @@ export async function StaffShell({ session, children }: { session: AuthSession; 
           <LogoutButton />
         </div>
       </header>
-      <StaffNav links={navLinksFor(session.user.role, session.stationKind)} />
+      <StaffNav links={navLinksFor(session.user.role, session.stationKind)} badges={badges} />
+      {sector !== null && !ownsOrderAlert && <ShellOrderAlert orders={waiting.map((o) => ({ id: o.id, number: o.number, createdAt: o.createdAt }))} />}
       <main className="min-w-0 px-4 py-6 sm:px-6 lg:col-start-2 lg:row-start-2">{children}</main>
     </div>
   );

@@ -24,7 +24,7 @@ export type ReprintOrderInput = {
   stationId: number | null;
   which: "kitchen" | "ticket" | "both";
   /** Sector of the acting station (null/undefined = admin, exempt). */
-  sector?: Sector | null;
+  sector: Sector | null;
 };
 export type ReprintOrderData = { orderId: number; printJobIds: number[] };
 

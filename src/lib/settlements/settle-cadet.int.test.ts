@@ -91,7 +91,7 @@ describe("settleCadet: happy path", () => {
     expect(await settle(cadet.id, await sumTotals([a.id]))).toMatchObject({ ok: true });
     const b = await enRouteOrder(fx, cadet.id, { units: "two" });
     expect(await settle(cadet.id, await sumTotals([b.id]))).toMatchObject({ ok: false, code: "NOTHING_TO_SETTLE" });
-    await markDelivered(db(), { orderId: b.id, userId: fx.userId });
+    await markDelivered(db(), { sector: null, orderId: b.id, userId: fx.userId });
     const r = await settle(cadet.id, await sumTotals([b.id]));
     expect(r).toMatchObject({ ok: true, data: { orderCount: 1, amount: await sumTotals([b.id]) } });
     expect(await db().select().from(s.settlements)).toHaveLength(2);
@@ -267,7 +267,7 @@ describe("settleCadet: concurrency (Review Focus 5)", () => {
       const base = [await deliveredOrder(fx, cadet.id), await deliveredOrder(fx, cadet.id, { units: "two" })];
       const late = await enRouteOrder(fx, cadet.id, { units: "melt" });
       const owed = await sumTotals(base.map((o) => o.id));
-      const [r, d] = await Promise.all([settle(cadet.id, owed), markDelivered(db(), { orderId: late.id, userId: fx.userId })]);
+      const [r, d] = await Promise.all([settle(cadet.id, owed), markDelivered(db(), { sector: null, orderId: late.id, userId: fx.userId })]);
       expect(d.ok).toBe(true);
       expect(r.ok || r.code === "AMOUNT_MISMATCH").toBe(true);
 
@@ -293,10 +293,10 @@ describe("settleCadet: concurrency (Review Focus 5)", () => {
       const cadet = await makeCadet(`Asg ${round}`);
       const a = await deliveredOrder(fx, cadet.id);
       const ready = await preparingWebOrder(fx, { fulfillment: "delivery" });
-      await markReady(db(), { orderId: ready.id, userId: fx.userId });
+      await markReady(db(), { sector: null, orderId: ready.id, userId: fx.userId });
       const [r, asg] = await Promise.all([
         settle(cadet.id, await sumTotals([a.id])),
-        assignCadet(db(), { orderIds: [ready.id], cadetId: cadet.id, userId: fx.userId }),
+        assignCadet(db(), { sector: null, orderIds: [ready.id], cadetId: cadet.id, userId: fx.userId }),
       ]);
       expect(r).toMatchObject({ ok: true });
       expect(asg).toMatchObject({ ok: true });

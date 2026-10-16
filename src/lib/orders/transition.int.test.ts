@@ -45,7 +45,7 @@ describe("transitionOrder", () => {
   it("moves the order, applies the patch in the same update and writes the event", async () => {
     const o = await seedOrder();
     const at = new Date("2026-10-14T12:00:00Z");
-    const r = await run({
+    const r = await run({ sector: null,
       orderId: o.id,
       to: "en_preparacion",
       userId,
@@ -65,14 +65,14 @@ describe("transitionOrder", () => {
   });
 
   it("unknown or invalid id -> NOT_FOUND / VALIDATION, nothing written", async () => {
-    expect(await run({ orderId: 999, to: "cancelado", userId })).toMatchObject({ ok: false, code: "NOT_FOUND" });
-    expect(await run({ orderId: -1, to: "cancelado", userId })).toMatchObject({ ok: false, code: "VALIDATION" });
+    expect(await run({ sector: null, orderId: 999, to: "cancelado", userId })).toMatchObject({ ok: false, code: "NOT_FOUND" });
+    expect(await run({ sector: null, orderId: -1, to: "cancelado", userId })).toMatchObject({ ok: false, code: "VALIDATION" });
     expect(await db().select().from(s.orderEvents)).toHaveLength(0);
   });
 
   it("uses the DOMAIN table: illegal jumps fail naming the current state and change nothing", async () => {
     const o = await seedOrder({ status: "en_preparacion" });
-    const r = await run({ orderId: o.id, to: "entregado", userId, patch: { paymentStatus: "paid" } });
+    const r = await run({ sector: null, orderId: o.id, to: "entregado", userId, patch: { paymentStatus: "paid" } });
     expect(r).toEqual({ ok: false, code: "INVALID_TRANSITION", message: "Este pedido ya está en preparación" });
     expect((await reload(o.id)).paymentStatus).toBe("pending");
     expect(await events(o.id)).toHaveLength(0);
@@ -80,13 +80,13 @@ describe("transitionOrder", () => {
 
   it("respects fulfillment-specific edges", async () => {
     const o = await seedOrder({ status: "listo_despacho", fulfillment: "takeaway" });
-    expect(await run({ orderId: o.id, to: "en_camino", userId })).toMatchObject({ ok: false, code: "INVALID_TRANSITION" });
-    expect(await run({ orderId: o.id, to: "para_retirar", userId })).toMatchObject({ ok: true });
+    expect(await run({ sector: null, orderId: o.id, to: "en_camino", userId })).toMatchObject({ ok: false, code: "INVALID_TRANSITION" });
+    expect(await run({ sector: null, orderId: o.id, to: "para_retirar", userId })).toMatchObject({ ok: true });
   });
 
   it("the optional from allow-list narrows the domain table", async () => {
     const o = await seedOrder({ status: "en_preparacion" });
-    const r = await run({ orderId: o.id, to: "listo_despacho", userId, from: ["pendiente_aprobacion"] });
+    const r = await run({ sector: null, orderId: o.id, to: "listo_despacho", userId, from: ["pendiente_aprobacion"] });
     expect(r).toMatchObject({ ok: false, code: "INVALID_TRANSITION" });
     expect((await reload(o.id)).status).toBe("en_preparacion");
   });
@@ -94,7 +94,7 @@ describe("transitionOrder", () => {
   it("serializes concurrent transitions: exactly one wins", async () => {
     const o = await seedOrder();
     const rs = await Promise.all(
-      Array.from({ length: 5 }, () => run({ orderId: o.id, to: "en_preparacion", userId, from: ["pendiente_aprobacion"] })),
+      Array.from({ length: 5 }, () => run({ sector: null, orderId: o.id, to: "en_preparacion", userId, from: ["pendiente_aprobacion"] })),
     );
     expect(rs.filter((r) => r.ok)).toHaveLength(1);
     expect(rs.filter((r) => !r.ok && r.code === "INVALID_TRANSITION")).toHaveLength(4);

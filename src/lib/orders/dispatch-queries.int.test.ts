@@ -15,7 +15,7 @@ const db = () => testDb();
 let fx: Fx;
 const NOW = new Date("2026-10-15T20:00:00Z");
 
-const ready = (orderId: number) => markReady(db(), { orderId, userId: fx.userId });
+const ready = (orderId: number) => markReady(db(), { sector: null, orderId, userId: fx.userId });
 const setCreatedAt = (id: number, iso: string) =>
   db().update(s.orders).set({ createdAt: new Date(iso) }).where(eq(s.orders.id, id));
 const board = () => getDispatchBoard(db(), { now: NOW });
@@ -43,9 +43,9 @@ describe("getDispatchBoard", () => {
     const cancelled = await placeWebOrder(fx);
     await db().update(s.orders).set({ status: "cancelado" }).where(eq(s.orders.id, cancelled.id));
     for (const o of [dNew, dOld, tk, pick, done]) await ready(o.id);
-    await markPickup(db(), { orderId: pick.id, userId: fx.userId });
-    await markPickup(db(), { orderId: done.id, userId: fx.userId });
-    await markDelivered(db(), { orderId: done.id, userId: fx.userId });
+    await markPickup(db(), { sector: null, orderId: pick.id, userId: fx.userId });
+    await markPickup(db(), { sector: null, orderId: done.id, userId: fx.userId });
+    await markDelivered(db(), { sector: null, orderId: done.id, userId: fx.userId });
 
     await setCreatedAt(prepNew.id, "2026-10-15T19:50:00Z");
     await setCreatedAt(prepOld.id, "2026-10-15T19:30:00Z");
@@ -97,9 +97,9 @@ describe("getDispatchBoard", () => {
     for (const o of [o1, o2, o3, o4]) await ready(o.id);
     const zeta = await makeCadet("Zeta");
     const alfa = await makeCadet("Alfa");
-    await assignCadet(db(), { orderIds: [o3.id], cadetId: zeta.id, userId: fx.userId });
+    await assignCadet(db(), { sector: null, orderIds: [o3.id], cadetId: zeta.id, userId: fx.userId });
     await new Promise((r) => setTimeout(r, 20));
-    await assignCadet(db(), { orderIds: [o1.id, o2.id], cadetId: alfa.id, userId: fx.userId });
+    await assignCadet(db(), { sector: null, orderIds: [o1.id, o2.id], cadetId: alfa.id, userId: fx.userId });
 
     const b = await board();
     expect(b.ready.delivery.map((o) => o.id)).toEqual([o4.id]);
@@ -123,8 +123,8 @@ describe("getDispatchBoard", () => {
       await ready(o.id);
       orders.push(o);
     }
-    await assignCadet(db(), { orderIds: orders.map((o) => o.id), cadetId: alfa.id, userId: fx.userId });
-    for (const o of orders.slice(0, 3)) await markDelivered(db(), { orderId: o.id, userId: fx.userId });
+    await assignCadet(db(), { sector: null, orderIds: orders.map((o) => o.id), cadetId: alfa.id, userId: fx.userId });
+    for (const o of orders.slice(0, 3)) await markDelivered(db(), { sector: null, orderId: o.id, userId: fx.userId });
     const total = async (id: number) => (await db().select().from(s.orders).where(eq(s.orders.id, id)))[0].total;
 
     const b = await board();
@@ -153,7 +153,7 @@ describe("getDispatchBoard", () => {
     for (let i = 0; i < 6; i++) {
       const o = await preparingWebOrder(fx);
       await ready(o.id);
-      if (i % 2 === 0) await assignCadet(db(), { orderIds: [o.id], cadetId: cadet.id, userId: fx.userId });
+      if (i % 2 === 0) await assignCadet(db(), { sector: null, orderIds: [o.id], cadetId: cadet.id, userId: fx.userId });
     }
     for (let i = 0; i < 3; i++) await preparingCounterOrder(fx, { pagerNumber: 100 + i });
     const many = await count();
@@ -183,13 +183,13 @@ describe("getDispatchBoard", () => {
 
       const tk = await preparingWebOrder(fx, { fulfillment: "takeaway" });
       await ready(tk.id);
-      await markPickup(db(), { orderId: tk.id, userId: fx.userId });
+      await markPickup(db(), { sector: null, orderId: tk.id, userId: fx.userId });
       await setEventAt(tk.id, "para_retirar", "2026-10-15T19:52:00Z");
       expect(await find(tk.id)).toMatchObject({ status: "para_retirar", statusSince: "2026-10-15T19:52:00.000Z", minutesInStatus: 8 });
 
       const en = await preparingWebOrder(fx, { fulfillment: "delivery" });
       await ready(en.id);
-      await assignCadet(db(), { orderIds: [en.id], cadetId: cadet.id, userId: fx.userId });
+      await assignCadet(db(), { sector: null, orderIds: [en.id], cadetId: cadet.id, userId: fx.userId });
       await setEventAt(en.id, "en_camino", "2026-10-15T19:30:00Z");
       expect(await find(en.id)).toMatchObject({ status: "en_camino", statusSince: "2026-10-15T19:30:00.000Z", minutesInStatus: 30 });
     });
@@ -199,8 +199,8 @@ describe("getDispatchBoard", () => {
       const o = await preparingWebOrder(fx, { fulfillment: "delivery" });
       await ready(o.id);
       await setEventAt(o.id, "listo_despacho", "2026-10-15T19:00:00Z");
-      await assignCadet(db(), { orderIds: [o.id], cadetId: cadet.id, userId: fx.userId });
-      await returnToDispatch(db(), { orderId: o.id, userId: fx.userId, reason: "No atendió" });
+      await assignCadet(db(), { sector: null, orderIds: [o.id], cadetId: cadet.id, userId: fx.userId });
+      await returnToDispatch(db(), { sector: null, orderId: o.id, userId: fx.userId, reason: "No atendió" });
       const events = await db().select().from(s.orderEvents).where(and(eq(s.orderEvents.orderId, o.id), eq(s.orderEvents.toStatus, "listo_despacho")));
       const latest = events.sort((a, b) => b.id - a.id)[0];
       await db().update(s.orderEvents).set({ at: new Date("2026-10-15T19:58:00Z") }).where(eq(s.orderEvents.id, latest.id));

@@ -17,7 +17,7 @@ let fx: Fx;
 const setCreatedAt = (id: number, iso: string) =>
   db().update(s.orders).set({ createdAt: new Date(iso) }).where(eq(s.orders.id, id));
 const approve = (orderId: number) =>
-  approveOrder(db(), { orderId, userId: fx.userId, stationId: fx.stationId, paymentVerified: true });
+  approveOrder(db(), { sector: null, orderId, userId: fx.userId, stationId: fx.stationId, paymentVerified: true });
 
 beforeEach(async () => {
   await resetDb();
@@ -106,7 +106,7 @@ describe("listRecentProcessed", () => {
     const c = await placeWebOrder(fx);
     await approve(a.id);
     await approve(b.id);
-    await rejectOrder(db(), { orderId: c.id, userId: fx.userId, reason: "sin stock" });
+    await rejectOrder(db(), { sector: null, orderId: c.id, userId: fx.userId, reason: "sin stock" });
     await setCreatedAt(a.id, "2026-10-14T20:00:00Z");
     await setCreatedAt(b.id, "2026-10-14T20:05:00Z");
     await setCreatedAt(c.id, "2026-10-14T20:10:00Z");

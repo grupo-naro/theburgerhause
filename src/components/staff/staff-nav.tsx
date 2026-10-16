@@ -9,7 +9,7 @@ import { activeNavHref, type NavLink } from "@/lib/caja/nav";
  * Role navigation: a dark rail on desktop (>= 1024 px), a scrolling strip under the top bar on
  * tablets. Links are 48 px tall; the current section is highlighted (and `aria-current`).
  */
-export function StaffNav({ links }: { links: NavLink[] }) {
+export function StaffNav({ links, badges = {} }: { links: NavLink[]; badges?: Record<string, number> }) {
   const pathname = usePathname();
   const current = activeNavHref(pathname, links);
   return (
@@ -34,6 +34,13 @@ export function StaffNav({ links }: { links: NavLink[] }) {
                 }`}
               >
                 {l.label}
+                {(badges[l.href] ?? 0) > 0 && (
+                  <span
+                    data-testid="nav-badge"
+                    data-count={badges[l.href]}
+                    className="ml-2 inline-flex min-w-7 items-center justify-center rounded-full bg-state-pending px-2 text-sm font-extrabold text-ink tabular-nums after:content-[attr(data-count)]"
+                  />
+                )}
               </Link>
             </li>
           );

@@ -41,7 +41,7 @@ export type DispatchFailure = {
 export type DispatchResult<T> = { ok: true; data: T } | DispatchFailure;
 export type DispatchContext = { now?: Date };
 /** Every operation takes the acting station's `sector` (null/undefined = admin, exempt): other sectors' orders are refused with WRONG_SECTOR before any write. */
-export type SectorInput = { sector?: Sector | null };
+export type SectorInput = { sector: Sector | null };
 
 export type DispatchOrderData = {
   orderId: number;
@@ -111,7 +111,7 @@ type Move = {
 };
 
 /** Lock -> validate with the domain table -> transition core, all in one transaction. */
-async function move(db: Db, orderId: number, userId: number, sector: Sector | null | undefined, m: Move): Promise<DispatchResult<DispatchOrderData>> {
+async function move(db: Db, orderId: number, userId: number, sector: Sector | null, m: Move): Promise<DispatchResult<DispatchOrderData>> {
   try {
     return await db.transaction(async (tx): Promise<DispatchResult<DispatchOrderData>> => {
       const o = await lockOrder(tx, orderId);
@@ -123,7 +123,7 @@ async function move(db: Db, orderId: number, userId: number, sector: Sector | nu
       if (o.status !== (typeof m.from === "function" ? m.from(o) : m.from) || !canTransition(o.status, m.to, o.fulfillment)) return fail("INVALID_TRANSITION", stateOf(o.number, o.status, m.refusal));
       const refused = m.extra?.(o);
       if (refused) return refused;
-      const moved = await transitionOrder(tx, { orderId, to: m.to, userId, note: m.note, patch: m.patch?.(o) });
+      const moved = await transitionOrder(tx, { sector, orderId, to: m.to, userId, note: m.note, patch: m.patch?.(o) });
       if (!moved.ok) return fromTransition(moved);
       return {
         ok: true,
@@ -295,7 +295,7 @@ export async function assignCadet(
 
       const ordered = rows; // already ORDER BY id (the lock order)
       for (const o of ordered) {
-        const moved = await transitionOrder(tx, {
+        const moved = await transitionOrder(tx, { sector: raw.sector,
           orderId: o.id,
           to: "en_camino",
           userId,

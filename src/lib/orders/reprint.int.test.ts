@@ -14,10 +14,10 @@ const db = () => testDb();
 let fx: Fx;
 
 const reprint = (orderId: number, which: unknown, over: Partial<Parameters<typeof reprintOrder>[1]> = {}) =>
-  reprintOrder(db(), { orderId, userId: fx.otherUserId, stationId: fx.otherStationId, which: which as "both", ...over });
+  reprintOrder(db(), { orderId, userId: fx.otherUserId, stationId: fx.otherStationId, which: which as "both", sector: null, ...over });
 const approved = async () => {
   const o = await placeWebOrder(fx, { paymentMethod: "transfer" });
-  await approveOrder(db(), { orderId: o.id, userId: fx.userId, stationId: fx.stationId, paymentVerified: true });
+  await approveOrder(db(), { sector: null, orderId: o.id, userId: fx.userId, stationId: fx.stationId, paymentVerified: true });
   return o;
 };
 const jobs = (orderId: number) =>
@@ -70,7 +70,7 @@ describe("reprintOrder", () => {
     const pending = await placeWebOrder(fx);
     expect(await reprint(pending.id, "both")).toMatchObject({ ok: false, code: "INVALID_TRANSITION" });
     const cancelled = await placeWebOrder(fx);
-    await rejectOrder(db(), { orderId: cancelled.id, userId: fx.userId, reason: "motivo" });
+    await rejectOrder(db(), { sector: null, orderId: cancelled.id, userId: fx.userId, reason: "motivo" });
     expect(await reprint(cancelled.id, "both")).toMatchObject({ ok: false, code: "INVALID_TRANSITION" });
     expect(await jobs(pending.id)).toHaveLength(0);
     expect(await jobs(cancelled.id)).toHaveLength(0);

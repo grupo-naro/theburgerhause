@@ -19,7 +19,7 @@ export async function preparingWebOrder(
   over: { fulfillment?: "delivery" | "takeaway"; paymentMethod?: "cash" | "transfer"; units?: unknown[] } = {},
 ) {
   const o = await placeWebOrder(fx, over);
-  const r = await approveOrder(testDb(), { orderId: o.id, userId: fx.userId, stationId: fx.stationId, paymentVerified: true });
+  const r = await approveOrder(testDb(), { sector: null, orderId: o.id, userId: fx.userId, stationId: fx.stationId, paymentVerified: true });
   if (!r.ok) throw new Error(`approve failed: ${r.code}`);
   return o;
 }

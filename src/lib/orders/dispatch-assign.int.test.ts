@@ -13,10 +13,10 @@ import { assignCadet, markReady, returnToDispatch } from "./dispatch";
 const db = () => testDb();
 let fx: Fx;
 
-const assign = (orderIds: number[], cadetId: number, userId = fx.userId) => assignCadet(db(), { orderIds, cadetId, userId });
+const assign = (orderIds: number[], cadetId: number, userId = fx.userId) => assignCadet(db(), { sector: null, orderIds, cadetId, userId });
 const readyDelivery = async (paymentMethod: "cash" | "transfer" = "cash", fulfillment: "delivery" | "takeaway" = "delivery") => {
   const o = await preparingWebOrder(fx, { fulfillment, paymentMethod });
-  const r = await markReady(db(), { orderId: o.id, userId: fx.userId });
+  const r = await markReady(db(), { sector: null, orderId: o.id, userId: fx.userId });
   if (!r.ok) throw new Error(r.message);
   return o;
 };
@@ -82,7 +82,7 @@ describe("assignCadet: success", () => {
     const c1 = await makeCadet("Uno");
     const c2 = await makeCadet("Dos");
     await assign([a.id], c1.id);
-    expect(await returnToDispatch(db(), { orderId: a.id, userId: fx.userId, reason: "Nadie atendió" })).toMatchObject({ ok: true });
+    expect(await returnToDispatch(db(), { sector: null, orderId: a.id, userId: fx.userId, reason: "Nadie atendió" })).toMatchObject({ ok: true });
     expect((await orderRow(a.id)).cadetId).toBeNull();
     expect(await assign([a.id], c2.id)).toMatchObject({ ok: true });
     expect(await orderRow(a.id)).toMatchObject({ status: "en_camino", cadetId: c2.id });
@@ -260,8 +260,8 @@ describe("assignCadet: notifications", () => {
     const { client, received } = await listen();
     try {
       received.length = 0;
-      await markReady(db(), { orderId: o.id, userId: fx.userId });
-      await markReady(db(), { orderId: o.id, userId: fx.userId }); // refused
+      await markReady(db(), { sector: null, orderId: o.id, userId: fx.userId });
+      await markReady(db(), { sector: null, orderId: o.id, userId: fx.userId }); // refused
       await waitFor(() => received.length >= 1);
       await waitFor(() => received.length > 1, 150);
       expect(received.map((r) => r.payload)).toEqual([{ orderId: o.id, status: "listo_despacho", event: "status" }]);

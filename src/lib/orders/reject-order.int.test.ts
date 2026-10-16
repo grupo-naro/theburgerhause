@@ -11,9 +11,9 @@ const db = () => testDb();
 let fx: Fx;
 
 const reject = (orderId: number, reason: string, over: Partial<Parameters<typeof rejectOrder>[1]> = {}) =>
-  rejectOrder(db(), { orderId, userId: fx.userId, reason, ...over });
+  rejectOrder(db(), { orderId, userId: fx.userId, reason, sector: null, ...over });
 const approve = (orderId: number) =>
-  approveOrder(db(), { orderId, userId: fx.userId, stationId: fx.stationId, paymentVerified: true });
+  approveOrder(db(), { sector: null, orderId, userId: fx.userId, stationId: fx.stationId, paymentVerified: true });
 const order = async (id: number) => (await db().select().from(s.orders).where(eq(s.orders.id, id)))[0];
 const jobs = () => db().select().from(s.printJobs);
 const events = (orderId: number) =>

@@ -42,7 +42,7 @@ export async function SectorWorkspacePage({
   ]);
 
   return (
-    <StaffShell session={session}>
+    <StaffShell session={session} ownsOrderAlert>
       <h1 className="sr-only">{title}</h1>
       <ToastProvider>
         <SectorWorkspace

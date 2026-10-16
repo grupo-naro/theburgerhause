@@ -70,15 +70,15 @@ describe("queries filter by sector", () => {
     const cadet = await makeCadet("Nahuel");
     const dPrep = await preparingWebOrder(fx, { fulfillment: "delivery" });
     const dReady = await preparingWebOrder(fx, { fulfillment: "delivery" });
-    await markReady(db(), { orderId: dReady.id, userId: fx.userId });
+    await markReady(db(), { sector: null, orderId: dReady.id, userId: fx.userId });
     const dRoute = await preparingWebOrder(fx, { fulfillment: "delivery" });
-    await markReady(db(), { orderId: dRoute.id, userId: fx.userId });
-    await assignCadet(db(), { orderIds: [dRoute.id], cadetId: cadet.id, userId: fx.userId });
+    await markReady(db(), { sector: null, orderId: dRoute.id, userId: fx.userId });
+    await assignCadet(db(), { sector: null, orderIds: [dRoute.id], cadetId: cadet.id, userId: fx.userId });
     const tReady = await preparingWebOrder(fx, { fulfillment: "takeaway" });
-    await markReady(db(), { orderId: tReady.id, userId: fx.userId });
+    await markReady(db(), { sector: null, orderId: tReady.id, userId: fx.userId });
     const tPickup = await preparingWebOrder(fx, { fulfillment: "takeaway" });
-    await markReady(db(), { orderId: tPickup.id, userId: fx.userId });
-    await markPickup(db(), { orderId: tPickup.id, userId: fx.userId });
+    await markReady(db(), { sector: null, orderId: tPickup.id, userId: fx.userId });
+    await markPickup(db(), { sector: null, orderId: tPickup.id, userId: fx.userId });
     const cPrep = await preparingCounterOrder(fx);
 
     const del = await getDispatchBoard(db(), { sector: "delivery" });
@@ -200,7 +200,7 @@ describe("cores reject the wrong sector BEFORE any write; admin (no sector) is e
   it("assignCadet: a mostrador sector never assigns; the foreign order is listed", async () => {
     const cadet = await makeCadet();
     const d = await preparingWebOrder(fx, { fulfillment: "delivery" });
-    await markReady(db(), { orderId: d.id, userId: fx.userId });
+    await markReady(db(), { sector: null, orderId: d.id, userId: fx.userId });
     const before = await snapshot(d.id);
     const r = await assignCadet(db(), { orderIds: [d.id], cadetId: cadet.id, userId: fx.userId, sector: "mostrador" });
     expect(r).toMatchObject({ ok: false, code: "WRONG_SECTOR" });

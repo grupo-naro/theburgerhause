@@ -20,7 +20,7 @@ export const rejectReasonSchema = z
 const id = z.number().int().positive().max(2_147_483_647);
 const inputSchema = z.object({ orderId: id, userId: id });
 
-export type RejectOrderInput = { orderId: number; userId: number; reason: string; sector?: Sector | null };
+export type RejectOrderInput = { orderId: number; userId: number; reason: string; sector: Sector | null };
 export type RejectOrderData = { orderId: number; status: "cancelado" };
 
 export async function rejectOrder(db: Db, raw: RejectOrderInput): Promise<OrderResult<RejectOrderData>> {

@@ -15,7 +15,7 @@ const db = () => testDb();
 let fx: Fx;
 
 const approve = (orderId: number, over: Partial<Parameters<typeof approveOrder>[1]> = {}) =>
-  approveOrder(db(), { orderId, userId: fx.userId, stationId: fx.stationId, paymentVerified: false, ...over });
+  approveOrder(db(), { orderId, userId: fx.userId, stationId: fx.stationId, paymentVerified: false, sector: null, ...over });
 const order = async (id: number) => (await db().select().from(s.orders).where(eq(s.orders.id, id)))[0];
 const jobs = (orderId?: number) =>
   orderId

@@ -17,7 +17,7 @@ export async function deliveredFor(
   await assignInDb([fx.id], cadetId);
   if (o.delivered !== false) {
     const encargada = await findUser("encargada");
-    const r = await markDelivered(db(), { orderId: fx.id, userId: encargada.id });
+    const r = await markDelivered(db(), { sector: null, orderId: fx.id, userId: encargada.id });
     if (!r.ok) throw new Error(`markDelivered failed: ${r.message}`);
   }
   return fx;

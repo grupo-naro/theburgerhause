@@ -97,7 +97,7 @@ describe("authorization", () => {
   it("assign is rejected for the cajera (core not called) and allowed for encargada and admin", async () => {
     const cadet = await makeCadet();
     const o = await preparingWebOrder(fx);
-    await dispatch.markReady(testDb(), { orderId: o.id, userId: fx.userId });
+    await dispatch.markReady(testDb(), { sector: null, orderId: o.id, userId: fx.userId });
     vi.mocked(dispatch.markReady).mockClear();
 
     as("cajera");
@@ -144,7 +144,7 @@ describe("session identity and payload hygiene", () => {
   it("assign: userId from session, extra fields stripped, success is serializable", async () => {
     const cadet = await makeCadet("Nahuel");
     const o = await preparingWebOrder(fx);
-    await dispatch.markReady(testDb(), { orderId: o.id, userId: fx.userId });
+    await dispatch.markReady(testDb(), { sector: null, orderId: o.id, userId: fx.userId });
     as("encargada_delivery", fx.otherUserId);
     const r = await assignCadetAction({ orderIds: [o.id, o.id], cadetId: cadet.id, userId: fx.userId, cashToCollect: 0 } as never);
     expect(r).toMatchObject({ ok: true, data: { count: 1, cadet: { name: "Nahuel" } } });
@@ -201,7 +201,7 @@ describe("session identity and payload hygiene", () => {
 describe("expected failures are returned, not thrown", () => {
   it("invalid transition and assignment details come back as results", async () => {
     const takeaway = await preparingWebOrder(fx, { fulfillment: "takeaway" });
-    await dispatch.markReady(testDb(), { orderId: takeaway.id, userId: fx.userId });
+    await dispatch.markReady(testDb(), { sector: null, orderId: takeaway.id, userId: fx.userId });
     const cadet = await makeCadet();
     as("admin");
     expect(await markReadyAction({ orderId: takeaway.id })).toMatchObject({ ok: false, code: "INVALID_TRANSITION" });
@@ -266,7 +266,7 @@ describe("sector rule (server side)", () => {
   it("assign by the delivery manager's own sector works; an order of the counter sector is refused as WRONG_SECTOR", async () => {
     const cadet = await makeCadet();
     const t = await preparingWebOrder(fx, { fulfillment: "takeaway" });
-    await dispatch.markReady(testDb(), { orderId: t.id, userId: fx.userId });
+    await dispatch.markReady(testDb(), { sector: null, orderId: t.id, userId: fx.userId });
     as("encargada_delivery");
     expect(await assignCadetAction({ orderIds: [t.id], cadetId: cadet.id })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
     expect((await row(t.id)).status).toBe("listo_despacho");

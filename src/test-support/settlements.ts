@@ -30,33 +30,33 @@ export async function enRouteOrder(fx: Fx, cadetId: number, o: { paymentMethod?:
     paymentMethod: o.paymentMethod ?? "cash",
     units: UNITS[o.units ?? "one"](fx),
   });
-  must(await markReady(testDb(), { orderId: order.id, userId: fx.userId }), "markReady");
-  must(await assignCadet(testDb(), { orderIds: [order.id], cadetId, userId: fx.userId }), "assignCadet");
+  must(await markReady(testDb(), { sector: null, orderId: order.id, userId: fx.userId }), "markReady");
+  must(await assignCadet(testDb(), { sector: null, orderIds: [order.id], cadetId, userId: fx.userId }), "assignCadet");
   return order;
 }
 
 /** A delivery order delivered by `cadetId` (cash ones stay payment `pending`). */
 export async function deliveredOrder(fx: Fx, cadetId: number, o: { paymentMethod?: Pay; units?: UnitsKind; now?: Date } = {}) {
   const order = await enRouteOrder(fx, cadetId, o);
-  must(await markDelivered(testDb(), { orderId: order.id, userId: fx.userId }, o.now ? { now: o.now } : {}), "markDelivered");
+  must(await markDelivered(testDb(), { sector: null, orderId: order.id, userId: fx.userId }, o.now ? { now: o.now } : {}), "markDelivered");
   return order;
 }
 
 /** A takeaway order delivered at the counter (paid on pickup) - never part of a cadet balance. */
 export async function deliveredTakeaway(fx: Fx) {
   const order = await preparingWebOrder(fx, { fulfillment: "takeaway", paymentMethod: "cash" });
-  must(await markReady(testDb(), { orderId: order.id, userId: fx.userId }), "markReady");
-  must(await markPickup(testDb(), { orderId: order.id, userId: fx.userId }), "markPickup");
-  must(await markDelivered(testDb(), { orderId: order.id, userId: fx.userId, collected: true }), "markDelivered");
+  must(await markReady(testDb(), { sector: null, orderId: order.id, userId: fx.userId }), "markReady");
+  must(await markPickup(testDb(), { sector: null, orderId: order.id, userId: fx.userId }), "markPickup");
+  must(await markDelivered(testDb(), { sector: null, orderId: order.id, userId: fx.userId, collected: true }), "markDelivered");
   return order;
 }
 
 /** A counter sale handed over at the mostrador (born paid). */
 export async function deliveredCounter(fx: Fx, pagerNumber: number) {
   const order = await preparingCounterOrder(fx, { pagerNumber });
-  must(await markReady(testDb(), { orderId: order.id, userId: fx.userId }), "markReady");
-  must(await markPickup(testDb(), { orderId: order.id, userId: fx.userId }), "markPickup");
-  must(await markDelivered(testDb(), { orderId: order.id, userId: fx.userId }), "markDelivered");
+  must(await markReady(testDb(), { sector: null, orderId: order.id, userId: fx.userId }), "markReady");
+  must(await markPickup(testDb(), { sector: null, orderId: order.id, userId: fx.userId }), "markPickup");
+  must(await markDelivered(testDb(), { sector: null, orderId: order.id, userId: fx.userId }), "markDelivered");
   return order;
 }
 

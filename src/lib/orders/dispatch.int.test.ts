@@ -11,10 +11,10 @@ import { markDelivered, markPickup, markReady, returnToDispatch } from "./dispat
 const db = () => testDb();
 let fx: Fx;
 
-const ready = (orderId: number) => markReady(db(), { orderId, userId: fx.userId });
-const pickup = (orderId: number) => markPickup(db(), { orderId, userId: fx.userId });
-const deliver = (orderId: number, collected?: boolean) => markDelivered(db(), { orderId, userId: fx.userId, collected });
-const back = (orderId: number, reason = "No atendieron") => returnToDispatch(db(), { orderId, userId: fx.userId, reason });
+const ready = (orderId: number) => markReady(db(), { sector: null, orderId, userId: fx.userId });
+const pickup = (orderId: number) => markPickup(db(), { sector: null, orderId, userId: fx.userId });
+const deliver = (orderId: number, collected?: boolean) => markDelivered(db(), { sector: null, orderId, userId: fx.userId, collected });
+const back = (orderId: number, reason = "No atendieron") => returnToDispatch(db(), { sector: null, orderId, userId: fx.userId, reason });
 const setStatus = (id: number, status: OrderStatus) => db().update(s.orders).set({ status }).where(eq(s.orders.id, id));
 
 beforeEach(async () => {
@@ -31,7 +31,7 @@ describe("happy flows", () => {
     const cadet = await makeCadet();
     await db().update(s.orders).set({ status: "en_camino", cadetId: cadet.id }).where(eq(s.orders.id, o.id));
     const at = new Date("2026-10-15T15:00:00Z");
-    expect(await markDelivered(db(), { orderId: o.id, userId: fx.userId }, { now: at })).toMatchObject({ ok: true });
+    expect(await markDelivered(db(), { sector: null, orderId: o.id, userId: fx.userId }, { now: at })).toMatchObject({ ok: true });
     const row = await orderRow(o.id);
     expect(row).toMatchObject({ status: "entregado", paymentStatus: "pending", cadetId: cadet.id });
     expect(row.deliveredAt).toEqual(at);
@@ -105,7 +105,7 @@ describe("happy flows", () => {
 
   it("events record the acting user", async () => {
     const o = await preparingWebOrder(fx);
-    await markReady(db(), { orderId: o.id, userId: fx.otherUserId });
+    await markReady(db(), { sector: null, orderId: o.id, userId: fx.otherUserId });
     expect((await orderEventsOf(o.id)).at(-1)).toMatchObject({
       fromStatus: "en_preparacion",
       toStatus: "listo_despacho",
@@ -186,6 +186,6 @@ describe("input validation and unknown orders", () => {
     expect(await deliver(31337)).toMatchObject({ ok: false, code: "NOT_FOUND" });
     expect(await back(31337)).toMatchObject({ ok: false, code: "NOT_FOUND" });
     expect(await ready(-1)).toMatchObject({ ok: false, code: "VALIDATION" });
-    expect(await markReady(db(), { orderId: 1, userId: 0 })).toMatchObject({ ok: false, code: "VALIDATION" });
+    expect(await markReady(db(), { sector: null, orderId: 1, userId: 0 })).toMatchObject({ ok: false, code: "VALIDATION" });
   });
 });

@@ -52,7 +52,7 @@ export type TransitionInput = {
   from?: OrderStatus[];
   patch?: TransitionPatch;
   /** Sector of the acting station (null/undefined = admin, exempt): an order of another sector is refused with WRONG_SECTOR before any write. */
-  sector?: Sector | null;
+  sector: Sector | null;
   /** Realtime hint for the ORDERS notify (default "status"; dispatch uses "assigned"). */
   event?: "status" | "assigned";
 };

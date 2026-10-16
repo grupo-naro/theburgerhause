@@ -90,7 +90,7 @@ export async function placeApproved(o: Parameters<typeof placeCajaOrder>[0] = {}
   const fx = await placeCajaOrder({ single: true, ...o });
   const { cajera, encargada, station, deliveryStation } = await actors();
   const delivery = (o.fulfillment ?? "delivery") === "delivery";
-  const r = await approveOrder(db(), {
+  const r = await approveOrder(db(), { sector: null,
     orderId: fx.id,
     userId: delivery ? encargada.id : cajera.id,
     stationId: delivery ? deliveryStation.id : station.id,
@@ -102,19 +102,19 @@ export async function placeApproved(o: Parameters<typeof placeCajaOrder>[0] = {}
 
 export async function readyInDb(orderId: number): Promise<void> {
   const { encargada } = await actors();
-  const r = await markReady(db(), { orderId, userId: encargada.id });
+  const r = await markReady(db(), { sector: null, orderId, userId: encargada.id });
   if (!r.ok) throw new Error(`markReady failed: ${r.message}`);
 }
 
 export async function pickupInDb(orderId: number): Promise<void> {
   const { encargada } = await actors();
-  const r = await markPickup(db(), { orderId, userId: encargada.id });
+  const r = await markPickup(db(), { sector: null, orderId, userId: encargada.id });
   if (!r.ok) throw new Error(`markPickup failed: ${r.message}`);
 }
 
 export async function assignInDb(orderIds: number[], cadetId: number): Promise<void> {
   const { encargada } = await actors();
-  const r = await assignCadet(db(), { orderIds, cadetId, userId: encargada.id });
+  const r = await assignCadet(db(), { sector: null, orderIds, cadetId, userId: encargada.id });
   if (!r.ok) throw new Error(`assign failed: ${r.message}`);
 }
 
