@@ -88,7 +88,7 @@ export function SectorWorkspace({ sector, role, initialTab, pending, recent, fai
 
   return (
     <div className="space-y-5">
-      <div role="tablist" aria-label={title} data-testid="workspace-tabs" className="flex gap-2 overflow-x-auto pb-1">
+      <div role="tablist" aria-label={title} data-testid="workspace-tabs" className="flex flex-wrap gap-2">
         {tabs.map((t, i) => {
           const active = t.id === tab;
           const n = tabCount(t.id, sector, pending, board);
