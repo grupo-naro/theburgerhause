@@ -1,0 +1,3 @@
+ALTER TABLE "orders" ALTER COLUMN "customer_name" DROP NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "orders_active_counter_pager_unique" ON "orders" USING btree ("pager_number") WHERE "orders"."channel" = 'counter' AND "orders"."status" IN ('en_preparacion','listo_despacho','para_retirar');--> statement-breakpoint
+ALTER TABLE "orders" ADD CONSTRAINT "orders_pager_range" CHECK ("orders"."pager_number" IS NULL OR "orders"."pager_number" BETWEEN 1 AND 999);

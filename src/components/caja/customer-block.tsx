@@ -8,7 +8,7 @@ export function CustomerBlock({ order }: { order: CajaOrder }) {
   return (
     <div data-testid="customer" className="space-y-1.5 text-base">
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <strong className="text-lg text-ink">{order.customerName}</strong>
+        <strong className="text-lg text-ink">{order.customerName ?? "Mostrador"}</strong>
         {wa ? (
           <a
             href={wa}

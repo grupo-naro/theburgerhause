@@ -187,7 +187,8 @@ export const orders = pgTable(
     status: orderStatus("status").notNull(),
     paymentMethod: paymentMethod("payment_method").notNull(),
     paymentStatus: paymentStatus("payment_status").notNull().default("pending"),
-    customerName: text("customer_name").notNull(),
+    /** NULL only for counter sales without a name. */
+    customerName: text("customer_name"),
     whatsapp: text("whatsapp"),
     address: text("address"),
     crossStreets: text("cross_streets"),
@@ -213,6 +214,11 @@ export const orders = pgTable(
     index("orders_approved_by_idx").on(t.approvedBy),
     index("orders_station_idx").on(t.stationId),
     check("orders_counter_requires_pager", sql`${t.channel} <> 'counter' OR ${t.pagerNumber} IS NOT NULL`),
+    check("orders_pager_range", sql`${t.pagerNumber} IS NULL OR ${t.pagerNumber} BETWEEN 1 AND 999`),
+    /** A pager number is held by at most ONE active counter order; it frees up on entregado/cancelado. */
+    uniqueIndex("orders_active_counter_pager_unique")
+      .on(t.pagerNumber)
+      .where(sql`${t.channel} = 'counter' AND ${t.status} IN ('en_preparacion','listo_despacho','para_retirar')`),
     check("orders_total_nonneg", sql`${t.total} >= 0`),
   ],
 );

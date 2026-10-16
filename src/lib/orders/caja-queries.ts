@@ -20,7 +20,7 @@ export type CajaOrder = {
   status: OrderStatus;
   paymentMethod: "cash" | "transfer";
   paymentStatus: "pending" | "paid";
-  customerName: string;
+  customerName: string | null;
   whatsapp: string | null;
   address: string | null;
   crossStreets: string | null;

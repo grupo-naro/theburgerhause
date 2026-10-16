@@ -22,7 +22,7 @@ function RecentRow({ order, now }: { order: CajaOrder; now: number }) {
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <span className="font-display text-2xl font-extrabold text-ink">#{order.number}</span>
           <StatusChip status={order.status} />
-          <span className="truncate font-semibold text-ink">{order.customerName}</span>
+          <span className="truncate font-semibold text-ink">{order.customerName ?? "Mostrador"}</span>
         </div>
         {canReprint(order.status) && <ReprintMenu orderId={order.id} orderNumber={order.number} />}
       </div>

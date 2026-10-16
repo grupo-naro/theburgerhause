@@ -45,7 +45,7 @@ export type TrackingStatus = {
   updatedAt: string;
 };
 
-const firstWord = (name: string) => name.trim().split(/\s+/)[0] ?? "";
+const firstWord = (name: string | null) => (name ?? "").trim().split(/\s+/)[0] ?? "";
 
 export async function getOrderForTracking(db: Db, token: string): Promise<TrackingOrder | null> {
   if (!isTrackingToken(token)) return null;
