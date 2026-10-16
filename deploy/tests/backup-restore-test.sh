@@ -10,7 +10,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPTS="$HERE/../scripts"
+SCRIPTS="${SCRIPTS_DIR:-$HERE/../scripts}"
 export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' NO_LOGGER=1
 
 C="${PG_CONTAINER:-theburgerhause-postgres-1}"
@@ -84,6 +84,22 @@ set -e
 [ -s "$DUMP" ] && [ "$(cat "$BACKUP_DIR/last-success")" = "$before" ] && ok "previous dump and marker untouched" || bad "failure damaged previous backup"
 grep -q "postgres://x:y" "$T/fail.out" && bad "connection string leaked in the log" || ok "no credentials in the failure log"
 ls "$BACKUP_DIR"/db/*.partial >/dev/null 2>&1 && bad "partial file left behind" || ok "no partial file left behind"
+
+echo "== no password or URL ever reaches a command line =="
+SPY="$HERE/spy-pgdump.sh"; export SPY_LOG="$T/spy.log" SPY_DB="$SRC" PG_CONTAINER="$C" PG_USER="$U"
+# (a) remote-style URL with a password: connection data must travel in the ENVIRONMENT only
+env -u BACKUP_DB BACKUP_DIR="$T/bk-a" DATABASE_URL='postgres://svcuser:s3cretPW%21@db.example.net:6543/burgerhause' PGDUMP_CMD="$SPY" "$SCRIPTS/backup.sh" >/dev/null
+if grep -E '://|s3cretPW|svcuser' "$SPY_LOG" | grep -q '^ARGV'; then bad "URL/password leaked into pg_dump argv: $(grep ^ARGV "$SPY_LOG")"; else ok "env mode: argv is only [$(grep ^ARGV "$SPY_LOG" | cut -d' ' -f2-)]"; fi
+grep -q 'ENV_SET: PGPASSWORD' "$SPY_LOG" && grep -q 'ENV_SET: PGHOST' "$SPY_LOG" && grep -q 'ENV_SET: PGPORT' "$SPY_LOG" && ok "env mode: PGHOST/PGPORT/PGUSER/PGPASSWORD set for the child only" || bad "env mode did not export PG* variables"
+# (b) local URL whose user is the OS user: UNIX socket + peer auth, no password variables at all
+ME="$(id -un)"
+env -u BACKUP_DB BACKUP_DIR="$T/bk-b" DATABASE_URL="postgres://$ME:ignored@localhost:5432/burgerhause" PGDUMP_CMD="$SPY" "$SCRIPTS/backup.sh" >/dev/null
+if grep -q '^ARGV' "$SPY_LOG" && ! grep -E '://|ignored' "$SPY_LOG" | grep -q ARGV && ! grep -q 'ENV_SET' "$SPY_LOG"; then ok "socket/peer mode: argv [$(grep ^ARGV "$SPY_LOG" | cut -d' ' -f2-)], no PG* env"; else bad "socket mode leaked or exported something: $(cat "$SPY_LOG")"; fi
+# (c) explicit bare name (what the systemd unit sets)
+BACKUP_DIR="$T/bk-c" BACKUP_DB=burgerhause DATABASE_URL='postgres://x:topsecret@127.0.0.1:1/burgerhause' PGDUMP_CMD="$SPY" "$SCRIPTS/backup.sh" >/dev/null
+if ! grep -qE '://|topsecret|ENV_SET' "$SPY_LOG"; then ok "BACKUP_DB name mode: no URL, no password, no PG* variables"; else bad "name mode leaked: $(cat "$SPY_LOG")"; fi
+# (d) the dump taken through the spy is a valid archive (the pipeline still works end to end)
+[ -n "$(ls "$T"/bk-a/db/*.dump 2>/dev/null)" ] && ok "dump produced in env mode" || bad "no dump in env mode"
 
 echo "== restore-db.sh into a NEW database =="
 export LIVE_DB="$SRC"

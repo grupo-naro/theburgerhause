@@ -21,6 +21,9 @@ else
   echo "  shellcheck image not available: skipped"
 fi
 
+echo "##### 2b lib.sh unit tests"
+bash "$HERE/lib-test.sh"
+
 echo "##### 3/5 deploy.sh scenarios"
 bash "$HERE/deploy-test.sh"
 

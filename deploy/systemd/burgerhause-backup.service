@@ -12,6 +12,9 @@ User=burgerhause
 Group=burgerhause
 # DATABASE_URL, UPLOAD_DIR and the optional BACKUP_REMOTE / BACKUP_SSH_KEY come from here.
 EnvironmentFile=/etc/burgerhause/burgerhause.env
+# Dump over the UNIX socket with peer authentication as User=burgerhause (the Postgres role has the same name):
+# no password ever reaches a command line. DATABASE_URL (with its password) stays in the environment only.
+Environment=BACKUP_DB=burgerhause
 # ssh looks for ~/.ssh/known_hosts and the key here (see the runbook, "copiar los backups fuera de la VPS").
 Environment=HOME=/var/lib/burgerhause
 ExecStart=/opt/burgerhause/current/deploy/scripts/backup.sh

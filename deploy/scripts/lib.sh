@@ -73,3 +73,74 @@ load_env_file() {
     export "$key=$val"
   done <"$file"
 }
+
+# urldecode <string>: percent-decode (for user/password parts of a postgres:// URL).
+urldecode() {
+  local s="$1" out="" hex
+  while [ -n "$s" ]; do
+    if [[ "$s" =~ ^%([0-9A-Fa-f]{2})(.*)$ ]]; then
+      hex="${BASH_REMATCH[1]}"; s="${BASH_REMATCH[2]}"
+      # shellcheck disable=SC2059
+      out+="$(printf "\x$hex")"
+    else
+      out+="${s:0:1}"; s="${s:1}"
+    fi
+  done
+  printf '%s' "$out"
+}
+
+# pg_resolve <postgres-url-or-bare-db-name>
+# Works out HOW to connect WITHOUT ever putting a password (or the URL) in a command line:
+#   PG_DBNAME   the bare database name (the only thing that goes in argv)
+#   PG_ENV      array of KEY=VALUE to export in the CHILD process only (libpq reads them)
+#   PG_MODE     "name" (bare name given: caller's own PG* env/socket applies) | "socket" (local URL and the
+#               OS user equals the URL user: UNIX socket + peer auth, no password at all) | "env" (everything
+#               else: PGHOST/PGPORT/PGUSER/PGPASSWORD in the environment)
+# shellcheck disable=SC2034  # PG_MODE / PG_DBNAME / PG_ENV are read by the callers
+pg_resolve() {
+  local v="$1" rest userinfo hostport user="" pass="" host="" port=""
+  PG_ENV=()
+  case "$v" in
+    *://*) ;;
+    *)
+      PG_DBNAME="$v"; PG_MODE="name"; return 0 ;;
+  esac
+  rest="${v#*://}"
+  PG_DBNAME="${rest#*/}"; PG_DBNAME="${PG_DBNAME%%\?*}"
+  hostport="${rest%%/*}"
+  if [[ "$hostport" == *@* ]]; then
+    userinfo="${hostport%@*}"; hostport="${hostport##*@}"
+    user="${userinfo%%:*}"
+    [[ "$userinfo" == *:* ]] && pass="${userinfo#*:}"
+    user="$(urldecode "$user")"; pass="$(urldecode "$pass")"
+  fi
+  if [[ "$hostport" == \[*\]* ]]; then # [::1]:5432
+    host="${hostport%%]*}"; host="${host#[}"
+    [[ "$hostport" == *\]:* ]] && port="${hostport##*]:}"
+  else
+    host="${hostport%%:*}"
+    [[ "$hostport" == *:* ]] && port="${hostport##*:}"
+  fi
+  local local_host=0
+  case "$host" in "" | localhost | 127.0.0.1 | ::1) local_host=1 ;; esac
+  if [ "$local_host" = 1 ] && { [ -z "$port" ] || [ "$port" = 5432 ]; } && [ -n "$user" ] && [ "$user" = "$(id -un 2>/dev/null || true)" ]; then
+    PG_MODE="socket" # peer authentication over the UNIX socket: no password needed
+    return 0
+  fi
+  PG_MODE="env"
+  [ -n "$host" ] && PG_ENV+=("PGHOST=$host")
+  [ -n "$port" ] && PG_ENV+=("PGPORT=$port")
+  [ -n "$user" ] && PG_ENV+=("PGUSER=$user")
+  [ -n "$pass" ] && PG_ENV+=("PGPASSWORD=$pass")
+  return 0
+}
+
+# pg_exec <command...>: run the command with the PG_ENV variables exported ONLY for that child.
+pg_exec() {
+  (
+    local kv
+    # shellcheck disable=SC2163  # exports the KEY=VALUE pair held in kv
+    for kv in "${PG_ENV[@]+"${PG_ENV[@]}"}"; do export "$kv"; done
+    "$@"
+  )
+}

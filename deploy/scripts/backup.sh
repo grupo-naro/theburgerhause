@@ -10,7 +10,12 @@
 # Environment (all optional; defaults are for the production layout):
 #   ENV_FILE         /etc/burgerhause/burgerhause.env  (read for DATABASE_URL / UPLOAD_DIR if unset)
 #   DATABASE_URL     postgres://user:pass@127.0.0.1:5432/db
-#   BACKUP_DB        what pg_dump gets as database (default: DATABASE_URL). Used by tests with a docker exec.
+#   BACKUP_DB        bare database name to dump (default: taken from DATABASE_URL). With a bare name the script adds no
+#                    connection settings: libpq defaults apply (UNIX socket + peer auth as the service user).
+#
+# The database password is NEVER put on a command line: a local URL whose user equals the OS user connects over the
+# UNIX socket with peer authentication (no password); any other URL is exported as PGHOST/PGPORT/PGUSER/PGPASSWORD
+# in the environment of the pg_dump process only. The Postgres role must be named like the service user (burgerhause).
 #   UPLOAD_DIR       /var/lib/burgerhause/uploads
 #   BACKUP_DIR       /var/backups/burgerhause     (db/ and uploads/ inside; created 0700)
 #   RETENTION_DAYS   14  (only db dumps are pruned; images are immutable and kept)
@@ -50,7 +55,8 @@ split_cmd PGDUMP "${PGDUMP_CMD:-pg_dump}"
 split_cmd PGRESTORE "${PGRESTORE_CMD:-pg_restore}"
 split_cmd RSYNC "$RSYNC_CMD"
 
-DB_NAME="$(db_name_of "$BACKUP_DB")"
+pg_resolve "$BACKUP_DB"
+DB_NAME="$PG_DBNAME"
 [ -n "$DB_NAME" ] || die "cannot work out the database name" 1
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 DB_DIR="$BACKUP_DIR/db"
@@ -75,10 +81,10 @@ run "create $DB_DIR and $UP_DIR" mkdir -p "$DB_DIR" "$UP_DIR"
 # ---- 1. database dump ---------------------------------------------------------------------------
 FAIL=0
 if [ "$DRY_RUN" = "1" ]; then
-  log "DRY_RUN: would run: ${PGDUMP[*]} -Fc <db> > $DUMP"
+  log "DRY_RUN: would run: ${PGDUMP[*]} -Fc $PG_DBNAME > $DUMP (connection mode: $PG_MODE)"
 else
   PARTIAL="$DUMP.partial"
-  if ! "${PGDUMP[@]}" -Fc "$BACKUP_DB" >"$PARTIAL" 2>"$PARTIAL.err"; then
+  if ! pg_exec "${PGDUMP[@]}" -Fc "$PG_DBNAME" >"$PARTIAL" 2>"$PARTIAL.err"; then
     # pg_dump may echo the connection string: redact before logging.
     log "pg_dump failed: $(redact "$(head -c 400 "$PARTIAL.err")")"
     rm -f "$PARTIAL" "$PARTIAL.err"
