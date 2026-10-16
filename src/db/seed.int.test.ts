@@ -20,7 +20,7 @@ describe("demo seed refuses a production-marked database", () => {
   });
   it("refuses with a loud Spanish message when the marker exists", async () => {
     await mark();
-    await expect(seed(db())).rejects.toThrow(/NUNCA[sS]*producci/i);
+    await expect(seed(db())).rejects.toThrow(/NUNCA[\s\S]*producci/i);
     expect((await db().select().from(s.products)).length).toBe(0);
   });
   it("is allowed with ALLOW_DEMO_SEED=1", async () => {
