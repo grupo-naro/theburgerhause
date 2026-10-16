@@ -152,3 +152,40 @@ html {
   background-size: 100% 2.5rem, 100% 2.5rem, 100% 0.75rem, 100% 0.75rem;
   background-attachment: local, local, scroll, scroll;
 }
+
+/*
+ * Rendicion receipt: when printing, only the element marked data-print-receipt survives (plus the
+ * ancestors that contain it, flattened to plain blocks). Simple black on white, A5 / 80 mm friendly.
+ */
+@media print {
+  @page { margin: 8mm; }
+  body:has([data-print-receipt]) :not(:has([data-print-receipt])):not([data-print-receipt]):not([data-print-receipt] *) {
+    display: none !important;
+  }
+  body:has([data-print-receipt]) :has([data-print-receipt]) {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+  /* A history receipt open in a modal prints instead of the one on the page behind it. */
+  body:has(dialog[open] [data-print-receipt]) [data-print-receipt]:not(dialog [data-print-receipt]) {
+    display: none !important;
+  }
+  [data-print-receipt] {
+    max-width: 100mm;
+    color: #000 !important;
+    background: #fff !important;
+    break-inside: avoid;
+  }
+  dialog::backdrop { display: none; }
+}
