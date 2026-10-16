@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { hydrate, orderColumns } from "@/lib/orders/caja-queries";
@@ -22,6 +22,8 @@ export type CadetBalance = {
   /** Informational: centavos of cash orders still en_camino (not yet owed). */
   inRouteCash: number;
   lastSettlementAt: string | null;
+  /** Centavos: sum of the shortages (amount - received_amount) of all this cadet's settlements. */
+  shortageTotal: number;
 };
 
 export type SettlementLine = { id: number; number: number; total: number };
@@ -29,7 +31,12 @@ export type SettlementRecord = {
   id: number;
   cadetId: number;
   cadetName: string;
+  /** Centavos of debt cleared. */
   amount: number;
+  /** Centavos the cadet actually handed over. */
+  receivedAmount: number;
+  /** Centavos missing: amount - receivedAmount. */
+  shortage: number;
   orderCount: number;
   settledByName: string | null;
   note: string | null;
@@ -71,6 +78,13 @@ const OWING = and(
   eq(s.orders.paymentStatus, "pending"),
 );
 
+const INT4_MAX = 2_147_483_647;
+const isId = (n: unknown): n is number => Number.isInteger(n) && (n as number) > 0 && (n as number) <= INT4_MAX;
+const safe = (n: number, what: string): number => {
+  if (!Number.isSafeInteger(n)) throw new Error(`${what} is not a safe integer`);
+  return n;
+};
+
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 100;
 const RECENT = 10;
@@ -90,6 +104,7 @@ export async function listCadetBalances(db: Db): Promise<CadetBalance[]> {
       owedOrderCount: owedCount,
       inRouteCount: sql<number>`count(*) filter (where ${routeFilter})::int`,
       inRouteCash: sql<string>`coalesce(sum(${s.orders.total}) filter (where ${routeFilter} and ${s.orders.paymentMethod} = 'cash' and ${s.orders.paymentStatus} = 'pending'), 0)::bigint`,
+      shortageTotal: sql<string>`(select coalesce(sum("settlements"."amount" - "settlements"."received_amount"), 0)::bigint from "settlements" where "settlements"."cadet_id" = ${s.cadets.id})`,
       lastSettlementAt: sql<Date | null>`(select max("settlements"."created_at") from "settlements" where "settlements"."cadet_id" = ${s.cadets.id})`,
     })
     .from(s.cadets)
@@ -102,13 +117,33 @@ export async function listCadetBalances(db: Db): Promise<CadetBalance[]> {
       name: r.name,
       phone: r.phone,
       active: r.active,
-      owed: Number(r.owed),
+      owed: safe(Number(r.owed), "owed"),
       owedOrderCount: r.owedOrderCount,
       inRouteCount: r.inRouteCount,
-      inRouteCash: Number(r.inRouteCash),
+      inRouteCash: safe(Number(r.inRouteCash), "inRouteCash"),
+      shortageTotal: safe(Number(r.shortageTotal), "shortageTotal"),
       lastSettlementAt: r.lastSettlementAt ? new Date(r.lastSettlementAt).toISOString() : null,
     }))
     .sort((a, b) => b.owed - a.owed || a.name.localeCompare(b.name, "es") || a.cadetId - b.cadetId);
+}
+
+/**
+ * Total cash shortage (amount - received_amount) recorded by settlements, optionally of one
+ * cadet and/or since a date. One query.
+ */
+export async function totalShortages(
+  db: Db,
+  opts: { cadetId?: number; since?: Date } = {},
+): Promise<{ total: number; settlementCount: number }> {
+  if (opts.cadetId !== undefined && !isId(opts.cadetId)) return { total: 0, settlementCount: 0 };
+  const [row] = await db
+    .select({
+      total: sql<string>`coalesce(sum(${s.settlements.amount} - ${s.settlements.receivedAmount}), 0)::bigint`,
+      settlementCount: sql<number>`count(*) filter (where ${s.settlements.amount} > ${s.settlements.receivedAmount})::int`,
+    })
+    .from(s.settlements)
+    .where(and(opts.cadetId === undefined ? undefined : eq(s.settlements.cadetId, opts.cadetId), opts.since === undefined ? undefined : gte(s.settlements.createdAt, opts.since)));
+  return { total: safe(Number(row.total), "shortage total"), settlementCount: row.settlementCount };
 }
 
 /** Settlements newest first (keyset by id) with their order lines: two queries, no N+1. */
@@ -116,6 +151,9 @@ export async function listSettlements(
   db: Db,
   opts: { cadetId?: number; limit?: number; before?: number } = {},
 ): Promise<SettlementRecord[]> {
+  // Invalid filters yield an empty page (never a silently unfiltered one).
+  if (opts.cadetId !== undefined && !isId(opts.cadetId)) return [];
+  if (opts.before !== undefined && !isId(opts.before)) return [];
   const limit =
     typeof opts.limit === "number" && Number.isFinite(opts.limit)
       ? Math.min(MAX_LIMIT, Math.max(1, Math.trunc(opts.limit)))
@@ -130,6 +168,7 @@ export async function listSettlements(
       cadetId: s.settlements.cadetId,
       cadetName: s.cadets.name,
       amount: s.settlements.amount,
+      receivedAmount: s.settlements.receivedAmount,
       settledByName: s.users.name,
       note: s.settlements.note,
       createdAt: s.settlements.createdAt,
@@ -161,6 +200,8 @@ export async function listSettlements(
       cadetId: r.cadetId,
       cadetName: r.cadetName,
       amount: r.amount,
+      receivedAmount: r.receivedAmount,
+      shortage: r.amount - r.receivedAmount,
       orderCount: orders.length,
       settledByName: r.settledByName,
       note: r.note,
@@ -219,7 +260,7 @@ export async function getCadetSettlementDetail(
   const recentSettlements = await listSettlements(db, { cadetId, limit: RECENT });
   return {
     cadet,
-    owed: orders.reduce((sum, o) => sum + o.total, 0),
+    owed: safe(orders.reduce((sum, o) => sum + o.total, 0), "owed"),
     orders,
     inRoute,
     recentSettlements,

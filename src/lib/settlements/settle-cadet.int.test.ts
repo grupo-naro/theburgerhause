@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq, inArray, sql } from "drizzle-orm";
 import { Client } from "pg";
 import { closeDb } from "@/db/client";
@@ -209,7 +209,7 @@ describe("settleCadet: refusals write nothing", () => {
     const cadet = await makeCadet("Nahuel");
     const a = await deliveredOrder(fx, cadet.id);
     // Inconsistent legacy data: the order is still pending but already has a settlement row.
-    const [old] = await db().insert(s.settlements).values({ cadetId: cadet.id, amount: 1 }).returning();
+    const [old] = await db().insert(s.settlements).values({ cadetId: cadet.id, amount: 1, receivedAmount: 1 }).returning();
     await db().insert(s.settlementOrders).values({ settlementId: old.id, orderId: a.id, amount: 1 });
     const before = await snapshot();
     const r = await settle(cadet.id, await sumTotals([a.id]));
@@ -221,7 +221,7 @@ describe("settleCadet: refusals write nothing", () => {
   it("the unique index on settlement_orders(order_id) rejects a direct double insert", async () => {
     const cadet = await makeCadet();
     const a = await deliveredOrder(fx, cadet.id);
-    const [s1, s2] = await db().insert(s.settlements).values([{ cadetId: cadet.id, amount: 5 }, { cadetId: cadet.id, amount: 5 }]).returning();
+    const [s1, s2] = await db().insert(s.settlements).values([{ cadetId: cadet.id, amount: 5, receivedAmount: 5 }, { cadetId: cadet.id, amount: 5, receivedAmount: 5 }]).returning();
     await db().insert(s.settlementOrders).values({ settlementId: s1.id, orderId: a.id, amount: 5 });
     await expect(db().insert(s.settlementOrders).values({ settlementId: s2.id, orderId: a.id, amount: 5 })).rejects.toMatchObject({
       cause: { code: "23505" },
@@ -369,6 +369,98 @@ describe("settleCadet: notifications and rollback", () => {
       expect(received).toHaveLength(2);
     } finally {
       await client.end();
+    }
+  });
+});
+
+describe("settleCadet: received amount and shortages", () => {
+  async function debtOf(name = "Nahuel") {
+    const cadet = await makeCadet(name);
+    const ids = [(await deliveredOrder(fx, cadet.id)).id, (await deliveredOrder(fx, cadet.id, { units: "two" })).id];
+    return { cadet, ids, owed: await sumTotals(ids) };
+  }
+
+  it("an exact receipt (the default) records no shortage", async () => {
+    const { cadet, owed } = await debtOf();
+    const r = await settleCadet(db(), { cadetId: cadet.id, expectedAmount: owed, userId: fx.userId });
+    expect(r).toMatchObject({ ok: true, data: { amount: owed, receivedAmount: owed, shortage: 0 } });
+    const [st] = await db().select().from(s.settlements);
+    expect(st).toMatchObject({ amount: owed, receivedAmount: owed });
+    // an explicit equal receivedAmount behaves the same
+    const again = await debtOf("Otro");
+    expect(await settleCadet(db(), { cadetId: again.cadet.id, expectedAmount: again.owed, receivedAmount: again.owed, userId: fx.userId })).toMatchObject({ ok: true, data: { shortage: 0 } });
+  });
+
+  it("a shortage with a note is recorded, and the debt is still fully cleared", async () => {
+    const { cadet, ids, owed } = await debtOf();
+    const received = owed - 1500_00;
+    const r = await settleCadet(db(), { cadetId: cadet.id, expectedAmount: owed, receivedAmount: received, note: "Faltaron 1500, descuenta del sueldo", userId: fx.userId });
+    expect(r).toMatchObject({ ok: true, data: { amount: owed, receivedAmount: received, shortage: 1500_00, orderCount: 2 } });
+    const [st] = await db().select().from(s.settlements);
+    expect(st).toMatchObject({ amount: owed, receivedAmount: received, note: "Faltaron 1500, descuenta del sueldo" });
+    for (const id of ids) expect((await orderRow(id)).paymentStatus).toBe("paid");
+    expect(await balanceOf(cadet.id)).toMatchObject({ owed: 0 });
+  });
+
+  it("received 0 is allowed with a note", async () => {
+    const { cadet, owed } = await debtOf();
+    expect(await settleCadet(db(), { cadetId: cadet.id, expectedAmount: owed, receivedAmount: 0, note: "No entregó nada", userId: fx.userId })).toMatchObject({
+      ok: true,
+      data: { receivedAmount: 0, shortage: owed },
+    });
+  });
+
+  it("a shortage without a note, or with a too-short one, is a VALIDATION error and writes nothing", async () => {
+    const { cadet, owed } = await debtOf();
+    const before = await snapshot();
+    for (const note of [undefined, "   ", "ab"]) {
+      const r = await settleCadet(db(), { cadetId: cadet.id, expectedAmount: owed, receivedAmount: owed - 100, ...(note === undefined ? {} : { note }), userId: fx.userId });
+      expect(r).toMatchObject({ ok: false, code: "VALIDATION", message: "Explicá el faltante en la nota" });
+    }
+    expect(await settleCadet(db(), { cadetId: cadet.id, expectedAmount: owed, receivedAmount: 0, userId: fx.userId })).toMatchObject({ ok: false, code: "VALIDATION" });
+    expect(await snapshot()).toBe(before);
+  });
+
+  it("received above the debt is refused and writes nothing", async () => {
+    const { cadet, owed } = await debtOf();
+    const before = await snapshot();
+    const r = await settleCadet(db(), { cadetId: cadet.id, expectedAmount: owed, receivedAmount: owed + 1, note: "sobró plata", userId: fx.userId });
+    expect(r).toMatchObject({ ok: false, code: "VALIDATION", message: "El efectivo recibido no puede superar lo que debía rendir" });
+    expect(await snapshot()).toBe(before);
+  });
+
+  it("the amount guard still wins: a shortage settlement against a changed balance is AMOUNT_MISMATCH", async () => {
+    const { cadet, owed } = await debtOf();
+    const before = await snapshot();
+    const r = await settleCadet(db(), { cadetId: cadet.id, expectedAmount: owed + 5000, receivedAmount: owed, note: "faltante", userId: fx.userId });
+    expect(r).toMatchObject({ ok: false, code: "AMOUNT_MISMATCH", details: { expected: owed + 5000, actual: owed } });
+    expect(await snapshot()).toBe(before);
+  });
+
+  it("5 parallel settlements with shortages: exactly one wins and the shortage is recorded once", async () => {
+    const { cadet, owed } = await debtOf();
+    const results = await Promise.all(
+      Array.from({ length: 5 }, (_, i) => settleCadet(db(), { cadetId: cadet.id, expectedAmount: owed, receivedAmount: owed - 100, note: `pc ${i} faltante`, userId: fx.userId })),
+    );
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    const sts = await db().select().from(s.settlements);
+    expect(sts).toHaveLength(1);
+    expect(sts[0].amount - sts[0].receivedAmount).toBe(100);
+  });
+
+  it("logs a fixed marker (no SQL) when the unique index catches an already-settled order", async () => {
+    const cadet = await makeCadet("Nahuel");
+    const a = await deliveredOrder(fx, cadet.id);
+    const [old] = await db().insert(s.settlements).values({ cadetId: cadet.id, amount: 1, receivedAmount: 1 }).returning();
+    await db().insert(s.settlementOrders).values({ settlementId: old.id, orderId: a.id, amount: 1 });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await settle(cadet.id, await sumTotals([a.id]));
+      const logged = JSON.stringify(spy.mock.calls);
+      expect(logged).toContain("settlement_orders_order_uniq");
+      expect(logged).not.toMatch(/insert|select|values/i);
+    } finally {
+      spy.mockRestore();
     }
   });
 });

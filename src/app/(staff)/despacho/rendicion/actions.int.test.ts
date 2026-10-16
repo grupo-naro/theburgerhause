@@ -88,7 +88,7 @@ describe("session identity and payload hygiene", () => {
     as("encargada_delivery", fx.otherUserId);
     const forged = { cadetId: cadet.id, expectedAmount: owed, userId: fx.userId, settledBy: fx.userId, amount: 1, orders: [1] };
     expect(await settleCadetAction(forged as never)).toMatchObject({ ok: true });
-    expect(vi.mocked(core.settleCadet).mock.calls[0][1]).toEqual({ cadetId: cadet.id, expectedAmount: owed, userId: fx.otherUserId, note: undefined });
+    expect(vi.mocked(core.settleCadet).mock.calls[0][1]).toEqual({ cadetId: cadet.id, expectedAmount: owed, receivedAmount: owed, userId: fx.otherUserId });
     const [st] = await testDb().select().from(s.settlements);
     expect(st.settledBy).toBe(fx.otherUserId);
   });
@@ -110,6 +110,11 @@ describe("session identity and payload hygiene", () => {
     { cadetId: 0, expectedAmount: 100 },
     { cadetId: 1, expectedAmount: 100, note: 5 },
     { cadetId: 1, expectedAmount: 100, note: "x".repeat(201) },
+    { cadetId: 1, expectedAmount: 100, receivedAmount: 101, note: "sobra" },
+    { cadetId: 1, expectedAmount: 100, receivedAmount: 50 },
+    { cadetId: 1, expectedAmount: 100, receivedAmount: 0, note: "ab" },
+    { cadetId: 1, expectedAmount: 100, receivedAmount: -1, note: "negativo" },
+    { cadetId: 1, expectedAmount: 100, receivedAmount: 1.5, note: "decimal" },
   ])("malformed input %j -> VALIDATION without touching the core", async (input) => {
     as("admin");
     expect(await settleCadetAction(input as never)).toMatchObject({ ok: false, code: "VALIDATION" });
@@ -121,6 +126,34 @@ describe("session identity and payload hygiene", () => {
     as("admin");
     await settleCadetAction({ cadetId: cadet.id, expectedAmount: owed, note: "  faltó\u0000 plata‮ " });
     expect((await testDb().select().from(s.settlements))[0].note).toBe("faltó plata");
+  });
+});
+
+describe("received amount and shortage", () => {
+  it("receivedAmount and the note pass through; the shortage is recorded and the debt cleared", async () => {
+    const { cadet, ids, owed } = await debt();
+    as("encargada_delivery");
+    const r = await settleCadetAction({ cadetId: cadet.id, expectedAmount: owed, receivedAmount: owed - 2000_00, note: "Faltaron 2000", userId: 999, extra: 1 } as never);
+    expect(r).toMatchObject({ ok: true, data: { amount: owed, receivedAmount: owed - 2000_00, shortage: 2000_00 } });
+    expect(vi.mocked(core.settleCadet).mock.calls[0][1]).toEqual({ cadetId: cadet.id, expectedAmount: owed, receivedAmount: owed - 2000_00, note: "Faltaron 2000", userId: fx.userId });
+    const [st] = await testDb().select().from(s.settlements);
+    expect(st).toMatchObject({ receivedAmount: owed - 2000_00, note: "Faltaron 2000", settledBy: fx.userId });
+    for (const id of ids) expect((await orderRow(id)).paymentStatus).toBe("paid");
+  });
+
+  it("a shortage without a note is a VALIDATION result and nothing is written", async () => {
+    const { cadet, ids, owed } = await debt();
+    as("admin");
+    expect(await settleCadetAction({ cadetId: cadet.id, expectedAmount: owed, receivedAmount: owed - 1 })).toMatchObject({ ok: false, code: "VALIDATION" });
+    expect(core.settleCadet).not.toHaveBeenCalled();
+    expect((await orderRow(ids[0])).paymentStatus).toBe("pending");
+  });
+
+  it("a cajera cannot settle with a shortage either", async () => {
+    const { cadet, owed } = await debt();
+    as("cajera");
+    expect(await settleCadetAction({ cadetId: cadet.id, expectedAmount: owed, receivedAmount: 0, note: "nada" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(core.settleCadet).not.toHaveBeenCalled();
   });
 });
 

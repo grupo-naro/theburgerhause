@@ -17,8 +17,9 @@ import { settleCadetInputSchema } from "./schemas";
  * The predicate is exactly the domain `cadetBalance` one: delivered + cash + payment pending
  * (en_camino orders are NEVER included). The amount the manager confirmed (`expectedAmount`)
  * must equal the sum read under those locks, otherwise NOTHING is written: never settle a
- * figure the manager did not see. There is no partial settlement: a cash shortage is recorded
- * in the free-text `note` and the full amount is settled (the cadet's debt goes to zero).
+ * figure the manager did not see. There is no partial settlement: the full debt is cleared (all
+ * orders become paid) and a cash SHORTAGE (`receivedAmount < amount`) is recorded in the
+ * settlement (`received_amount`, shortage = amount - received_amount) with a mandatory note.
  * Each order can be settled at most once (unique index on `settlement_orders.order_id`).
  * `userId` is a trusted field filled by the Server Action from the verified session.
  */
@@ -32,8 +33,12 @@ export type SettleFailure = {
 };
 export type SettleData = {
   settlementId: number;
-  /** Centavos. */
+  /** Centavos of debt cleared (sum of the settled orders). */
   amount: number;
+  /** Centavos the cadet actually handed over. */
+  receivedAmount: number;
+  /** Centavos missing: amount - receivedAmount (0 for an exact receipt). */
+  shortage: number;
   orderCount: number;
   orders: { id: number; number: number; total: number }[];
   cadet: { id: number; name: string };
@@ -56,11 +61,11 @@ function isOrderAlreadySettled(err: unknown): boolean {
 
 export async function settleCadet(
   db: Db,
-  raw: { cadetId: number; expectedAmount: number; userId: number; note?: string },
+  raw: { cadetId: number; expectedAmount: number; userId: number; receivedAmount?: number; note?: string },
 ): Promise<SettleResult> {
   const input = settleCadetInputSchema.safeParse(raw);
   if (!input.success) return fail("VALIDATION", input.error.issues[0]?.message ?? "Solicitud inválida");
-  const { cadetId, expectedAmount, userId, note } = input.data;
+  const { cadetId, expectedAmount, userId, receivedAmount, note } = input.data;
 
   let cadetName = "El cadete";
   try {
@@ -99,7 +104,7 @@ export async function settleCadet(
 
       const [settlement] = await tx
         .insert(s.settlements)
-        .values({ cadetId, amount: actual, settledBy: userId, note: note ?? null })
+        .values({ cadetId, amount: actual, receivedAmount, settledBy: userId, note: note ?? null })
         .returning({ id: s.settlements.id });
       await tx
         .insert(s.settlementOrders)
@@ -131,6 +136,8 @@ export async function settleCadet(
         data: {
           settlementId: settlement.id,
           amount: actual,
+          receivedAmount,
+          shortage: actual - receivedAmount,
           orderCount: rows.length,
           orders: rows.map((o) => ({ id: o.id, number: o.number, total: o.total })),
           cadet: { id: cadet.id, name: cadet.name },
@@ -139,7 +146,11 @@ export async function settleCadet(
     });
   } catch (err) {
     // Defensive: an order already linked to a settlement (inconsistent data) is "already settled".
-    if (isOrderAlreadySettled(err)) return nothingToSettle(cadetName);
+    if (isOrderAlreadySettled(err)) {
+      // Fixed marker (constraint name only, no SQL) so this inconsistency is discoverable in the logs.
+      console.error("[settlements] order already settled: settlement_orders_order_uniq");
+      return nothingToSettle(cadetName);
+    }
     console.error("[settlements] settleCadet failed", pgErrorCode(err) ?? "");
     return fail("UNEXPECTED", UNEXPECTED_MESSAGE);
   }

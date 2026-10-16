@@ -9,8 +9,8 @@ import { cadetBalance, type BalanceOrder } from "@/domain/cadet-balance";
 import { getEnv } from "@/lib/env";
 import { makeCadet } from "@/test-support/dispatch";
 import { seedMenuAndStaff, type Fx } from "@/test-support/orders";
-import { deliveredOrder, enRouteOrder, sumTotals } from "@/test-support/settlements";
-import { getCadetSettlementDetail, listCadetBalances, listSettlements } from "./queries";
+import { deliveredOrder, deliveredTakeaway, enRouteOrder, sumTotals } from "@/test-support/settlements";
+import { getCadetSettlementDetail, listCadetBalances, listSettlements, totalShortages } from "./queries";
 import { settleCadet } from "./settle-cadet";
 
 const db = () => testDb();
@@ -22,8 +22,9 @@ beforeEach(async () => {
 });
 afterAll(closeDb);
 
-const settle = async (cadetId: number, ids: number[], note?: string, userId = fx.userId) => {
-  const r = await settleCadet(db(), { cadetId, expectedAmount: await sumTotals(ids), userId, ...(note ? { note } : {}) });
+const settle = async (cadetId: number, ids: number[], note?: string, userId = fx.userId, shortage = 0) => {
+  const expectedAmount = await sumTotals(ids);
+  const r = await settleCadet(db(), { cadetId, expectedAmount, receivedAmount: expectedAmount - shortage, userId, ...(note ? { note } : {}) });
   if (!r.ok) throw new Error(`settle failed: ${r.code} ${r.message}`);
   return r.data;
 };
@@ -116,6 +117,10 @@ describe("domain consistency: SQL balance equals cadetBalance on the same data",
     const settled = await makeCadet("Cinco");
     await settle(settled.id, [(await deliveredOrder(fx, settled.id)).id]);
     await deliveredOrder(fx, settled.id, { units: "two" });
+    // orders that never belong to a cadet balance: a takeaway pickup and a delivered order with no cadet
+    await deliveredTakeaway(fx);
+    const orphan = await deliveredOrder(fx, cadets[0].id, { units: "melt" });
+    await db().update(s.orders).set({ cadetId: null }).where(eq(s.orders.id, orphan.id));
 
     const rows = (await db().select().from(s.orders)) as BalanceOrder[];
     const list = await listCadetBalances(db());
@@ -135,6 +140,8 @@ describe("domain consistency: SQL balance equals cadetBalance on the same data",
       totalOwed += domain.owed;
     }
     expect(totalOwed).toBeGreaterThan(0);
+    expect(list.reduce((a, c) => a + c.owed, 0)).toBe(totalOwed);
+    expect(rows.some((o) => o.cadetId === null && o.status === "entregado" && o.paymentMethod === "cash" && o.paymentStatus === "pending")).toBe(true);
   });
 });
 
@@ -209,6 +216,55 @@ describe("getCadetSettlementDetail", () => {
     }
     expect(await count()).toBe(few);
     expect(few).toBeLessThanOrEqual(8);
+  });
+});
+
+describe("shortages", () => {
+  it("records received and shortage on every row, totals them per cadet and overall", async () => {
+    const a = await makeCadet("Ana");
+    const b = await makeCadet("Beto");
+    const s1 = await settle(a.id, [(await deliveredOrder(fx, a.id)).id], "faltó", fx.userId, 500_00);
+    const s2 = await settle(a.id, [(await deliveredOrder(fx, a.id, { units: "two" })).id]);
+    const s3 = await settle(b.id, [(await deliveredOrder(fx, b.id)).id], "nada", fx.userId, 300_00);
+    expect([s1.receivedAmount, s2.receivedAmount, s3.receivedAmount]).toEqual([s1.amount - 500_00, s2.amount, s3.amount - 300_00]);
+
+    for (const r of await listSettlements(db())) {
+      expect(r.shortage, String(r.id)).toBe(r.amount - r.receivedAmount);
+    }
+    const byId = new Map((await listSettlements(db())).map((r) => [r.id, r]));
+    expect(byId.get(s1.settlementId)).toMatchObject({ receivedAmount: s1.amount - 500_00, shortage: 500_00 });
+    expect(byId.get(s2.settlementId)).toMatchObject({ shortage: 0 });
+    const detail = await getCadetSettlementDetail(db(), a.id);
+    expect(detail!.recentSettlements.map((r) => [r.id, r.shortage])).toEqual([[s2.settlementId, 0], [s1.settlementId, 500_00]]);
+
+    const list = await listCadetBalances(db());
+    expect(list.find((c) => c.cadetId === a.id)!.shortageTotal).toBe(500_00);
+    expect(list.find((c) => c.cadetId === b.id)!.shortageTotal).toBe(300_00);
+    expect(await totalShortages(db())).toEqual({ total: 800_00, settlementCount: 2 });
+    expect(await totalShortages(db(), { cadetId: a.id })).toEqual({ total: 500_00, settlementCount: 1 });
+    expect(await totalShortages(db(), { since: new Date(Date.now() + 60_000) })).toEqual({ total: 0, settlementCount: 0 });
+    expect(await totalShortages(db(), { since: new Date(Date.now() - 60_000) })).toEqual({ total: 800_00, settlementCount: 2 });
+    expect(await totalShortages(db(), { cadetId: 99999 })).toEqual({ total: 0, settlementCount: 0 });
+    expect(await totalShortages(db(), { cadetId: -1 })).toEqual({ total: 0, settlementCount: 0 });
+  });
+
+  it("totalShortages is one query", async () => {
+    await withCountedQueries(async (spy, statements) => {
+      await totalShortages(spy, { cadetId: 1, since: new Date() });
+      expect(statements.length).toBe(1);
+    });
+  });
+});
+
+describe("listSettlements: filter validation", () => {
+  it("an invalid cadetId or before yields an empty page, never an unfiltered one", async () => {
+    const c = await makeCadet();
+    await settle(c.id, [(await deliveredOrder(fx, c.id)).id]);
+    for (const bad of [0, -1, 1.5, Number.NaN, 2_147_483_648]) {
+      expect(await listSettlements(db(), { cadetId: bad }), "cadetId " + bad).toEqual([]);
+      expect(await listSettlements(db(), { before: bad }), "before " + bad).toEqual([]);
+    }
+    expect(await listSettlements(db(), {})).toHaveLength(1);
   });
 });
 

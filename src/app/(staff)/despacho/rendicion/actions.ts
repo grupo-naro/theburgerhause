@@ -5,7 +5,7 @@ import { getDb } from "@/db/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type Role } from "@/lib/auth/roles";
 import { pgErrorCode } from "@/lib/orders/create-order";
-import { settleCadetInputSchema } from "@/lib/settlements/schemas";
+import { settleCadetPayloadSchema } from "@/lib/settlements/schemas";
 import { settleCadet, type SettleData, type SettleFailure } from "@/lib/settlements/settle-cadet";
 
 /**
@@ -30,7 +30,6 @@ const FORBIDDEN_MESSAGE = "No tenés permisos para realizar esta acción.";
 const INVALID_REQUEST = "Solicitud inválida";
 
 const SETTLE_ROLES: Role[] = ["encargada_delivery", "admin"];
-const payloadSchema = settleCadetInputSchema.omit({ userId: true });
 
 export async function settleCadetAction(input: unknown): Promise<SettleActionResult> {
   let userId: number;
@@ -44,7 +43,7 @@ export async function settleCadetAction(input: unknown): Promise<SettleActionRes
     throw e;
   }
 
-  const parsed = payloadSchema.safeParse(input);
+  const parsed = settleCadetPayloadSchema.safeParse(input);
   if (!parsed.success) return { ok: false, code: "VALIDATION", message: INVALID_REQUEST };
 
   try {
