@@ -117,7 +117,7 @@ export function ConfirmationOverlay({ sale, onNewSale }: Props) {
             onClick={reprint}
             className="mt-2 min-h-12 w-full rounded-full border-2 border-brand-600 bg-brand-50 font-display text-lg font-bold text-brand-700 hover:bg-brand-600 hover:text-white disabled:opacity-60"
           >
-            {reprinting ? "Enviando…" : status === "failed" ? "Reimprimir" : "Reimprimir ahora"}
+            {reprinting ? "Enviando…" : status === "failed" ? "Reimprimir" : "Reimprimir (puede salir duplicado)"}
           </button>
         )}
         {reprintError && (
