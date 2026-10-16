@@ -124,6 +124,14 @@ export function PosBoard({ initialPagers, stationId }: Props) {
     !modalOpen,
   );
 
+  // A slide-over left open must not survive a resize to the two-column layout (the catalog would stay inert).
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => mq.matches && setDrawerOpen(false);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   // Slide-over: Esc closes it, focus moves in on open and back to the bar on close.
   useEffect(() => {
     if (!drawerOpen) return;
@@ -131,7 +139,7 @@ export function PosBoard({ initialPagers, stationId }: Props) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !modalOpen) {
         setDrawerOpen(false);
-        barRef.current?.focus();
+        requestAnimationFrame(() => barRef.current?.focus());
       }
     };
     window.addEventListener("keydown", onKey);
@@ -145,12 +153,14 @@ export function PosBoard({ initialPagers, stationId }: Props) {
         data-ready={cart.ready}
         className="lg:grid lg:h-[calc(100dvh-8.5rem)] lg:min-h-[34rem] lg:grid-cols-[minmax(0,1fr)_clamp(19.5rem,37%,26.5rem)] lg:gap-5"
       >
+        <div className="contents" inert={drawerOpen}>
         <CatalogPanel
           searchRef={searchRef}
           pulses={pulses}
           onAdd={addPlain}
           onCustomize={(product, from) => openConfigure({ productId: product.id }, from)}
         />
+        </div>
 
         {drawerOpen && (
           <div data-testid="ticket-backdrop" aria-hidden="true" onClick={() => setDrawerOpen(false)} className="fixed inset-0 z-30 bg-ink/50 lg:hidden" />
@@ -176,13 +186,13 @@ export function PosBoard({ initialPagers, stationId }: Props) {
             onClear={requestClear}
             onCloseDrawer={() => {
               setDrawerOpen(false);
-              barRef.current?.focus();
+              requestAnimationFrame(() => barRef.current?.focus());
             }}
           />
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 p-3 backdrop-blur lg:hidden">
+      <div inert={drawerOpen} className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 p-3 backdrop-blur lg:hidden">
         <button
           ref={barRef}
           type="button"
