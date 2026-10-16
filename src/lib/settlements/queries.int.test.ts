@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { closeDb } from "@/db/client";
+import { closeDb, type Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { cadetBalance, type BalanceOrder } from "@/domain/cadet-balance";
@@ -276,10 +276,10 @@ describe("listSettlements", () => {
   });
 });
 
-async function withCountedQueries(fn: (spy: ReturnType<typeof drizzle>, statements: string[]) => Promise<void>) {
+async function withCountedQueries(fn: (spy: Db, statements: string[]) => Promise<void>) {
   const statements: string[] = [];
   const pool = new Pool({ connectionString: getEnv().DATABASE_URL });
-  const spy = drizzle(pool, { logger: { logQuery: (q) => void statements.push(q) } });
+  const spy = drizzle(pool, { logger: { logQuery: (q) => void statements.push(q) } }) as unknown as Db;
   try {
     await fn(spy, statements);
   } finally {

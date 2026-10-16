@@ -7,6 +7,13 @@ describe("parseEventPayload", () => {
     expect(parseEventPayload(ORDERS_CHANNEL, raw)).toEqual({ orderId: 7, status: "en_preparacion", event: "status" });
   });
 
+  it("keeps the assigned and settled events (dispatch and rendicion)", () => {
+    for (const event of ["assigned", "settled"]) {
+      const raw = JSON.stringify({ orderId: 3, status: "entregado", event });
+      expect(parseEventPayload(ORDERS_CHANNEL, raw)).toEqual({ orderId: 3, status: "entregado", event });
+    }
+  });
+
   it("maps unknown event strings to 'updated'", () => {
     const raw = JSON.stringify({ orderId: 7, status: "cancelado", event: "something_new" });
     expect(parseEventPayload(ORDERS_CHANNEL, raw)).toEqual({ orderId: 7, status: "cancelado", event: "updated" });
