@@ -118,3 +118,25 @@ html {
 .animate-card-flash {
   animation: card-flash 1s ease-out 4;
 }
+
+/* POS (/mostrador): "+1" feedback on a tile / ticket line and the slide-over ticket. */
+@keyframes pos-plus {
+  0% { transform: translateY(0.5rem) scale(0.7); opacity: 0; }
+  25% { transform: translateY(0) scale(1.1); opacity: 1; }
+  80% { transform: translateY(-0.25rem) scale(1); opacity: 1; }
+  100% { transform: translateY(-0.5rem) scale(1); opacity: 0; }
+}
+.animate-pos-plus {
+  animation: pos-plus 0.9s ease-out forwards;
+}
+@keyframes pos-line-flash {
+  0% { background-color: rgb(255 198 41 / 0.55); }
+  100% { background-color: transparent; }
+}
+.animate-pos-line-flash {
+  animation: pos-line-flash 0.7s ease-out;
+}
+@keyframes pos-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
