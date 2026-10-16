@@ -73,14 +73,16 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
   const totals = useMemo(() => ticketTotals(cart.lines, index), [cart.lines, index]);
   const received = parsePesosInput(receivedText);
   const change = payment === "cash" ? changeFor(totals.total, received) : changeFor(totals.total, null);
-  const charge = chargeState({
-    lineCount: cart.count,
-    payment,
-    pager,
-    pagerHolder: holder,
-    inFlight: busy,
-    hasStation: stationId !== null,
-  });
+  const charge = confirmation
+    ? { canCharge: false, reason: "Pedido cobrado" }
+    : chargeState({
+        lineCount: cart.count,
+        payment,
+        pager,
+        pagerHolder: holder,
+        inFlight: busy,
+        hasStation: stationId !== null,
+      });
   const nextFree = suggestPager(pagers);
 
   // The latest values for the stable callbacks below (read at call time, never stale).
@@ -101,6 +103,17 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
     if (nextFree === null) return;
     setPagerError(null);
     setPagerText(String(nextFree));
+  }
+
+  /** Per-sale inputs back to blank (payment has no default on purpose). */
+  function resetInputs() {
+    setPayment(null);
+    setPagerText("");
+    setName("");
+    setReceivedText("");
+    setPagerError(null);
+    setMessage(null);
+    setUnitMessages(null);
   }
 
   function submit() {
@@ -131,6 +144,7 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
           // Paid. The overlay is up; `inFlight` stays true until "Nuevo pedido" (no second charge).
           keyHolder.current?.clear();
           cur.cart.clear();
+          resetInputs();
           setConfirmation({
             orderId: r.data.orderId,
             number: r.data.number,
@@ -179,13 +193,7 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
   /** "Nuevo pedido": forget the finished sale and reset every per-sale input. */
   function newSale() {
     setConfirmation(null);
-    setPayment(null);
-    setPagerText("");
-    setName("");
-    setReceivedText("");
-    setPagerError(null);
-    setMessage(null);
-    setUnitMessages(null);
+    resetInputs();
     keyHolder.current?.clear();
     inFlight.current = false;
     setBusy(false);

@@ -56,8 +56,8 @@ export function ConfirmationOverlay({ sale, onNewSale }: Props) {
       className="fixed inset-0 m-auto h-fit w-[min(30rem,calc(100vw-2rem))] animate-sheet-in overflow-clip rounded-3xl border-0 bg-surface p-0 text-ink backdrop:bg-ink/60 open:block"
     >
       <div className="bg-state-ready px-6 pt-5 pb-4 text-center text-white">
-        <p className="inline-flex items-center gap-2 font-display text-lg font-bold">
-          <CheckIcon className="size-6" strokeWidth={3} /> Cobrado
+        <p className="inline-flex items-center gap-2 font-display text-2xl font-extrabold">
+          <CheckIcon className="size-7" strokeWidth={3} /> Cobrado
         </p>
         <h2 id={`${uid}-t`} data-testid="confirm-order" className="font-display text-6xl leading-none font-extrabold tabular-nums">
           Pedido #{sale.number}
@@ -95,7 +95,7 @@ export function ConfirmationOverlay({ sale, onNewSale }: Props) {
           )}
           {status === "done" && (
             <>
-              <CheckIcon className="size-6 text-state-ready" strokeWidth={3} /> Impreso ✓
+              Impreso ✓
             </>
           )}
           {status === "waiting" && (
