@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { closeDb } from "@/db/client";
@@ -8,7 +8,7 @@ import { resetDb, testDb } from "@/db/test-utils";
 import { getEnv } from "@/lib/env";
 import { makeCadet, preparingCounterOrder, preparingWebOrder } from "@/test-support/dispatch";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
-import { assignCadet, markDelivered, markPickup, markReady } from "./dispatch";
+import { assignCadet, markDelivered, markPickup, markReady, returnToDispatch } from "./dispatch";
 import { getDispatchBoard } from "./dispatch-queries";
 
 const db = () => testDb();
@@ -159,5 +159,65 @@ describe("getDispatchBoard", () => {
     const many = await count();
     expect(many).toBe(few);
     expect(many).toBeLessThanOrEqual(6);
+  });
+
+  describe("statusSince / minutesInStatus (when the order entered its CURRENT status)", () => {
+    const setEventAt = (orderId: number, to: (typeof s.orderEvents.$inferSelect)["toStatus"], iso: string) =>
+      db().update(s.orderEvents).set({ at: new Date(iso) }).where(and(eq(s.orderEvents.orderId, orderId), eq(s.orderEvents.toStatus, to)));
+    const find = async (id: number) => {
+      const b = await board();
+      return [...b.preparing, ...b.ready.delivery, ...b.ready.takeaway, ...b.pickup, ...b.enRoute.flatMap((g) => g.orders)].find((o) => o.id === id)!;
+    };
+
+    it("is the latest event into the status: approval, ready click, pickup call, assignment", async () => {
+      const cadet = await makeCadet();
+      const prep = await preparingWebOrder(fx, { fulfillment: "delivery" });
+      await setEventAt(prep.id, "en_preparacion", "2026-10-15T19:55:00Z");
+      await setCreatedAt(prep.id, "2026-10-15T19:40:00Z");
+      expect(await find(prep.id)).toMatchObject({ statusSince: "2026-10-15T19:55:00.000Z", minutesInStatus: 5, minutesWaiting: 20 });
+
+      const rd = await preparingWebOrder(fx, { fulfillment: "delivery" });
+      await ready(rd.id);
+      await setEventAt(rd.id, "listo_despacho", "2026-10-15T19:54:00Z");
+      expect(await find(rd.id)).toMatchObject({ statusSince: "2026-10-15T19:54:00.000Z", minutesInStatus: 6 });
+
+      const tk = await preparingWebOrder(fx, { fulfillment: "takeaway" });
+      await ready(tk.id);
+      await markPickup(db(), { orderId: tk.id, userId: fx.userId });
+      await setEventAt(tk.id, "para_retirar", "2026-10-15T19:52:00Z");
+      expect(await find(tk.id)).toMatchObject({ status: "para_retirar", statusSince: "2026-10-15T19:52:00.000Z", minutesInStatus: 8 });
+
+      const en = await preparingWebOrder(fx, { fulfillment: "delivery" });
+      await ready(en.id);
+      await assignCadet(db(), { orderIds: [en.id], cadetId: cadet.id, userId: fx.userId });
+      await setEventAt(en.id, "en_camino", "2026-10-15T19:30:00Z");
+      expect(await find(en.id)).toMatchObject({ status: "en_camino", statusSince: "2026-10-15T19:30:00.000Z", minutesInStatus: 30 });
+    });
+
+    it("a return to dispatch re-enters listo_despacho and resets the clock", async () => {
+      const cadet = await makeCadet();
+      const o = await preparingWebOrder(fx, { fulfillment: "delivery" });
+      await ready(o.id);
+      await setEventAt(o.id, "listo_despacho", "2026-10-15T19:00:00Z");
+      await assignCadet(db(), { orderIds: [o.id], cadetId: cadet.id, userId: fx.userId });
+      await returnToDispatch(db(), { orderId: o.id, userId: fx.userId, reason: "No atendió" });
+      const events = await db().select().from(s.orderEvents).where(and(eq(s.orderEvents.orderId, o.id), eq(s.orderEvents.toStatus, "listo_despacho")));
+      const latest = events.sort((a, b) => b.id - a.id)[0];
+      await db().update(s.orderEvents).set({ at: new Date("2026-10-15T19:58:00Z") }).where(eq(s.orderEvents.id, latest.id));
+      expect(await find(o.id)).toMatchObject({ statusSince: "2026-10-15T19:58:00.000Z", minutesInStatus: 2 });
+    });
+
+    it("falls back to the creation time when no event entered the status (legacy rows)", async () => {
+      const o = await preparingWebOrder(fx);
+      await setCreatedAt(o.id, "2026-10-15T19:20:00Z");
+      await db().delete(s.orderEvents).where(eq(s.orderEvents.orderId, o.id));
+      expect(await find(o.id)).toMatchObject({ statusSince: "2026-10-15T19:20:00.000Z", minutesInStatus: 40 });
+    });
+
+    it("never goes negative (an event slightly in the future)", async () => {
+      const o = await preparingWebOrder(fx);
+      await setEventAt(o.id, "en_preparacion", "2026-10-15T20:05:00Z");
+      expect((await find(o.id)).minutesInStatus).toBe(0);
+    });
   });
 });

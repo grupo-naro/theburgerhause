@@ -24,8 +24,12 @@ export type DispatchOrder = {
   /** Centavos. */
   total: number;
   createdAt: string;
-  /** Whole minutes since the order was created (never negative). */
+  /** Whole minutes since the order was created (never negative): the total age of the order. */
   minutesWaiting: number;
+  /** ISO time the order ENTERED its current status (assignment time for en_camino, the "listo" click for listo_despacho...). */
+  statusSince: string;
+  /** Whole minutes in the current status (never negative): the lane clock the urgency is judged by. */
+  minutesInStatus: number;
   /** First name only. */
   customerName: string | null;
   /** Delivery orders only (null for takeaway/counter). */
@@ -86,14 +90,16 @@ const firstName = (name: string | null): string | null => {
 export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): Promise<DispatchBoard> {
   const now = ctx.now ?? new Date();
 
-  const assignedAt = sql<Date | string | null>`(select max("order_events"."at") from "order_events" where "order_events"."order_id" = "orders"."id" and "order_events"."to_status" = 'en_camino')`;
+  // When the order entered its CURRENT status: the latest event into that status (a return to dispatch
+  // re-enters listo_despacho and resets the clock); legacy rows without such an event fall back to creation.
+  const statusSince = sql<Date | string>`coalesce((select max("order_events"."at") from "order_events" where "order_events"."order_id" = "orders"."id" and "order_events"."to_status" = "orders"."status"), "orders"."created_at")`;
   const rows = await db
-    .select({ ...orderColumns, cadetId: s.orders.cadetId, assignedAt })
+    .select({ ...orderColumns, cadetId: s.orders.cadetId, statusSince })
     .from(s.orders)
     .where(inArray(s.orders.status, BOARD_STATUSES))
     .orderBy(asc(s.orders.createdAt), asc(s.orders.id));
   const hydrated = await hydrate(db, rows, now);
-  const meta = new Map(rows.map((r) => [r.id, { cadetId: r.cadetId, assignedAt: r.assignedAt ? new Date(r.assignedAt).getTime() : 0 }]));
+  const meta = new Map(rows.map((r) => [r.id, { cadetId: r.cadetId, since: new Date(r.statusSince).getTime() }]));
 
   const toDto = (o: (typeof hydrated)[number]): DispatchOrder => ({
     id: o.id,
@@ -106,6 +112,8 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
     total: o.total,
     createdAt: o.createdAt,
     minutesWaiting: o.minutesWaiting,
+    statusSince: new Date(meta.get(o.id)!.since).toISOString(),
+    minutesInStatus: Math.max(0, Math.floor((now.getTime() - meta.get(o.id)!.since) / 60_000)),
     customerName: firstName(o.customerName),
     address: o.fulfillment === "delivery" ? o.address : null,
     crossStreets: o.fulfillment === "delivery" ? o.crossStreets : null,
@@ -137,7 +145,7 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
       const m = meta.get(o.id)!;
       if (m.cadetId === null) continue; // en_camino without a cadet cannot happen through the cores
       const g = groups.get(m.cadetId) ?? { orders: [] };
-      g.orders.push({ dto, at: m.assignedAt });
+      g.orders.push({ dto, at: m.since });
       groups.set(m.cadetId, g);
     }
   }
