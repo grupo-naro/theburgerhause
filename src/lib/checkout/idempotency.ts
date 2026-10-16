@@ -43,12 +43,16 @@ const randomKey = () => crypto.randomUUID();
  * (sessionStorage, with an in-memory fallback when storage is unavailable), regenerated when the
  * cart contents change or after `clear()` (successful order). Never throws.
  */
-export function createKeyHolder(storage: KeyStorage | null | undefined, newKey: () => string = randomKey) {
+export function createKeyHolder(
+  storage: KeyStorage | null | undefined,
+  newKey: () => string = randomKey,
+  storageKey: string = CHECKOUT_KEY_STORAGE,
+) {
   let memory: { k: string; s: string } | null = null;
 
   const readStored = (): { k: string; s: string } | null => {
     try {
-      const raw = storage?.getItem(CHECKOUT_KEY_STORAGE);
+      const raw = storage?.getItem(storageKey);
       if (!raw) return null;
       const v = JSON.parse(raw) as unknown;
       if (typeof v !== "object" || v === null) return null;
@@ -69,7 +73,7 @@ export function createKeyHolder(storage: KeyStorage | null | undefined, newKey: 
       const entry = { k: newKey(), s: sig };
       memory = entry;
       try {
-        storage?.setItem(CHECKOUT_KEY_STORAGE, JSON.stringify(entry));
+        storage?.setItem(storageKey, JSON.stringify(entry));
       } catch {
         // memory fallback
       }
@@ -78,7 +82,7 @@ export function createKeyHolder(storage: KeyStorage | null | undefined, newKey: 
     clear(): void {
       memory = null;
       try {
-        storage?.removeItem(CHECKOUT_KEY_STORAGE);
+        storage?.removeItem(storageKey);
       } catch {
         // ignore
       }

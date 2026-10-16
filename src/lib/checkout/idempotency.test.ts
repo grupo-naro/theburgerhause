@@ -136,3 +136,21 @@ describe("orderSignature", () => {
     expect(orderSignature(units, { ...form, bh_ref: "spam" })).toBe(base);
   });
 });
+
+describe("createKeyHolder with a custom storage key (POS)", () => {
+  it("stores under the given key and leaves the checkout key alone", () => {
+    const st = memoryStorage();
+    const A = "11111111-1111-4111-8111-111111111111";
+    const h = createKeyHolder(st, () => A, "bh_pos_key_v1");
+    const k = h.get("sig");
+    expect(st.getItem("bh_pos_key_v1")).not.toBeNull();
+    expect(st.getItem(CHECKOUT_KEY_STORAGE)).toBeNull();
+    // a second holder (reload) with the same key finds it
+    expect(createKeyHolder(st, () => "22222222-2222-4222-8222-222222222222", "bh_pos_key_v1").get("sig")).toBe(k);
+    // the checkout holder is independent
+    const other = "33333333-3333-4333-8333-333333333333";
+    expect(createKeyHolder(st, () => other).get("sig")).toBe(other);
+    h.clear();
+    expect(st.getItem("bh_pos_key_v1")).toBeNull();
+  });
+});
