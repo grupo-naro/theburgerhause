@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CART_STORAGE_KEY, clearCartStorage, loadCart, parseCart, saveCart, serializeCart } from "./persistence";
+import { CART_STORAGE_KEY, clearCartStorage, isCartStorageEvent, loadCart, parseCart, saveCart, serializeCart } from "./persistence";
 import type { CartLine } from "./types";
 
 const line = (id: string, over: Partial<CartLine> = {}): CartLine => ({ id, productId: 1, modifierIds: [1, 2], note: "x", ...over });
@@ -114,5 +114,42 @@ describe("loadCart / saveCart / clearCartStorage", () => {
     expect(loadCart(null)).toBeNull();
     expect(() => saveCart(undefined, state([line("a")]), {})).not.toThrow();
     expect(() => clearCartStorage(undefined)).not.toThrow();
+  });
+});
+
+describe("custom storage keys (POS cart per station)", () => {
+  const KEY = "bh_pos_cart_v1:3";
+  it("save/load/clear use the given key and leave the default key alone", () => {
+    const st = memoryStorage({ [CART_STORAGE_KEY]: serializeCart(state([line("web")]), {}) });
+    saveCart(st, state([line("a")]), { a: 5 }, KEY);
+    expect(st.data[KEY]).toBeDefined();
+    expect(loadCart(st, KEY)).toEqual({ lines: [line("a")], prices: { a: 5 } });
+    expect(loadCart(st)?.lines).toEqual([line("web")]);
+    saveCart(st, state([]), {}, KEY);
+    expect(st.data[KEY]).toBeUndefined();
+    expect(st.data[CART_STORAGE_KEY]).toBeDefined();
+    saveCart(st, state([line("b")]), {}, KEY);
+    clearCartStorage(st, KEY);
+    expect(st.data[KEY]).toBeUndefined();
+    expect(st.data[CART_STORAGE_KEY]).toBeDefined();
+  });
+  it("different keys never mix", () => {
+    const st = memoryStorage();
+    saveCart(st, state([line("a")]), {}, "bh_pos_cart_v1:1");
+    saveCart(st, state([line("b")]), {}, "bh_pos_cart_v1:2");
+    expect(loadCart(st, "bh_pos_cart_v1:1")?.lines[0].id).toBe("a");
+    expect(loadCart(st, "bh_pos_cart_v1:2")?.lines[0].id).toBe("b");
+  });
+});
+
+describe("isCartStorageEvent", () => {
+  it("matches its own key, and key === null (storage.clear())", () => {
+    expect(isCartStorageEvent(CART_STORAGE_KEY, CART_STORAGE_KEY)).toBe(true);
+    expect(isCartStorageEvent(null, CART_STORAGE_KEY)).toBe(true);
+    expect(isCartStorageEvent("bh_pos_cart_v1:3", "bh_pos_cart_v1:3")).toBe(true);
+  });
+  it("ignores other keys (a customer cart event never reaches the POS cart)", () => {
+    expect(isCartStorageEvent(CART_STORAGE_KEY, "bh_pos_cart_v1:3")).toBe(false);
+    expect(isCartStorageEvent("bh_pos_cart_v1:4", "bh_pos_cart_v1:3")).toBe(false);
   });
 });

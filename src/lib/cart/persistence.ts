@@ -45,9 +45,12 @@ export function parseCart(raw: string | null): { lines: CartLine[]; prices: Reco
   }
 }
 
-export function loadCart(storage: CartStorage | null | undefined): { lines: CartLine[]; prices: Record<string, number> } | null {
+export function loadCart(
+  storage: CartStorage | null | undefined,
+  key: string = CART_STORAGE_KEY,
+): { lines: CartLine[]; prices: Record<string, number> } | null {
   try {
-    return parseCart(storage?.getItem(CART_STORAGE_KEY) ?? null);
+    return parseCart(storage?.getItem(key) ?? null);
   } catch {
     return null;
   }
@@ -58,20 +61,26 @@ export function saveCart(
   storage: CartStorage | null | undefined,
   state: CartState,
   prices: Record<string, number>,
+  key: string = CART_STORAGE_KEY,
 ): void {
   try {
     if (!storage) return;
-    if (state.lines.length === 0) storage.removeItem(CART_STORAGE_KEY);
-    else storage.setItem(CART_STORAGE_KEY, serializeCart(state, prices));
+    if (state.lines.length === 0) storage.removeItem(key);
+    else storage.setItem(key, serializeCart(state, prices));
   } catch {
     /* in-memory only */
   }
 }
 
-export function clearCartStorage(storage: CartStorage | null | undefined): void {
+export function clearCartStorage(storage: CartStorage | null | undefined, key: string = CART_STORAGE_KEY): void {
   try {
-    storage?.removeItem(CART_STORAGE_KEY);
+    storage?.removeItem(key);
   } catch {
     /* ignore */
   }
+}
+
+/** Does a `storage` event concern this cart? (`key === null` means the whole storage was cleared.) */
+export function isCartStorageEvent(eventKey: string | null, key: string): boolean {
+  return eventKey === null || eventKey === key;
 }

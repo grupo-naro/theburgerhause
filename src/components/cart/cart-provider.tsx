@@ -14,7 +14,7 @@ import {
 import { useMenuIndex } from "@/components/menu/menu-provider";
 import { groupLines } from "@/lib/cart/group";
 import { initCart } from "@/lib/cart/init";
-import { CART_STORAGE_KEY, saveCart } from "@/lib/cart/persistence";
+import { CART_STORAGE_KEY, isCartStorageEvent, saveCart } from "@/lib/cart/persistence";
 import { cartPreviewTotal } from "@/lib/cart/pricing";
 import { reconcileCart } from "@/lib/cart/reconcile";
 import { canAdd, cartReducer, emptyCart } from "@/lib/cart/reducer";
@@ -62,9 +62,9 @@ function readStorage(): Storage | null {
   }
 }
 
-function readRaw(): string | null {
+function readRaw(key: string): string | null {
   try {
-    return readStorage()?.getItem(CART_STORAGE_KEY) ?? null;
+    return readStorage()?.getItem(key) ?? null;
   } catch {
     return null;
   }
@@ -77,7 +77,14 @@ function readRaw(): string | null {
  * count (the header badge just appears). Every change is persisted (effects already batch
  * bursts of changes into one write) and the `storage` event keeps several tabs consistent.
  */
-export function CartProvider({ children }: { children: ReactNode }) {
+export function CartProvider({
+  children,
+  storageKey = CART_STORAGE_KEY,
+}: {
+  children: ReactNode;
+  /** localStorage key; the storefront uses the default, the POS one cart per station. */
+  storageKey?: string;
+}) {
   const index = useMenuIndex();
   const [state, dispatch] = useReducer((s: typeof emptyCart, a: CartAction) => cartReducer(s, a, newId), emptyCart);
   const [ready, setReady] = useState(false);
@@ -101,12 +108,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
-    const loaded = initCart(readRaw(), index);
+    const loaded = initCart(readRaw(storageKey), index);
     pricesRef.current = loaded.prices;
     dispatch({ type: "hydrate", lines: loaded.lines });
     setIssues(loaded.issues);
     setReady(true);
-  }, [index]);
+  }, [index, storageKey]);
 
   // 2) Keep the cart consistent with the menu (menu refresh, new lines get their price snapshot).
   useEffect(() => {
@@ -121,21 +128,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // 3) Persist every change (never before the stored cart was loaded).
   useEffect(() => {
     if (!ready) return;
-    saveCart(readStorage(), state, pricesRef.current);
-  }, [ready, state]);
+    saveCart(readStorage(), state, pricesRef.current, storageKey);
+  }, [ready, state, storageKey]);
 
   // 4) Other tabs.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== null && e.key !== CART_STORAGE_KEY) return;
-      const loaded = initCart(readRaw(), indexRef.current);
+      if (!isCartStorageEvent(e.key, storageKey)) return;
+      const loaded = initCart(readRaw(storageKey), indexRef.current);
       pricesRef.current = loaded.prices;
       dispatch({ type: "hydrate", lines: loaded.lines });
       if (loaded.issues.length > 0) setIssues((prev) => [...prev, ...loaded.issues]);
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  }, [storageKey]);
 
   const add = useCallback<CartApi["add"]>(
     (productId, units) => {
