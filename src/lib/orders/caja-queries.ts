@@ -60,7 +60,7 @@ export const UNHANDLED_FAILED = `"print_jobs"."status" = 'failed' and not exists
 const jobCount = (filter: string) =>
   sql<number>`(select count(*)::int from "print_jobs" where "print_jobs"."order_id" = "orders"."id" and ${sql.raw(filter)})`;
 
-const orderColumns = {
+export const orderColumns = {
   id: s.orders.id,
   number: s.orders.number,
   channel: s.orders.channel,
@@ -83,14 +83,14 @@ const orderColumns = {
   jobsDone: jobCount(`"print_jobs"."status" = 'done'`),
 };
 
-type OrderRow = Omit<CajaOrder, "createdAt" | "minutesWaiting" | "items" | "printState"> & {
+export type OrderRow = Omit<CajaOrder, "createdAt" | "minutesWaiting" | "items" | "printState"> & {
   createdAt: Date;
   jobsPending: number;
   jobsFailed: number;
   jobsDone: number;
 };
 
-async function hydrate(db: Db, rows: OrderRow[], now: Date): Promise<CajaOrder[]> {
+export async function hydrate(db: Db, rows: OrderRow[], now: Date): Promise<CajaOrder[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
   const units = await db
