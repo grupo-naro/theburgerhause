@@ -3,6 +3,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { closeDb, getDb, type Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
+import { DEPLOYMENT_KEY } from "@/db/deployment";
 
 /**
  * Idempotent seed: every insert is keyed on a natural unique key, so running
@@ -100,7 +101,26 @@ export function assertSeedAllowed(env: Record<string, string | undefined>): void
   }
 }
 
+/** Refuses to seed a database marked as production by init-prod (unless ALLOW_DEMO_SEED=1). */
+async function assertDbNotProduction(db: Db): Promise<void> {
+  if (process.env.ALLOW_DEMO_SEED === "1") return;
+  const [row] = await db
+    .select({ value: sql<string>`${s.settings.value}::text` })
+    .from(s.settings)
+    .where(eq(s.settings.key, DEPLOYMENT_KEY));
+  if (row?.value === '"production"') {
+    throw new Error(
+      [
+        "SE RECHAZA EL SEED DE DEMO: esta base de datos esta marcada como PRODUCCION (deployment=production, escrito por pnpm db:init-prod).",
+        "El seed de demo carga productos, precios, estaciones y cadetes FALSOS y NUNCA debe correr en produccion.",
+        "Cargá el menú real desde el panel de Admin. Si esta base es descartable, ALLOW_DEMO_SEED=1 lo permite explicitamente.",
+      ].join("\n"),
+    );
+  }
+}
+
 export async function seed(db: Db): Promise<void> {
+  await assertDbNotProduction(db);
   await db.transaction(async (tx) => {
     await tx
       .insert(s.categories)

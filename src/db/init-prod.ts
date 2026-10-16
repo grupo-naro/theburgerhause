@@ -9,6 +9,8 @@ import { DEFAULT_SETTINGS, SETTING_KEYS } from "@/lib/settings";
  * users, stations or cadets. Orders stay CLOSED (accepting_orders = false) until the owner opens them.
  * The demo seed (`pnpm db:seed`) must never be used in production.
  */
+import { DEPLOYMENT_KEY } from "@/db/deployment";
+
 export const PROD_DEFAULTS: Record<string, unknown> = {
   [SETTING_KEYS.storeName]: DEFAULT_SETTINGS.storeName,
   [SETTING_KEYS.storeAddress]: DEFAULT_SETTINGS.storeAddress,
@@ -19,6 +21,9 @@ export const PROD_DEFAULTS: Record<string, unknown> = {
   [SETTING_KEYS.deliveryFee]: 0,
   [SETTING_KEYS.acceptingOrders]: false,
   [SETTING_KEYS.openingHoursText]: DEFAULT_SETTINGS.openingHoursText,
+  // Marker read by `seed()`: a database that went through init-prod refuses the DEMO seed
+  // (even from an SSH shell without NODE_ENV=production). Never overwritten once present.
+  [DEPLOYMENT_KEY]: "production",
 };
 
 /** Returns how many settings rows were created. */

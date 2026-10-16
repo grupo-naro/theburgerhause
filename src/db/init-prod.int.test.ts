@@ -23,12 +23,20 @@ describe("db:init-prod", () => {
   it("creates only settings, closed for orders, and no demo data", async () => {
     await initProd(db());
     expect(await rowCounts()).toEqual({
-      categories: 0, products: 0, users: 0, stations: 0, cadets: 0, modifier_groups: 0, settings: 9,
+      categories: 0, products: 0, users: 0, stations: 0, cadets: 0, modifier_groups: 0, settings: 10,
     });
     const st = await getSettings(db());
     expect(st.acceptingOrders).toBe(false);
     expect(st.deliveryFee).toBe(0);
     expect(st.storeName).toBe(DEFAULT_SETTINGS.storeName);
+  });
+  it("writes the deployment=production marker, never overwriting a different owner value", async () => {
+    await initProd(db());
+    const read = async () => (await db().select().from(s.settings).where(eq(s.settings.key, "deployment")))[0]?.value;
+    expect(await read()).toBe("production");
+    await db().update(s.settings).set({ value: "staging" }).where(eq(s.settings.key, "deployment"));
+    await initProd(db());
+    expect(await read()).toBe("staging");
   });
   it("is idempotent", async () => {
     await initProd(db());
