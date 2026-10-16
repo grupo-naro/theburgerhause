@@ -1,0 +1,62 @@
+# The Burger Hause - Next.js app (ONE process; never run several instances, never PM2 cluster mode:
+# the realtime bus, the SSE connection counters and the in-memory rate limiters are per process).
+# Install as /etc/systemd/system/burgerhause.service, then:
+#   systemctl daemon-reload && systemctl enable --now burgerhause
+#
+# REPLACE if your layout differs: the node path (`command -v node`), the User/Group, the paths.
+[Unit]
+Description=The Burger Hause (Next.js, single instance)
+Documentation=file:///opt/burgerhause/current/docs/ops/runbook.md
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+# Do not give up restarting during a short Postgres outage: allow 10 starts per minute.
+StartLimitIntervalSec=60
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=burgerhause
+Group=burgerhause
+# `current` is a symlink to releases/<timestamp>; deploy.sh swaps it and restarts the unit.
+WorkingDirectory=/opt/burgerhause/current
+# Secrets live OUTSIDE the repo: root:burgerhause 0640 (see deploy/env/burgerhause.env.example).
+EnvironmentFile=/etc/burgerhause/burgerhause.env
+# Written by deploy.sh (APP_COMMIT=<git sha>); optional, shown by /api/health.
+EnvironmentFile=-/opt/burgerhause/current/RELEASE.env
+Environment=NODE_ENV=production
+Environment=NEXT_TELEMETRY_DISABLED=1
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+# Call node directly (not through the pnpm shim): systemd then signals the right process on stop.
+ExecStart=/usr/bin/node /opt/burgerhause/current/node_modules/next/dist/bin/next start -p 3000 -H 127.0.0.1
+
+Restart=always
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=30
+LimitNOFILE=65535
+# Uploaded images are created group-readable (nginx's www-data is in group burgerhause).
+UMask=0027
+
+# Logs go to journald: `journalctl -u burgerhause -f`
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=burgerhause
+
+# Hardening. The app only needs to write to the uploads dir and to Next's cache inside the release dir.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/var/lib/burgerhause /opt/burgerhause/releases
+
+[Install]
+WantedBy=multi-user.target
