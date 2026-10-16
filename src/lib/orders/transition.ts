@@ -50,6 +50,8 @@ export type TransitionInput = {
   /** Extra allow-list on the CURRENT status, on top of the domain table. */
   from?: OrderStatus[];
   patch?: TransitionPatch;
+  /** Realtime hint for the ORDERS notify (default "status"; dispatch uses "assigned"). */
+  event?: "status" | "assigned";
 };
 export type TransitionedOrder = {
   id: number;
@@ -100,7 +102,7 @@ export async function transitionOrder(
     userId,
     note: input.note ?? null,
   });
-  await notifyInTx(tx, ORDERS_CHANNEL, { orderId, status: to, event: "status" });
+  await notifyInTx(tx, ORDERS_CHANNEL, { orderId, status: to, event: input.event ?? "status" });
 
   return { ok: true, data: { order: updated } };
 }
