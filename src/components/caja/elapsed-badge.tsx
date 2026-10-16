@@ -1,11 +1,11 @@
 import { elapsedMs, formatElapsed, urgencyOf, type Urgency } from "@/lib/caja/elapsed";
 
-const TONE: Record<Urgency, string> = {
+export const TONE: Record<Urgency, string> = {
   normal: "bg-slate-100 text-slate-700",
   warning: "bg-amber-100 text-amber-900 ring-2 ring-state-pending",
   urgent: "bg-state-error text-white",
 };
-const TAG: Record<Urgency, string | null> = { normal: null, warning: "Demora", urgent: "Urgente" };
+export const TAG: Record<Urgency, string | null> = { normal: null, warning: "Demora", urgent: "Urgente" };
 
 /** Waiting time with its escalation. The word (Demora / Urgente) backs up the colour. */
 export function ElapsedBadge({ createdAt, now }: { createdAt: string; now: number }) {

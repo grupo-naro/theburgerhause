@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useRef, useState, useTransition } from "react";
-import type { ActionResult } from "@/app/(staff)/caja/actions";
+import type { DispatchFailureDetail } from "@/lib/orders/dispatch";
+
+/** Structural result of any staff Server Action (Caja and Despacho share this shape). */
+export type ActionResult<T = undefined> =
+  | { ok: true; data: T }
+  | { ok: false; code: string; message: string; details?: DispatchFailureDetail[] };
 
 const GENERIC_ERROR = "No se pudo completar la acción. Probá de nuevo.";
 
@@ -47,5 +52,9 @@ export function useGuardedAction() {
     [],
   );
 
-  return { run, pending, error, clearError: () => setError(null) };
+  const release = useCallback(() => {
+    inFlight.current = false;
+  }, []);
+
+  return { run, pending, error, clearError: () => setError(null), release };
 }

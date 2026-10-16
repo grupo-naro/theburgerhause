@@ -4,7 +4,7 @@ import { FULFILLMENT_LABEL, PAYMENT_LABEL, STATUS_LABEL, type PrintChipState } f
 
 const base = "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold leading-tight whitespace-nowrap";
 
-export function Chip({ className, children, ...rest }: { className: string; children: ReactNode } & Record<string, string>) {
+export function Chip({ className, children, ...rest }: { className: string; children: ReactNode } & { [K in `data-${string}`]?: string }) {
   return (
     <span className={`${base} ${className}`} {...rest}>
       {children}
