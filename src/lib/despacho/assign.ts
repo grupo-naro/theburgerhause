@@ -14,3 +14,10 @@ export function canAssign(selection: ReadonlySet<number>, cadetId: number | null
 export function formatAssignFailure(details: ReadonlyArray<DispatchFailureDetail> | undefined): string[] {
   return (details ?? []).map((d) => `#${d.orderNumber ?? d.orderId}: ${d.reason}`);
 }
+
+/** The server message repeats every offender after its first sentence; the banner lists them itself. */
+export function failureHeadline(message: string, hasDetails: boolean): string {
+  if (!hasDetails) return message;
+  const end = message.indexOf(". ");
+  return end === -1 ? message : message.slice(0, end + 1);
+}

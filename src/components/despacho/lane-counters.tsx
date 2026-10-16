@@ -28,11 +28,11 @@ export function LaneCounters({ counts }: { counts: LaneCounts }) {
             type="button"
             data-testid={`counter-${i.key}`}
             onClick={() => jump(i.lane)}
-            className={`flex min-h-16 items-center justify-between gap-3 rounded-2xl border-2 px-4 py-2 text-left transition-colors ${
+            className={`flex min-h-16 items-center justify-between gap-2 rounded-2xl border-2 px-3 py-2 xl:px-4 text-left transition-colors ${
               hot ? "border-cheddar-600 bg-cheddar-400 text-ink hover:bg-cheddar-400/80" : "border-line bg-surface text-ink hover:bg-brand-50"
             }`}
           >
-            <span className="flex items-center gap-2 text-base font-bold">
+            <span className="flex items-center gap-1.5 text-sm font-bold leading-tight xl:text-base">
               <span aria-hidden="true" className={`size-3 rounded-full ${i.dot}`} />
               {i.label}
             </span>

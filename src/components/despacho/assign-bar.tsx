@@ -48,16 +48,17 @@ export function AssignBar({ count, cash, cadets, cadetId, inFlight, failure, sta
             </button>
           </div>
         )}
+        {count > 0 && (
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
           <div className="flex items-center gap-3 md:min-w-0 md:flex-1">
             <div className="min-w-0">
-              <p data-testid="assign-summary" className="font-display text-xl leading-tight font-extrabold">
+              <p data-testid="assign-summary" className="font-display text-2xl leading-tight font-extrabold">
                 {count} {count === 1 ? "pedido" : "pedidos"}
-                <span className="mx-2 text-white/50">·</span>
-                <span className="text-cheddar-400">Efectivo a cobrar {formatARS(cash)}</span>
               </p>
-              {!state.enabled && !inFlight && <p data-testid="assign-hint" className="text-sm text-white/80">{state.reason}</p>}
-            </div>
+              <p data-testid="assign-cash" className="font-display text-lg leading-tight font-bold text-cheddar-400">
+                Efectivo a cobrar {formatARS(cash)}
+              </p>
+                          </div>
             <button
               type="button"
               onClick={onClear}
@@ -89,6 +90,7 @@ export function AssignBar({ count, cash, cadets, cadetId, inFlight, failure, sta
             <button
               type="button"
               data-testid="assign-button"
+              title={state.reason ?? undefined}
               disabled={!state.enabled}
               onClick={onAssign}
               className="min-h-14 rounded-full bg-cheddar-400 px-8 font-display text-xl font-extrabold whitespace-nowrap text-ink transition-colors hover:bg-cheddar-600 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/60"
@@ -97,6 +99,7 @@ export function AssignBar({ count, cash, cadets, cadetId, inFlight, failure, sta
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

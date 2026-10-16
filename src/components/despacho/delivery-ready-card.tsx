@@ -12,10 +12,10 @@ type Props = {
   selectable?: { selected: boolean; onToggle: () => void };
 };
 
-function Body({ order, now }: { order: DispatchOrder; now: number }) {
+function Body({ order, now, reserve }: { order: DispatchOrder; now: number; reserve: boolean }) {
   return (
     <>
-      <header className="flex items-start justify-between gap-2">
+      <header className={`flex items-start justify-between gap-2 ${reserve ? "pr-14" : ""}`}>
         <OrderNumber number={order.number} className="text-3xl" />
         <AgeBadge order={order} lane="ready" now={now} />
       </header>
@@ -57,7 +57,7 @@ export function DeliveryReadyCard({ order, now, fresh, selectable }: Props) {
   if (!selectable) {
     return (
       <article {...common} className={base}>
-        <Body order={order} now={now} />
+        <Body order={order} now={now} reserve={false} />
       </article>
     );
   }
@@ -65,7 +65,7 @@ export function DeliveryReadyCard({ order, now, fresh, selectable }: Props) {
     <label
       {...common}
       data-selected={selectable.selected ? "true" : undefined}
-      className={`${base} relative cursor-pointer pr-[4.5rem] ${selectable.selected ? "border-brand-600 bg-brand-50 ring-2 ring-brand-600" : "hover:border-brand-300"}`}
+      className={`${base} relative cursor-pointer ${selectable.selected ? "border-brand-600 bg-brand-50 ring-2 ring-brand-600" : "hover:border-brand-300"}`}
     >
       <input
         type="checkbox"
@@ -76,7 +76,7 @@ export function DeliveryReadyCard({ order, now, fresh, selectable }: Props) {
         className="peer absolute top-2 right-2 size-12 cursor-pointer appearance-none rounded-xl border-2 border-ink-muted bg-surface checked:border-brand-600 checked:bg-brand-600"
       />
       <CheckIcon className="pointer-events-none absolute top-2 right-2 size-12 p-2.5 text-white opacity-0 peer-checked:opacity-100" />
-      <Body order={order} now={now} />
+      <Body order={order} now={now} reserve />
     </label>
   );
 }

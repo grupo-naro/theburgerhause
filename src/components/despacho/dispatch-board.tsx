@@ -8,7 +8,7 @@ import { useNow } from "@/components/caja/use-now";
 import { useToast } from "@/components/ui/toast";
 import { formatARS } from "@/domain/money";
 import type { Role } from "@/lib/auth/roles";
-import { canAssign, formatAssignFailure } from "@/lib/despacho/assign";
+import { canAssign, failureHeadline, formatAssignFailure } from "@/lib/despacho/assign";
 import { cashToCollect } from "@/lib/despacho/cash";
 import { laneCounts } from "@/lib/despacho/lanes";
 import { capabilitiesFor } from "@/lib/despacho/roles";
@@ -89,29 +89,35 @@ export function DispatchBoard({ board, role, serverNow }: Props) {
         router.refresh();
       },
       onFail: (f) => {
-        setFailure({ message: f.message, lines: formatAssignFailure(f.details) });
+        const lines = formatAssignFailure(f.details);
+        setFailure({ message: failureHeadline(f.message, lines.length > 0), lines });
         if (f.code === "CADET_INACTIVE" || f.code === "CADET_NOT_FOUND") setCadetPick(null);
         router.refresh(); // the pruning effect drops the orders that are no longer ready
       },
     });
   };
 
-  const barOpen = caps.canAssign && selection.size > 0;
+  const barOpen = caps.canAssign && (selection.size > 0 || failure !== null);
   const ids = readyDelivery.map((o) => o.id);
   const allSelected = ids.length > 0 && ids.every((id) => selection.has(id));
 
   return (
     <div data-testid="dispatch-board" className={`space-y-5 ${barOpen ? "pb-44 md:pb-32" : ""}`}>
       <LaneCounters counts={counts} />
+      {!caps.canAssign && (
+        <p data-testid="readonly-note" className="rounded-xl bg-brand-50 px-4 py-2.5 text-base font-medium text-ink">
+          Podés ver todo el tablero y manejar los pedidos de mostrador. El delivery y los cadetes los gestiona la encargada.
+        </p>
+      )}
 
-      <div className="grid items-start gap-4 xl:grid-cols-3">
+      <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
         <Lane id="preparing" title="En preparación" count={counts.preparing} tone="blue" empty="Nada en la cocina ahora." className="order-3 xl:order-1">
           {board.preparing.map((o) => (
             <PreparingCard key={o.id} order={o} now={now} canMark={o.fulfillment === "delivery" ? caps.canControlDelivery : caps.canControlCounter} />
           ))}
         </Lane>
 
-        <section id="lane-ready" aria-labelledby="lane-ready-h" data-testid="lane-ready" className="order-1 min-w-0 scroll-mt-4 xl:order-2">
+        <section id="lane-ready" aria-labelledby="lane-ready-h" data-testid="lane-ready" className="order-1 min-w-0 scroll-mt-4 md:col-span-2 xl:order-2 xl:col-span-1">
           <h2 id="lane-ready-h" tabIndex={-1} className="sr-only outline-none">
             Listos para despachar
           </h2>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAssign, formatAssignFailure } from "./assign";
+import { canAssign, failureHeadline, formatAssignFailure } from "./assign";
 
 describe("canAssign", () => {
   it("enabled with a selection, a cadet and nothing in flight", () => {
@@ -27,4 +27,14 @@ describe("formatAssignFailure", () => {
     expect(lines).toEqual(["#12: Está en camino; tiene que estar listo para despacho", "#77: El pedido no existe"]);
   });
   it("is empty without details", () => expect(formatAssignFailure(undefined)).toEqual([]));
+});
+
+describe("failureHeadline", () => {
+  it("keeps only the first sentence when the offenders are listed separately", () => {
+    expect(failureHeadline("No se asignó ningún pedido. #12 (Está en camino); #15 (no existe)", true)).toBe("No se asignó ningún pedido.");
+  });
+  it("leaves other messages untouched", () => {
+    expect(failureHeadline("El cadete Ana está inactivo y no puede recibir pedidos", false)).toBe("El cadete Ana está inactivo y no puede recibir pedidos");
+    expect(failureHeadline("Sin punto", true)).toBe("Sin punto");
+  });
 });
