@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { NavLink } from "@/lib/caja/nav";
+import { activeNavHref, type NavLink } from "@/lib/caja/nav";
 
 /**
  * Role navigation: a dark rail on desktop (>= 1024 px), a scrolling strip under the top bar on
@@ -11,6 +11,7 @@ import type { NavLink } from "@/lib/caja/nav";
  */
 export function StaffNav({ links }: { links: NavLink[] }) {
   const pathname = usePathname();
+  const current = activeNavHref(pathname, links);
   return (
     <nav
       aria-label="Secciones"
@@ -22,7 +23,7 @@ export function StaffNav({ links }: { links: NavLink[] }) {
       </div>
       <ul className="flex gap-2 overflow-x-auto px-3 py-2 lg:flex-col lg:px-3 lg:py-2">
         {links.map((l) => {
-          const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
+          const active = l.href === current;
           return (
             <li key={l.href} className="shrink-0">
               <Link
