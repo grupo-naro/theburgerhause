@@ -173,7 +173,7 @@ El backup corre a las 04:30 de esta hora.
 ### 2.5 Paquetes base
 
 ```bash
-sudo apt install -y git curl rsync nginx certbot postgresql-client ca-certificates gnupg
+sudo apt install -y git curl rsync tmux nginx certbot postgresql-client ca-certificates gnupg
 ```
 
 ### 2.6 Traer el código: clave de despliegue y clon
@@ -236,19 +236,25 @@ dejá `listen_addresses = 'localhost'` y reiniciá: `sudo systemctl restart post
 `/etc/postgresql/<VERSION>/main/pg_hba.conf` solo deben quedar líneas `local` y `host ... 127.0.0.1/32` / `::1/128`
 (es lo que trae Ubuntu por defecto; **no agregues** líneas con `0.0.0.0/0`).
 
-Crear el rol y la base (con el script del repo; ver 2.6 para tener el repo en `/opt/burgerhause/repo`):
+Crear el rol y la base (con el script del repo clonado en 2.6). **La clave nunca se escribe en la línea de
+comandos** (quedaría visible en `ps` y en el historial): se carga con `\password`, que la pide por teclado.
 
 ```bash
 # 1) generar una clave de base de datos (solo letras y números, para no tener que escaparla en la URL)
 openssl rand -hex 24                   # copiá el resultado: es <CLAVE_DB>
 
-# 2) crear rol + base (reemplazá <CLAVE_DB>; dejá las comillas simples DENTRO de las dobles)
-sudo -u postgres psql -v ON_ERROR_STOP=1 -v app_password="'<CLAVE_DB>'" \
-  -f /opt/burgerhause/repo/deploy/postgres/burgerhause-init.sql
+# 2) crear el rol (sin clave) y la base
+sudo -u postgres psql -v ON_ERROR_STOP=1 -f /opt/burgerhause/repo/deploy/postgres/burgerhause-init.sql
 
-# 3) probar el ingreso con la clave
-psql "postgres://burgerhause:<CLAVE_DB>@127.0.0.1:5432/burgerhause" -c 'select 1;'
+# 3) ponerle la clave: pide <CLAVE_DB> dos veces y no la muestra
+sudo -u postgres psql -c '\password burgerhause'
+
+# 4) comprobar que la base existe y que el rol es suyo (como superusuario; la prueba con el usuario de la app es en 2.9)
+sudo -u postgres psql -d burgerhause -c 'select current_database();'
 ```
+
+El rol se llama igual que el usuario del sistema que corre la app y el backup (`burgerhause`): el backup entra por
+el socket local con autenticación `peer`, **sin clave**. La clave solo la usa la app (por `DATABASE_URL`).
 
 (El paso 2 usa el repo clonado en 2.6.)
 
@@ -272,6 +278,9 @@ sudo install -d -m 700 -o burgerhause -g burgerhause /var/backups/burgerhause
 
 # secretos
 sudo install -d -m 750 -o root -g burgerhause /etc/burgerhause
+
+# el usuario de la app entra a su base por el socket local, sin clave (así hace el backup)
+sudo -u burgerhause psql -d burgerhause -c 'select current_user, current_database();'
 ```
 
 ### 2.10 Archivo de variables (`/etc/burgerhause/burgerhause.env`)
@@ -340,6 +349,9 @@ sudo certbot renew --dry-run           # prueba la renovación automática (debe
 systemctl list-timers certbot.timer    # la renovación automática está programada
 ```
 
+Un pedido a `https://<IP_DE_LA_VPS>/` o a cualquier otro nombre que no sea `<TU_DOMINIO>` se corta (no llega a la app): es el
+servidor "catch-all" de la configuración, que usa el mismo certificado solo para poder completar el saludo TLS.
+
 Qué hace esa configuración (por si necesitás tocarla): redirige HTTP→HTTPS, pasa a la app la IP real del cliente
 **sobrescribiendo** `X-Forwarded-For` (la app usa ese dato para limitar intentos; nunca se debe cambiar a
 `$proxy_add_x_forwarded_for`), desactiva el buffering en `/api/events` y `/api/agent/stream` (tiempo real),
@@ -362,11 +374,25 @@ sudo systemctl enable burgerhause burgerhause-backup.timer     # "enable" = arra
 ```bash
 cd /opt/burgerhause/repo && sudo git pull --ff-only
 sudo DRY_RUN=1 ./deploy/scripts/deploy.sh      # muestra el plan sin cambiar nada: leelo
-sudo ./deploy/scripts/deploy.sh                # clona, instala, migra, compila, arranca y verifica la salud
 ```
 
-Tarda varios minutos (instala dependencias y compila). Al final tiene que decir `DEPLOY_OK`. Si dice otra cosa,
-mirá la sección 9. Comprobá:
+El deploy tarda varios minutos. **Si se corta tu conexión SSH a la mitad, el deploy tiene que seguir solo**: por eso
+se lanza con `systemd-run` (o dentro de `tmux`), nunca "pelado" en la terminal del SSH:
+
+```bash
+# Opción A (recomendada): corre como servicio temporal y te muestra la salida en vivo
+sudo systemd-run --wait --collect --pty --unit=burgerhause-deploy \
+  --working-directory=/opt/burgerhause/repo /opt/burgerhause/repo/deploy/scripts/deploy.sh
+
+# Opción B: tmux (si se corta SSH, el deploy sigue; reconectás con "tmux attach -t deploy")
+tmux new -s deploy
+sudo ./deploy/scripts/deploy.sh
+```
+
+Con variables (por ejemplo una etiqueta): `sudo systemd-run --wait --collect --pty --unit=burgerhause-deploy --setenv=REF=v1.2.0 --working-directory=/opt/burgerhause/repo /opt/burgerhause/repo/deploy/scripts/deploy.sh`.
+
+Al final tiene que decir `DEPLOY_OK`. Si dice otra cosa, mirá la sección 9. Si perdiste la pantalla: `journalctl -u burgerhause-deploy -n 80 --no-pager`
+y `journalctl -t burgerhause-deploy -n 50 --no-pager`. Comprobá:
 
 ```bash
 systemctl status burgerhause --no-pager        # "active (running)"
@@ -420,12 +446,19 @@ Antes de abrir al público hacé la **práctica de restauración** de la secció
    menú, así que necesita la base alcanzable y migrada.
 6. `pnpm build`.
 7. Cambia el enlace `current` a la carpeta nueva (de forma atómica) y reinicia el servicio.
-8. Consulta `/api/health` hasta 60 segundos; tiene que responder `status: ok`.
-9. Si **no** responde bien: vuelve solo a la versión anterior, reinicia y avisa (código de salida 3).
-10. Conserva las últimas 5 versiones.
+8. Consulta `/api/health` hasta 60 segundos; tiene que responder `status: ok`. Recién entonces marca la versión como
+   **buena** (archivo `.deployed-ok` dentro de su carpeta).
+9. Si **no** responde bien: vuelve solo a la versión anterior, reinicia y avisa (código de salida 3). La versión que
+   falló se renombra `<fecha-hora>.failed`: nunca más es candidata a rollback.
+10. Conserva las últimas 5 versiones **buenas** (y las 2 últimas `.failed` para investigar).
 
-Si algo falla en los pasos 2 a 6, la versión en uso sigue funcionando sin cambios y la carpeta a medio construir
-se borra. Cada paso queda en `journalctl -t burgerhause-deploy`.
+Al empezar, cada deploy borra las carpetas a medio construir que haya dejado un deploy anterior interrumpido
+(nunca la versión en uso). Dos deploys a la vez no se pueden: el segundo dice "another deploy is running".
+
+Si algo falla en los pasos 2 a 6 (o apretás `Ctrl+C`, o se corta la conexión), la versión en uso sigue funcionando sin
+cambios y la carpeta a medio construir se borra. **Si el script muere justo entre el paso 7 y el 8** (por ejemplo
+`kill -9`) imprime/deja un aviso `RECOVERY`: corré `sudo ./deploy/scripts/deploy.sh status` y, si el servicio no está
+sano, `sudo ./deploy/scripts/deploy.sh rollback`. Cada paso queda en `journalctl -t burgerhause-deploy`.
 
 ### 3.2 Hacer un deploy
 
@@ -436,13 +469,16 @@ sudo ./deploy/scripts/deploy.sh                              # usa REPO_URL y RE
 sudo REF=v1.2.0 ./deploy/scripts/deploy.sh                   # una rama o etiqueta (tag) concreta
 ```
 
+(Recordá lanzarlo con `systemd-run` o `tmux`, ver 2.13. `REF` acepta nombres de rama o etiqueta —letras, números, `. _ / -`—;
+los hashes de commit no se aceptan.)
+
 Hacelo **fuera del horario de servicio** (el reinicio corta unos segundos las conexiones en vivo; los agentes y
 las pantallas reconectan solos). Resultado esperado: la última línea dice `DEPLOY_OK`.
 
 | Código de salida | Significa | Qué hacer |
 | --- | --- | --- |
 | 0 | Desplegado y sano | Nada |
-| 1 | Falló **antes** del cambio (instalar, migrar, compilar o backup). La versión en uso sigue igual | Leer el error (últimas líneas) y la sección 9 |
+| 1 | Falló **antes** del cambio (instalar, migrar, compilar, backup, o una migración destructiva rechazada). La versión en uso sigue igual | Leer el error (últimas líneas) y la sección 9 |
 | 2 | Configuración incorrecta (variables, falta REPO_URL, otro deploy en curso) | Corregir lo que dice el mensaje |
 | 3 | La versión nueva **no** quedó sana; se volvió **sola** a la anterior | Está funcionando la versión anterior. Mirar `journalctl -u burgerhause -n 100` para ver por qué falló la nueva |
 | 4 | No sana y no se pudo volver (primer deploy, o la anterior tampoco anda) | **Intervención manual**: sección 9 (502) |
@@ -450,15 +486,24 @@ las pantallas reconectan solos). Resultado esperado: la última línea dice `DEP
 ### 3.3 Rollback manual (volver a la versión anterior)
 
 ```bash
-sudo ./deploy/scripts/deploy.sh status                       # versión actual y versiones disponibles
-sudo ./deploy/scripts/deploy.sh rollback                     # vuelve a la inmediatamente anterior
-sudo ./deploy/scripts/deploy.sh rollback <FECHA_HORA>        # a una concreta (ej. 20261016134344)
+sudo ./deploy/scripts/deploy.sh status                       # versión actual, versiones buenas y fallidas
+sudo ./deploy/scripts/deploy.sh rollback                     # vuelve a la versión BUENA inmediatamente anterior
+sudo ./deploy/scripts/deploy.sh rollback <FECHA_HORA>        # a una buena concreta (ej. 20261016134344)
 ```
 
 **Atención con las migraciones de base de datos**: el rollback cambia el **código**, no revierte la base. Por eso
 las migraciones del proyecto deben ser compatibles hacia atrás (agregar tablas/columnas primero, quitar en una
 versión posterior). Si una migración rompió datos, la salida es restaurar el backup (sección 4.5): el deploy hizo
 uno justo antes de migrar.
+
+**Checklist antes de aprobar una versión con migraciones nuevas:** las migraciones nuevas deben ser **aditivas**:
+columnas nullable o con `DEFAULT`, tablas nuevas, índices. Nada de `DROP`, `RENAME` ni `SET NOT NULL` sobre algo que la
+versión anterior todavía usa. El deploy lo vigila: si una migración nueva contiene `DROP `, `RENAME ` o `SET NOT NULL`
+imprime un aviso grande (el rollback automático no sería seguro) y se detiene (código 1) salvo que lo apruebes a
+conciencia con `sudo ALLOW_DESTRUCTIVE_MIGRATION=1 ./deploy/scripts/deploy.sh`.
+
+Solo se puede volver a versiones **buenas** (las que pasaron el chequeo de salud); `rollback` rechaza una versión
+`.failed` o a medio construir.
 
 ### 3.4 Alternativa: copiar el código desde tu PC (sin Git en el servidor)
 
@@ -491,6 +536,9 @@ sudo ADMIN_USERNAME=admin ./deploy/scripts/app-run.sh pnpm db:seed-admin    # re
 | Fotos subidas | `/var/backups/burgerhause/uploads/` (copia incremental; no borra nada) | Sin límite (son archivos inmutables; ocupan poco) |
 | Copia fuera de la VPS (opcional pero **recomendada**) | `BACKUP_REMOTE` (4.4) | La que defina el otro equipo |
 | Marca de "último backup completo" | `/var/backups/burgerhause/last-success` | — |
+
+El backup entra a la base por el socket local con autenticación `peer` como el usuario `burgerhause` (**sin clave**:
+ninguna clave aparece en comandos ni en `ps`).
 
 Corre todos los días a las **04:30** (`burgerhause-backup.timer`). Si la VPS estaba apagada a esa hora, corre al
 prenderse. El deploy hace además un backup antes de migrar.
@@ -686,7 +734,7 @@ certificado vence; el disco se mira con `df -h` (sección 5.1) una vez por seman
 | Token de estación | Admin → Estaciones → **Rotar token**; después actualizarlo en la PC (`print-agent-install.md`, sección 9) | El token viejo deja de servir al instante; esa estación no imprime hasta cargar el nuevo |
 | Clave de un usuario | Admin → Usuarios → editar | Cierra sus sesiones |
 | Clave del admin (olvidada) | `sudo ADMIN_USERNAME=<USUARIO_ADMIN> /opt/burgerhause/repo/deploy/scripts/app-run.sh pnpm db:seed-admin` | Genera una clave nueva (se muestra una sola vez), reactiva al admin y revoca sus sesiones |
-| Clave de PostgreSQL | `sudo -u postgres psql -c "ALTER ROLE burgerhause PASSWORD '<CLAVE_DB_NUEVA>';"`, actualizar `DATABASE_URL` en el archivo de variables y `sudo systemctl restart burgerhause` | Hay unos segundos sin servicio |
+| Clave de PostgreSQL | `sudo -u postgres psql -c '\password burgerhause'` (pide la clave nueva por teclado; no la escribas en el comando), actualizar `DATABASE_URL` en el archivo de variables y `sudo systemctl restart burgerhause` | Hay unos segundos sin servicio |
 | Clave SSH de la VPS / de despliegue | Generar una nueva (2.2 / 2.6), agregar la nueva, comprobar que entra, **recién ahí** quitar la vieja | — |
 
 Después de cualquier rotación: `curl -s https://<TU_DOMINIO>/api/health`.
@@ -748,8 +796,8 @@ Revisalo antes de abrir al público y después cada 3 meses.
 | Síntoma | Causa probable | Solución |
 | --- | --- | --- |
 | El navegador muestra **502 Bad Gateway** | La app no está corriendo o no responde en `127.0.0.1:3000` | `systemctl status burgerhause --no-pager`; `journalctl -u burgerhause -n 100 --no-pager`; `sudo systemctl restart burgerhause`; `curl -s http://127.0.0.1:3000/api/health`. Si arrancó y cae enseguida: el log dice por qué (variable faltante, base caída). Si fue después de un deploy: `sudo ./deploy/scripts/deploy.sh rollback` |
-| **503 en `/api/health`** (`db: down`) | PostgreSQL parado o clave de `DATABASE_URL` incorrecta | `systemctl status postgresql --no-pager`; `sudo systemctl start postgresql`; probar `psql "<DATABASE_URL>" -c 'select 1'` (la URL está en el archivo de variables); revisar `df -h` (disco lleno frena a PostgreSQL) |
-| **429 Too Many Requests** | Límite por IP de Nginx (login 5/min con ráfaga de 10; pedidos 10/s; el local entero comparte una IP) | Esperar un minuto. Si pasa seguido en el local, subir `burst` o `rate` de la zona `bh_login` en `/etc/nginx/conf.d/00-burgerhause-zones.conf` y `/etc/nginx/sites-available/burgerhause.conf`, `sudo nginx -t && sudo systemctl reload nginx` |
+| **503 en `/api/health`** (`db: down`) | PostgreSQL parado o clave de `DATABASE_URL` incorrecta | `systemctl status postgresql --no-pager`; `sudo systemctl start postgresql`; probar `sudo -u burgerhause psql -d burgerhause -c 'select 1'` (entra por el socket, sin clave; si funciona y la app no, la clave de `DATABASE_URL` no coincide con la del rol: `\password`); revisar `df -h` (disco lleno frena a PostgreSQL) |
+| **429 Too Many Requests** | Tope de volumen por IP de Nginx (login: 30 por minuto con ráfaga de 30; pedidos: 10/s con ráfaga de 20; el local entero comparte una IP). La app además limita los intentos de login por su cuenta (5 por usuario+IP y 20 por IP cada 15 minutos): ese es el que frena la fuerza bruta | Esperar un minuto (o 15 si fueron intentos de clave). Si pasa seguido en el local, subir `rate`/`burst` de la zona `bh_login` en `/etc/nginx/conf.d/00-burgerhause-zones.conf` y `/etc/nginx/sites-available/burgerhause.conf`, `sudo nginx -t && sudo systemctl reload nginx` |
 | "Sin conexión" en pantallas / **el tiempo real se corta** | Se cortó el stream (`/api/events`): reinicio de la app, Nginx con buffering o timeouts, o internet del local | El navegador reconecta solo (3 s) y recarga datos. Si pasa cada minuto: `sudo nginx -T \| grep -A8 "location = /api/events"` debe mostrar `proxy_buffering off` y `proxy_read_timeout 1h`; comprobar que no haya otro proxy/Cloudflare delante con timeout corto. `curl -sN https://<TU_DOMINIO>/api/events` debe devolver 401 (sin sesión), no colgarse |
 | **No se puede subir una imagen** (413 o "imagen demasiado grande") | La app limita a 5 MB por imagen; Nginx a 6 MB en `/api/uploads` | Reducir la foto (menos de 5 MB). Si es menor y falla: `grep client_max_body_size /etc/nginx/sites-available/burgerhause.conf` (debe haber `6m` en `/api/uploads`) |
 | La imagen sube pero **no se ve** | Nginx no puede leer la carpeta (permisos/grupo) | `sudo -u www-data ls /var/lib/burgerhause/uploads \| head`; si dice "Permission denied": `id www-data` (debe incluir `burgerhause`), `sudo usermod -aG burgerhause www-data && sudo systemctl restart nginx`, `ls -ld /var/lib/burgerhause` (750, grupo burgerhause) |
@@ -758,7 +806,7 @@ Revisalo antes de abrir al público y después cada 3 meses.
 | **Pedidos duplicados** | El cliente apretó dos veces (la app los deduplica por clave) o hay **dos instancias** de la app | `pgrep -fc "next/dist/bin/next start"` debe dar `1`; `systemctl status burgerhause` debe mostrar un solo proceso principal. Si hay dos: `sudo systemctl stop burgerhause`, `sudo pkill -f "next/dist/bin/next start"`, `sudo systemctl start burgerhause`. Nunca levantar otra copia a mano |
 | Una **comanda sale dos veces** | Dos agentes con el mismo token, o reimpresión manual | Ver 5.3, punto 6; dejar un agente por estación |
 | **No imprime** | Agente caído, impresora, Spooler | Sección 5.3 |
-| `deploy.sh` falla en **migrate** | Base caída/clave mal, o una migración con error | La versión en uso no se tocó. Leer el mensaje (código de PostgreSQL). `psql "<DATABASE_URL>" -c 'select 1'`. Si es un error de la migración: avisar al soporte con las últimas 30 líneas (sin la URL de la base) |
+| `deploy.sh` falla en **migrate** | Base caída/clave mal, o una migración con error | La versión en uso no se tocó. Leer el mensaje (código de PostgreSQL). `sudo -u burgerhause psql -d burgerhause -c 'select 1'`. Si el aviso dice "destructive migration refused": ver el checklist de 3.3. Si es un error de la migración: avisar al soporte con las últimas 30 líneas (sin la URL de la base) |
 | `deploy.sh` falla en **build** con "Killed" o "out of memory" | Poca RAM | Agregar swap (2.3) y repetir |
 | `deploy.sh` dice "another deploy is running" | Hay otro deploy en curso, o quedó un candado viejo | Esperar; si no hay ninguno: `ps aux \| grep deploy.sh`; el script limpia solo un candado de un proceso muerto |
 | `deploy.sh` terminó en **código 3** | La versión nueva no pasó el chequeo de salud y se volvió a la anterior | Está funcionando la anterior. `journalctl -u burgerhause --since "15 min ago" --no-pager` muestra por qué falló la nueva |
@@ -795,6 +843,10 @@ administrador a `https://<TU_DOMINIO>/admin`:
 10. **Abrir pedidos**: Admin → Ajustes → activar **aceptar pedidos**. Probar desde un celular fuera de la red
     del local que `https://<TU_DOMINIO>` carga el menú.
 
+`pnpm db:init-prod` deja en la base una marca (`deployment = production` en los ajustes): desde ese momento el seed de demo
+se **niega** a correr sobre esa base aunque alguien lo intente desde SSH sin `NODE_ENV` (solo `ALLOW_DEMO_SEED=1` lo
+fuerza; no lo uses en el servidor).
+
 Si en algún momento ves productos de ejemplo ("Ranchita simple", "Melt simple"...), alguien cargó el seed de demo:
 avisalo al soporte antes de seguir (los datos de prueba se borran con cuidado, no con SQL a ciegas).
 
@@ -819,3 +871,13 @@ falta para la rendición, marcándolos en la libreta para no duplicarlos.
 
 Contactos a completar por la persona dueña: soporte técnico `<TELÉFONO_SOPORTE>`, Contabo `<DATOS_DE_CUENTA>`,
 proveedor de internet del local `<TELÉFONO_ISP>`, dominio/DNS `<PROVEEDOR_DNS>`.
+
+---
+
+## 12. Mejoras futuras (pendientes conocidos, no bloquean el uso)
+
+- Chequeo de espacio libre en disco antes de un backup o deploy, y borrado de archivos `.partial` huérfanos de backups interrumpidos.
+- `restore-db.sh --force-live`: renombrar la base actual en vez de borrarla (quedaría una copia de seguridad extra hasta confirmar).
+- Acotar `ProtectSystem=strict` de la app (hoy permite escribir en `/opt/burgerhause/releases` por el caché de Next): enlazar `.next/cache` a una carpeta propia.
+- Crecimiento de la copia remota de backups (no se borra nada allá): tarea periódica de limpieza en el otro equipo.
+- Memoria durante el `build` en VPS chicas: correrlo con `nice` y/o `NODE_OPTIONS=--max-old-space-size`.
