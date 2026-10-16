@@ -166,7 +166,7 @@ export function CatalogPanel({ searchRef, pulses, onAdd, onCustomize }: Props) {
           ))
         )}
       </div>
-      <p data-testid="shortcuts-hint" className="hidden shrink-0 items-center gap-x-4 gap-y-1 pt-2 text-sm text-ink-muted lg:flex lg:flex-wrap">
+      <p data-testid="shortcuts-hint" className="hidden shrink-0 items-center gap-x-3 gap-y-1 pt-2 text-sm text-ink-muted lg:flex lg:flex-nowrap lg:overflow-hidden whitespace-nowrap">
         <span>
           <Kbd>/</Kbd> buscar
         </span>
@@ -176,7 +176,7 @@ export function CatalogPanel({ searchRef, pulses, onAdd, onCustomize }: Props) {
         <span>
           <Kbd>Alt</Kbd>+<Kbd>L</Kbd> limpiar ticket
         </span>
-        <span>
+        <span className="hidden xl:inline">
           <Kbd>Esc</Kbd> cerrar
         </span>
       </p>
