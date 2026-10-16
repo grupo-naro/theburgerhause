@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, useTransition } from "react";
+import { createActionGuard } from "@/lib/ui/action-guard";
 import type { DispatchFailureDetail } from "@/lib/orders/dispatch";
 
 /** Structural result of any staff Server Action (Caja and Despacho share this shape). */
@@ -22,14 +23,13 @@ type Handlers<T> = {
  * frame (before React re-renders the disabled state) is dropped synchronously.
  */
 export function useGuardedAction() {
-  const inFlight = useRef(false);
+  const guard = useRef(createActionGuard()).current;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const run = useCallback(
     <T,>(call: () => Promise<ActionResult<T>>, handlers: Handlers<T> = {}) => {
-      if (inFlight.current) return;
-      inFlight.current = true;
+      if (!guard.tryStart()) return;
       setError(null);
       startTransition(async () => {
         let keepLocked = false;
@@ -45,16 +45,16 @@ export function useGuardedAction() {
         } catch {
           setError(GENERIC_ERROR);
         } finally {
-          if (!keepLocked) inFlight.current = false;
+          guard.finish(keepLocked);
         }
       });
     },
-    [],
+    [guard],
   );
 
   const release = useCallback(() => {
-    inFlight.current = false;
-  }, []);
+    guard.release();
+  }, [guard]);
 
   return { run, pending, error, clearError: () => setError(null), release };
 }

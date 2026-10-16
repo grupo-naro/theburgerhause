@@ -183,7 +183,7 @@ export function DispatchBoard({ board, role, serverNow }: Props) {
           cadetId={cadetId}
           inFlight={assigning}
           failure={failure}
-          state={canAssign(selection, cadetId, assigning)}
+          state={canAssign(new Set(selected.map((o) => o.id)), cadetId, assigning)}
           onCadet={setCadetPick}
           onClear={() => dispatch({ type: "clear" })}
           onAssign={assign}

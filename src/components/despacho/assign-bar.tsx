@@ -90,13 +90,18 @@ export function AssignBar({ count, cash, cadets, cadetId, inFlight, failure, sta
             <button
               type="button"
               data-testid="assign-button"
-              title={state.reason ?? undefined}
+              aria-describedby={!state.enabled && !inFlight ? "assign-reason" : undefined}
               disabled={!state.enabled}
               onClick={onAssign}
               className="min-h-14 rounded-full bg-cheddar-400 px-8 font-display text-xl font-extrabold whitespace-nowrap text-ink transition-colors hover:bg-cheddar-600 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/60"
             >
               {inFlight ? "Asignando…" : cadet ? `Asignar a ${cadet.name}` : "Asignar"}
             </button>
+            {!state.enabled && !inFlight && (
+              <p id="assign-reason" data-testid="assign-hint" className="self-center text-base font-semibold text-cheddar-400 sm:max-w-40 sm:leading-tight">
+                {state.reason}
+              </p>
+            )}
           </div>
         </div>
         )}

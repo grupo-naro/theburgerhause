@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { board, order } from "./fixtures";
+import { pruneSelection } from "./selection";
 import { canAssign, failureHeadline, formatAssignFailure } from "./assign";
 
 describe("canAssign", () => {
@@ -15,6 +17,16 @@ describe("canAssign", () => {
   });
   it("in flight wins over everything", () => {
     expect(canAssign(new Set(), null, true).reason).toBe("Asignando…");
+  });
+});
+
+describe("canAssign with the pruned selection", () => {
+  it("does not enable Asignar when every selected order left the lane", () => {
+    const b = board({ ready: { delivery: [order({ id: 1 })], takeaway: [] } });
+    const raw = new Set([7, 8]);
+    expect(canAssign(raw, 4, false).enabled).toBe(true); // the raw size would wrongly allow it
+    const pruned = new Set(pruneSelection(raw, b));
+    expect(canAssign(pruned, 4, false)).toEqual({ enabled: false, reason: "Elegí al menos un pedido" });
   });
 });
 
