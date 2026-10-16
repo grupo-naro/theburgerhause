@@ -85,7 +85,7 @@ export function SettlePanel({ cadetName, expected, orderCount, busy, error, onSu
           role="status"
           data-testid="diff-line"
           data-kind={diff?.kind ?? "invalid"}
-          className={`mt-2 min-h-8 text-xl font-extrabold ${diff?.tone === "ok" ? "text-green-700" : "text-state-error"}`}
+          className={`mt-2 min-h-12 rounded-xl px-3 py-2 text-2xl font-extrabold ${diff?.tone === "ok" ? "bg-green-50 text-green-700" : "border-2 border-state-error bg-red-50 text-state-error"}`}
         >
           {diff ? (
             <>
