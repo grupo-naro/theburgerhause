@@ -439,6 +439,8 @@ describe("createCounterOrder: pager uniqueness", () => {
 });
 
 describe("createCounterOrder: concurrency", () => {
+  // The per-pager advisory lock serializes these: the losers are rejected by the in-transaction
+  // check. The unique-index mapping (23505) is covered deterministically by the backstop test above.
   it("5 PARALLEL sales with the SAME pager -> exactly ONE ok, four PAGER_IN_USE, one order, 2 print jobs", async () => {
     const results = await Promise.all(Array.from({ length: 5 }, () => createCounterOrder(db(), fresh(fx), {})));
     expect(results.filter((r) => r.ok)).toHaveLength(1);
@@ -477,6 +479,36 @@ describe("createCounterOrder: idempotency", () => {
     expect(b).toEqual({ ...a, duplicate: true });
     const c = await counts();
     expect([c.orders, c.items, c.events, c.jobs]).toEqual([1, 2, 1, 2]);
+  });
+});
+
+describe("createCounterOrder: key scoping", () => {
+  it("a WEB order holding the same idempotency key is never returned by a counter sale", async () => {
+    const [web] = await db()
+      .insert(s.orders)
+      .values({
+        businessDate: "2026-10-14",
+        number: 1,
+        publicToken: "web-tok",
+        idempotencyKey: KEY,
+        channel: "web",
+        fulfillment: "takeaway",
+        status: "pendiente_aprobacion",
+        paymentMethod: "cash",
+        customerName: "Web",
+        subtotal: 1,
+        total: 1,
+      })
+      .returning();
+    const out = await createCounterOrder(db(), input(fx), {}).then(
+      (r) => r,
+      (e: unknown) => e,
+    );
+    // The unique index still forbids a second row with that key, so the sale errors out; what
+    // matters is that it is never a "duplicate" success pointing at the web order.
+    expect(out).not.toMatchObject({ ok: true });
+    expect(web.id).toBeGreaterThan(0);
+    expect((await counts()).jobs).toBe(0);
   });
 });
 

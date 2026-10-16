@@ -89,7 +89,7 @@ async function findByKey(conn: Db | DbTransaction, key: string): Promise<CreateC
       paymentMethod: s.orders.paymentMethod,
     })
     .from(s.orders)
-    .where(eq(s.orders.idempotencyKey, key));
+    .where(and(eq(s.orders.idempotencyKey, key), eq(s.orders.channel, "counter")));
   if (!o) return null;
   const jobs = await conn
     .select({ id: s.printJobs.id })
