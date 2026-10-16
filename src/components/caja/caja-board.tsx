@@ -23,6 +23,8 @@ type Props = {
   show?: { pending?: boolean; recent?: boolean };
   /** Base of the browser tab title ("Caja" by default). */
   titleBase?: string;
+  /** Rendered between the pending orders and Recientes (the workspace puts the dispatch lanes there). */
+  between?: React.ReactNode;
   /** Where the "Elegir estación" link comes back to. */
   stationNext?: string;
 };
@@ -46,7 +48,7 @@ function NoStation({ next }: { next: string }) {
  * The Caja screen: live pending orders, the persistent failed-print alert and recent orders.
  * It does NOT open its own event stream: the staff shell's LiveRefresh re-renders the page.
  */
-export function CajaBoard({ pending, recent, failed, serverNow, hasStation, show, titleBase, stationNext = "/caja" }: Props) {
+export function CajaBoard({ pending, recent, failed, serverNow, hasStation, show, titleBase, between, stationNext = "/caja" }: Props) {
   const showPending = show?.pending ?? true;
   const showRecent = show?.recent ?? true;
   const now = useNow(serverNow);
@@ -103,6 +105,7 @@ export function CajaBoard({ pending, recent, failed, serverNow, hasStation, show
         toolbar={<SoundToggle on={alert.soundOn} onToggle={alert.toggleSound} />}
       />
       )}
+      {between}
       {showRecent && <RecentSection orders={recent} now={now} />}
       <p aria-live="polite" role="status" data-testid="caja-announcer" className="sr-only">
         {alert.announcement}

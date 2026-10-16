@@ -11,20 +11,15 @@ describe("tabsFor", () => {
       ["recent", "Recientes"],
     ]);
   });
-  it("Retiro en local has no En camino and its ready tab is about pickup", () => {
-    expect(tabsFor("mostrador").map((t) => [t.id, t.label])).toEqual([
-      ["pending", "Por aprobar"],
-      ["preparing", "En preparación"],
-      ["ready", "Listos / Para retirar"],
-      ["recent", "Recientes"],
-    ]);
+  it("Retiro en local shows everything at once: no tabs", () => {
+    expect(tabsFor("mostrador")).toEqual([]);
   });
 });
 
 describe("parseTab", () => {
   it("accepts the sector's own tabs, falls back to pending for anything else", () => {
     expect(parseTab("delivery", "enroute")).toBe("enroute");
-    expect(parseTab("mostrador", "enroute")).toBe("pending");
+    expect(parseTab("mostrador", "enroute")).toBe("pending"); // no tabs there: always the default
     expect(parseTab("delivery", undefined)).toBe("pending");
     expect(parseTab("delivery", ["ready", "recent"])).toBe("pending");
     expect(parseTab("delivery", "__proto__")).toBe("pending");
@@ -34,8 +29,7 @@ describe("parseTab", () => {
 describe("tabLanes", () => {
   it("each dispatch tab shows its lanes; pending and recent show none", () => {
     expect(tabLanes("preparing")).toEqual(["preparing"]);
-    expect(tabLanes("ready", "delivery")).toEqual(["ready"]);
-    expect(tabLanes("ready", "mostrador")).toEqual(["ready", "pickup"]);
+    expect(tabLanes("ready")).toEqual(["ready"]);
     expect(tabLanes("enroute")).toEqual(["enroute"]);
     expect(tabLanes("pending")).toEqual([]);
     expect(tabLanes("recent")).toEqual([]);

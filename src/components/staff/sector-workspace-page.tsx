@@ -35,7 +35,8 @@ export async function SectorWorkspacePage({
   const scope = { sector, channel: "web" } as const;
   const [pending, recent, board, failed] = await Promise.all([
     listPendingApproval(db, { now, ...scope }),
-    listRecentProcessed(db, { limit: 30, now, ...scope }),
+    // Recientes keeps the whole sector (the counter sector also holds the counter sales: reprint lives here).
+    listRecentProcessed(db, { limit: 30, now, sector }),
     getDispatchBoard(db, { now, ...scope }),
     session.stationId === null ? Promise.resolve([]) : listFailedPrintJobs(db, session.stationId, { sector }),
   ]);
