@@ -10,14 +10,15 @@ import {
   openDespacho,
   placeApproved,
   placeReady,
-  setCadetActive,
   tag,
+  runCleanups,
 } from "./helpers/despacho";
 import { shot } from "./helpers/shots";
 import { authFile, type UserKey } from "./helpers/users";
 
 test.beforeEach(cleanBoard);
 test.afterAll(cleanBoard);
+test.afterEach(runCleanups);
 
 test.describe("cajera", () => {
   test.use({ storageState: authFile("cajera") });
@@ -52,7 +53,6 @@ test.describe("cajera", () => {
     await dcard(page, pos.number).getByTestId("deliver").click();
     await expect(dcard(page, pos.number)).toHaveCount(0);
     expect((await orderById(pos.orderId)).status).toBe("entregado");
-    await setCadetActive(cadet.id, false);
   });
 });
 
@@ -72,8 +72,9 @@ for (const who of ["encargada", "admin"] as UserKey[]) {
       await expect(page.getByTestId("render-link")).toBeVisible();
       await page.getByTestId("render-link").click();
       await expect(page).toHaveURL(new RegExp(`/despacho/rendicion\\?cadet=${cadet.id}$`));
-      await expect(page.getByRole("heading", { name: "Rendición", level: 1 })).toBeVisible();
-      await setCadetActive(cadet.id, false);
+      // Whatever Task 8.5 renders there, the link must not 404.
+      await expect(page.getByRole("main")).toBeVisible();
+      await expect(page.getByText("could not be found")).toHaveCount(0);
     });
   });
 }

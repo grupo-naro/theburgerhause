@@ -17,8 +17,8 @@ import {
   placeApproved,
   placeReady,
   routeOrder,
-  setCadetActive,
   tag,
+  runCleanups,
 } from "./helpers/despacho";
 import { shot, shotViewport } from "./helpers/shots";
 import { authFile } from "./helpers/users";
@@ -26,6 +26,7 @@ import { authFile } from "./helpers/users";
 test.use({ storageState: authFile("encargada") });
 test.beforeEach(cleanBoard);
 test.afterAll(cleanBoard);
+test.afterEach(runCleanups);
 
 const eventsTo = async (orderId: number, to: (typeof s.orderEvents.$inferSelect)["toStatus"]) =>
   db().select().from(s.orderEvents).where(and(eq(s.orderEvents.orderId, orderId), eq(s.orderEvents.toStatus, to)));
@@ -56,7 +57,9 @@ test("delivery flow without reloading: prepare, ready, select three, assign to a
   await expect(bar.getByTestId("assign-summary")).toContainText("3 pedidos");
   await expect(bar.getByTestId("assign-cash")).toContainText(`Efectivo a cobrar ${formatARS(a.total + b.total)}`);
   await expect(bar.getByTestId("assign-button")).toBeDisabled();
-  await expect(bar.getByTestId("assign-button")).toHaveAttribute("title", "Elegí un cadete");
+  await expect(bar.getByTestId("assign-hint")).toBeVisible();
+  await expect(bar.getByTestId("assign-hint")).toHaveText("Elegí un cadete");
+  await expect(bar.getByTestId("assign-button")).toHaveAttribute("aria-describedby", "assign-reason");
   await shotViewport(page, "despacho-selected-bar");
 
   await bar.getByTestId("cadet-select").selectOption(String(cadet.id));
@@ -79,7 +82,6 @@ test("delivery flow without reloading: prepare, ready, select three, assign to a
     expect(row.cadetId).toBe(cadet.id);
     expect(await eventsTo(o.id, "en_camino")).toHaveLength(1);
   }
-  await setCadetActive(cadet.id, false);
 });
 
 test("en camino actions: deliver, fail with a reason, re-assign; cash stays pending", async ({ page }) => {
@@ -133,8 +135,6 @@ test("en camino actions: deliver, fail with a reason, re-assign; cash stays pend
   await expect(cadetGroup(page, c2.id).getByTestId("cash-pending")).toHaveText(formatARS(a.total));
   expect((await orderById(a.id)).cadetId).toBe(c2.id);
   expect((await orderById(d.id)).paymentStatus).toBe("pending");
-  await setCadetActive(c1.id, false);
-  await setCadetActive(c2.id, false);
 });
 
 test("counter pickup and takeaway cash collection", async ({ page }) => {

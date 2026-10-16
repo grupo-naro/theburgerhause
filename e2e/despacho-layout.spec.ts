@@ -7,7 +7,12 @@ import {
   openDespacho,
   populateBoard,
   placeReady,
+  assignInDb,
+  ensureCadet,
+  routeOrder,
+  setStatusClock,
   tag,
+  runCleanups,
   type Populated,
 } from "./helpers/despacho";
 import { shot, shotViewport } from "./helpers/shots";
@@ -15,6 +20,7 @@ import { authFile } from "./helpers/users";
 
 test.use({ storageState: authFile("encargada") });
 test.afterAll(cleanBoard);
+test.afterEach(runCleanups);
 
 const SIZES = [
   { name: "1280", width: 1280, height: 900 },
@@ -49,6 +55,7 @@ test("layout: every lane populated at 1280 / 1024 / 768, no overflow, big target
     await expectTarget(lane(page, "enroute").getByTestId("deliver"), "Entregado (ruta)");
     await expectTarget(lane(page, "enroute").getByTestId("return-order"), "No se pudo entregar");
     await expectTarget(page.getByTestId("render-link"), "Rendir");
+    await expectTarget(page.locator('a[href^="tel:"]'), "telefono del cadete");
 
     await page.getByTestId("select-all").click();
     await expectTarget(page.getByTestId("assign-button"), "Asignar");
@@ -75,8 +82,50 @@ test("urgency: time turns the ready card amber, then red, with the word", async 
   await page.clock.fastForward("06:00");
   await expect(badge).toHaveAttribute("data-urgency", "warning");
   await expect(badge).toContainText("Demora");
-  await page.clock.fastForward("06:00");
+  await page.clock.fastForward("05:00");
   await expect(badge).toHaveAttribute("data-urgency", "urgent");
   await expect(badge).toContainText("Urgente");
 });
 
+
+const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000);
+
+test("the lane clock counts from when the order became ready, not from its creation", async ({ page }) => {
+  await cleanBoard();
+  const lateReady = await placeReady({ paymentMethod: "cash" });
+  const oldButJustReady = await placeReady({ paymentMethod: "cash" });
+  // 6 min ready (amber) although only 8 min old; 1 min ready (normal) although 40 min old.
+  await setStatusClock(lateReady.id, "listo_despacho", minutesAgo(6), minutesAgo(8));
+  await setStatusClock(oldButJustReady.id, "listo_despacho", minutesAgo(1), minutesAgo(40));
+  await openDespacho(page);
+  const amber = dcard(page, lateReady.number);
+  await expect(amber.getByTestId("elapsed")).toHaveAttribute("data-urgency", "warning");
+  await expect(amber.getByTestId("elapsed")).toContainText("Demora");
+  await expect(amber.getByTestId("elapsed")).toContainText("Listo hace 6 min");
+  await expect(amber.getByTestId("order-age")).toHaveText("Pedido hace 8 min");
+  const calm = dcard(page, oldButJustReady.number);
+  await expect(calm.getByTestId("elapsed")).toHaveAttribute("data-urgency", "normal");
+  await expect(calm.getByTestId("order-age")).toHaveText("Pedido hace 40 min");
+});
+
+test("an order out for 31 minutes is amber, at 46 minutes red, counted from the assignment", async ({ page }) => {
+  await cleanBoard();
+  const cadet = await ensureCadet(`Ruta ${tag()}`);
+  const o = await placeReady({ paymentMethod: "cash" });
+  await assignInDb([o.id], cadet.id);
+  await setStatusClock(o.id, "en_camino", minutesAgo(0), minutesAgo(50));
+  await page.clock.install({ time: new Date() });
+  await openDespacho(page);
+  const badge = routeOrder(page, o.number).getByTestId("elapsed");
+  await expect(badge).toHaveAttribute("data-urgency", "normal");
+  await expect(badge).toContainText("En camino");
+  await page.clock.fastForward("31:00");
+  await expect(badge).toHaveAttribute("data-urgency", "warning");
+  await expect(badge).toContainText("Demora");
+  await expect(badge).toContainText("En camino hace 31 min");
+  await page.clock.fastForward("15:00");
+  await expect(badge).toHaveAttribute("data-urgency", "urgent");
+  await expect(badge).toContainText("Urgente");
+  // The cadet card header shows the oldest order clock too.
+  await expect(page.getByTestId("route-oldest").getByTestId("elapsed")).toHaveAttribute("data-urgency", "urgent");
+});

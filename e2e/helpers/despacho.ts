@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { expect, type Locator, type Page } from "@playwright/test";
 import * as s from "../../src/db/schema";
 import { approveOrder } from "../../src/lib/orders/approve-order";
@@ -24,12 +24,34 @@ export async function openDespacho(page: Page): Promise<void> {
   await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
 }
 
+const cleanups: Array<() => Promise<unknown>> = [];
+/** Registers something to undo after the test (wire it with `test.afterEach(runCleanups)`: it runs on failure too). */
+export const onCleanup = (fn: () => Promise<unknown>): void => void cleanups.push(fn);
+export async function runCleanups(): Promise<void> {
+  while (cleanups.length) {
+    try {
+      await cleanups.pop()!();
+    } catch {
+      // best effort: the next cleanup must still run
+    }
+  }
+}
+
+/** Creates an active cadet; it is deactivated again after the test so shared lists stay clean. */
 export async function ensureCadet(name: string, phone: string | null = "11 5555-0000"): Promise<{ id: number; name: string }> {
   const [row] = await db().insert(s.cadets).values({ name, phone, active: true }).returning({ id: s.cadets.id, name: s.cadets.name });
+  onCleanup(() => setCadetActive(row.id, false));
   return row;
 }
 
 export const setCadetActive = (id: number, active: boolean) => db().update(s.cadets).set({ active }).where(eq(s.cadets.id, id));
+
+/** Moves when an order ENTERED a status (its latest event into it) and, optionally, its creation time. */
+export async function setStatusClock(orderId: number, to: (typeof s.orderEvents.$inferSelect)["toStatus"], enteredAt: Date, createdAt?: Date): Promise<void> {
+  const [ev] = await db().select({ id: s.orderEvents.id }).from(s.orderEvents).where(and(eq(s.orderEvents.orderId, orderId), eq(s.orderEvents.toStatus, to))).orderBy(desc(s.orderEvents.id)).limit(1);
+  await db().update(s.orderEvents).set({ at: enteredAt }).where(eq(s.orderEvents.id, ev.id));
+  if (createdAt) await db().update(s.orders).set({ createdAt }).where(eq(s.orders.id, orderId));
+}
 
 /** Clears the board: every order still on it is closed (no pager stays taken). */
 export async function cleanBoard(): Promise<void> {

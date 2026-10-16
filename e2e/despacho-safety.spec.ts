@@ -9,13 +9,15 @@ import {
   dcard,
   ensureCadet,
   lane,
+  onCleanup,
   openDespacho,
   pingOrders,
   placeApproved,
   placeReady,
   readyInDb,
-  setCadetActive,
   tag,
+  runCleanups,
+  setCadetActive,
 } from "./helpers/despacho";
 import { shotViewport } from "./helpers/shots";
 import { authFile } from "./helpers/users";
@@ -23,10 +25,12 @@ import { authFile } from "./helpers/users";
 test.use({ storageState: authFile("encargada") });
 test.beforeEach(cleanBoard);
 test.afterAll(cleanBoard);
+test.afterEach(runCleanups);
 
 async function secondUser(browser: Browser, who: "admin" | "encargada", offline = false): Promise<Page> {
   const context = await browser.newContext({ storageState: authFile(who), viewport: { width: 1280, height: 800 } });
   // A frozen board: the live stream is cut so the page keeps showing what it saw first.
+  onCleanup(() => context.close());
   if (offline) await context.route("**/api/events", (r) => r.abort());
   return context.newPage();
 }
@@ -66,9 +70,6 @@ test("a stale board loses the race: the Spanish message lists the orders and the
 
   expect((await orderById(a.id)).cadetId).toBe(c1.id);
   expect((await orderById(b.id)).cadetId).toBe(c1.id);
-  await stale.context().close();
-  await setCadetActive(c1.id, false);
-  await setCadetActive(c2.id, false);
 });
 
 async function dcardSelect(page: Page, number: number) {
@@ -105,9 +106,6 @@ test("two managers assign the same orders at the same time: exactly one wins, no
     await expect(p.getByText("Application error")).toHaveCount(0);
     await expect(p.getByTestId("lane-ready-delivery-empty")).toBeVisible();
   }
-  await other.context().close();
-  await setCadetActive(c1.id, false);
-  await setCadetActive(c2.id, false);
 });
 
 test("an inactive cadet never shows in the selector and cannot be assigned", async ({ page }) => {
@@ -120,14 +118,13 @@ test("an inactive cadet never shows in the selector and cannot be assigned", asy
   await expect(select.locator(`option[value="${gone.id}"]`)).toHaveCount(1);
   await select.selectOption(String(gone.id));
 
-  // Deactivated behind the screen's back, then the board refreshes: the choice is gone.
   await setCadetActive(gone.id, false);
+  // Deactivated behind the screen's back, then the board refreshes: the choice is gone.
   await pingOrders(o.id);
   await expect(select.locator(`option[value="${gone.id}"]`)).toHaveCount(0);
   await expect(select).toHaveValue("");
   await expect(page.getByTestId("assign-button")).toBeDisabled();
   await expect(select.locator(`option[value="${live.id}"]`)).toHaveCount(1);
-  await setCadetActive(live.id, false);
 });
 
 test("an inactive cadet chosen on a stale screen is refused with a message", async ({ browser }) => {
@@ -141,7 +138,6 @@ test("an inactive cadet chosen on a stale screen is refused with a message", asy
   await stale.getByTestId("assign-button").click();
   await expect(stale.getByTestId("assign-error")).toContainText(`El cadete ${gone.name} está inactivo`);
   expect((await orderById(o.id)).status).toBe("listo_despacho");
-  await stale.context().close();
 });
 
 test("double click on Asignar sends ONE assignment", async ({ page }) => {
@@ -162,7 +158,6 @@ test("double click on Asignar sends ONE assignment", async ({ page }) => {
     const ev = await db().select().from(s.orderEvents).where(eq(s.orderEvents.orderId, o.id));
     expect(ev.filter((e) => e.toStatus === "en_camino")).toHaveLength(1);
   }
-  await setCadetActive(c.id, false);
 });
 
 test("live updates: the board follows the database with one EventSource, counters and title included", async ({ page, context }) => {
@@ -187,5 +182,4 @@ test("live updates: the board follows the database with one EventSource, counter
   await expect(page.getByTestId("counter-enRoute-n")).toHaveText("1");
   await expect(page).toHaveTitle("Despacho");
   expect(sources.count()).toBe(1);
-  await setCadetActive(c.id, false);
 });
