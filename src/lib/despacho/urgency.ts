@@ -1,13 +1,35 @@
-import { elapsedMs, urgencyOf, type Urgency } from "@/lib/caja/elapsed";
+import type { Urgency } from "@/lib/caja/elapsed";
 
 export type UrgencyLane = "preparing" | "ready" | "pickup" | "enRoute";
 
 /**
- * Age-based urgency of a card, with the Caja thresholds (5 / 10 min since the order was created).
- * Orders already out with a cadet never escalate: the board has no assignment time and a delivery
- * legitimately takes a while.
+ * Minutes IN THE CURRENT STATUS after which a card turns amber ("Demora") and red ("Urgente"):
+ * preparing counts from the approval, ready from the "Listo" click, pickup from the call (the
+ * customer is at the counter), en route from the cadet assignment.
  */
-export function orderUrgency(lane: UrgencyLane, createdAtIso: string, nowMs: number): Urgency {
-  if (lane === "enRoute") return "normal";
-  return urgencyOf(elapsedMs(createdAtIso, new Date(nowMs)));
+export const URGENCY_THRESHOLDS_MIN: Record<UrgencyLane, { warning: number; urgent: number }> = {
+  preparing: { warning: 10, urgent: 15 },
+  ready: { warning: 5, urgent: 10 },
+  pickup: { warning: 5, urgent: 10 },
+  enRoute: { warning: 30, urgent: 45 },
+};
+
+const MIN = 60_000;
+
+/** Whole minutes between an ISO time and `nowMs`; 0 for the future or an unparsable date. */
+export function minutesSince(iso: string, nowMs: number): number {
+  const start = Date.parse(iso);
+  if (Number.isNaN(start)) return 0;
+  return Math.max(0, Math.floor((nowMs - start) / MIN));
+}
+
+/** Urgency of an order given WHEN IT ENTERED its current status (`statusSince`). */
+export function orderUrgency(lane: UrgencyLane, statusSinceIso: string, nowMs: number): Urgency {
+  const start = Date.parse(statusSinceIso);
+  if (Number.isNaN(start)) return "normal";
+  const elapsed = nowMs - start;
+  const t = URGENCY_THRESHOLDS_MIN[lane];
+  if (elapsed >= t.urgent * MIN) return "urgent";
+  if (elapsed >= t.warning * MIN) return "warning";
+  return "normal";
 }

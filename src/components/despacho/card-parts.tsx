@@ -16,26 +16,35 @@ export function OrderNumber({ number, className = "text-4xl" }: { number: number
   );
 }
 
-/** Waiting time since the order was placed, with the Demora / Urgente word (not color alone). */
-export function AgeBadge({ order, lane, now, label }: { order: DispatchOrder; lane: UrgencyLane; now: number; label?: string }) {
-  const urgency = orderUrgency(lane, order.createdAt, now);
+const LANE_LABEL: Record<UrgencyLane, string> = { preparing: "En cocina", ready: "Listo", pickup: "Espera", enRoute: "En camino" };
+
+/**
+ * The lane clock (time in the CURRENT status: "En camino hace 6 min") with the Demora / Urgente
+ * word, plus the total age of the order in small text underneath.
+ */
+export function AgeBadge({ order, lane, now, align = "items-end" }: { order: DispatchOrder; lane: UrgencyLane; now: number; align?: string }) {
+  const urgency = orderUrgency(lane, order.statusSince, now);
   const tag = TAG[urgency];
   return (
-    <span
-      data-testid="elapsed"
-      data-urgency={urgency}
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-base font-bold whitespace-nowrap tabular-nums ${TONE[urgency]}`}
-    >
-      {tag && <span className="uppercase tracking-wide">{tag} ·</span>}
-      {label ? `${label} ` : ""}
-      {formatElapsed(elapsedMs(order.createdAt, new Date(now)))}
+    <span className={`inline-flex flex-col gap-0.5 ${align}`}>
+      <span
+        data-testid="elapsed"
+        data-urgency={urgency}
+        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-base font-bold whitespace-nowrap tabular-nums ${TONE[urgency]}`}
+      >
+        {tag && <span className="uppercase tracking-wide">{tag} ·</span>}
+        {LANE_LABEL[lane]} {formatElapsed(Math.max(0, now - Date.parse(order.statusSince)))}
+      </span>
+      <span data-testid="order-age" className="text-sm text-ink-muted tabular-nums">
+        Pedido {formatElapsed(elapsedMs(order.createdAt, new Date(now)))}
+      </span>
     </span>
   );
 }
 
-/** Left accent bar color from the urgency (same palette as Caja). */
+/** Left accent bar color from the lane urgency. */
 export function urgencyAccent(order: DispatchOrder, lane: UrgencyLane, now: number): string {
-  const u = orderUrgency(lane, order.createdAt, now);
+  const u = orderUrgency(lane, order.statusSince, now);
   return u === "urgent" ? "border-l-state-error" : u === "warning" ? "border-l-state-pending" : "border-l-transparent";
 }
 

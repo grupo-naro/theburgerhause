@@ -30,7 +30,7 @@ export function PickupCard({ order, now, canControl }: Props) {
         urgencyAccent(order, "pickup", now) === "border-l-transparent" ? "border-l-state-route" : urgencyAccent(order, "pickup", now)
       } ${busy && !collecting ? "opacity-60" : ""}`}
     >
-      <header className="flex items-start justify-between gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <CallSign order={order} tone="text-state-route" />
         <div className="flex flex-col items-end gap-2">
           <OrderNumber number={order.number} className="text-3xl" />

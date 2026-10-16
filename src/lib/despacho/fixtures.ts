@@ -12,6 +12,8 @@ export function order(over: Partial<DispatchOrder> & { id: number }): DispatchOr
     total: 100_000,
     createdAt: "2026-10-15T15:00:00.000Z",
     minutesWaiting: 0,
+    statusSince: "2026-10-15T15:00:00.000Z",
+    minutesInStatus: 0,
     customerName: "Ana",
     address: "Calle 1",
     crossStreets: null,

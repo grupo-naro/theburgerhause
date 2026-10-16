@@ -31,7 +31,7 @@ function RouteOrder({ order, now, canControl }: { order: DispatchOrder; now: num
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <PaymentBadge order={order} />
-        <AgeBadge order={order} lane="enRoute" now={now} label="Pedido de" />
+        <AgeBadge order={order} lane="enRoute" now={now} align="items-start" />
       </div>
       {canControl && (
         <div className="mt-3">
@@ -79,6 +79,7 @@ function RouteOrder({ order, now, canControl }: { order: DispatchOrder; now: num
 /** One cadet out on the street: who, how much cash they carry and their orders. */
 export function EnRouteCard({ group, phone, now, caps }: { group: EnRouteGroup; phone: string | null; now: number; caps: Capabilities }) {
   const { cadet, orders, cashPending } = group;
+  const oldest = orders.reduce((a, b) => (Date.parse(b.statusSince) < Date.parse(a.statusSince) ? b : a), orders[0]);
   const hasCash = orders.some((o) => o.paymentMethod === "cash" && o.paymentStatus === "pending");
   return (
     <section
@@ -91,7 +92,7 @@ export function EnRouteCard({ group, phone, now, caps }: { group: EnRouteGroup; 
         <div className="min-w-0">
           <h3 className="font-display text-2xl leading-tight font-extrabold text-ink">{cadet.name}</h3>
           {phone && (
-            <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="mt-1 inline-flex min-h-8 items-center gap-1.5 text-base font-semibold text-brand-600 underline underline-offset-4">
+            <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="mt-1 inline-flex min-h-12 items-center gap-1.5 text-base font-semibold text-brand-600 underline underline-offset-4">
               <PhoneIcon className="size-4" />
               {phone}
             </a>
@@ -101,6 +102,11 @@ export function EnRouteCard({ group, phone, now, caps }: { group: EnRouteGroup; 
           {orders.length} {orders.length === 1 ? "pedido" : "pedidos"}
         </span>
       </header>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="route-oldest">
+        <span className="text-sm font-bold text-ink-muted">El más antiguo:</span>
+        <AgeBadge order={oldest} lane="enRoute" now={now} align="items-start" />
+      </div>
 
       <div className={`mt-3 rounded-xl px-4 py-2.5 ${hasCash ? "bg-cheddar-400/40 ring-1 ring-cheddar-600/60" : "bg-slate-100"}`}>
         <p className="text-sm font-bold tracking-wide text-ink-muted uppercase">Efectivo a rendir</p>

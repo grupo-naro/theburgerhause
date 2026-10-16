@@ -39,7 +39,7 @@ export function CounterReadyCard({ order, now, fresh, canControl }: Props) {
         fresh ? "animate-card-flash ring-4 ring-cheddar-400" : ""
       } ${busy ? "opacity-60" : ""}`}
     >
-      <header className="flex items-start justify-between gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <CallSign order={order} />
         <div className="flex flex-col items-end gap-2">
           <OrderNumber number={order.number} className="text-3xl" />
