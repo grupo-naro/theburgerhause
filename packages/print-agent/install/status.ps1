@@ -23,7 +23,7 @@ try {
     $paths = Get-AgentPaths $InstallDir
     $task = Get-AgentTask $TaskName
     if (-not $task -and -not (Test-Path -LiteralPath $paths.Cjs)) {
-        Stop-WithError "No hay una instalación en '$($paths.Dir)' ni una tarea '$TaskName'. Instalala con install.ps1 (guía: docs/ops/print-agent-install.md)." 8
+        Stop-WithError "No hay una instalación en '$($paths.Dir)' ni una tarea '$TaskName'. Instalala con install.ps1 (guía: GUIA-INSTALACION.md)." 8
     }
     $problems = 0
     Write-Host "Burger Hause Print Agent: estado" -ForegroundColor Cyan

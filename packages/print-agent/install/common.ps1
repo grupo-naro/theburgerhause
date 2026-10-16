@@ -39,6 +39,8 @@ function Assert-Elevated {
 
 function Get-AgentPaths([string]$InstallDir) {
     $InstallDir = [System.IO.Path]::GetFullPath($InstallDir)
+    # Sin barra final (rompería las comillas de icacls), salvo que sea la raíz de un disco (C:\).
+    if ($InstallDir -ne [System.IO.Path]::GetPathRoot($InstallDir)) { $InstallDir = $InstallDir.TrimEnd('\') }
     return @{
         Dir          = $InstallDir
         Cjs          = Join-Path $InstallDir 'print-agent.cjs'
@@ -78,7 +80,10 @@ function Invoke-Native([string]$File, [string]$Arguments, [string]$WorkDir, [int
 # Busca Node: 1) <InstallDir>\node\node.exe (portable)  2) -NodeExe  3) node en el PATH. Exige versión >= 20.
 function Resolve-NodeExe([string]$PortableNode, [string]$NodeExe) {
     $candidate = $null
-    if (Test-Path -LiteralPath $PortableNode) { $candidate = $PortableNode }
+    if (Test-Path -LiteralPath $PortableNode) {
+        $candidate = $PortableNode
+        if ($NodeExe) { Write-Info "Nota: se usa el Node portable ($PortableNode); se ignora -NodeExe." }
+    }
     elseif ($NodeExe) {
         if (-not (Test-Path -LiteralPath $NodeExe)) { Stop-WithError "No existe el archivo indicado en -NodeExe: $NodeExe" 5 }
         $candidate = (Resolve-Path -LiteralPath $NodeExe).Path
@@ -89,7 +94,7 @@ function Resolve-NodeExe([string]$PortableNode, [string]$NodeExe) {
     }
     if (-not $candidate) {
         Stop-WithError ("No se encontró Node.js. Instalá Node.js 20 LTS (o copiá la versión portable a '" + (Split-Path (Split-Path $PortableNode)) + "\node') " +
-            "y volvé a correr este programa. Pasos en la guía de instalación (docs/ops/print-agent-install.md).") 5
+            "y volvé a correr este programa. Pasos en la guía de instalación (GUIA-INSTALACION.md).") 5
     }
     $r = Invoke-Native $candidate '--version' (Split-Path -Parent $candidate) 20
     $ver = $r.Output.Trim()
@@ -99,11 +104,22 @@ function Resolve-NodeExe([string]$PortableNode, [string]$NodeExe) {
     if ([int]$Matches[1] -lt 20) {
         Stop-WithError "Hace falta Node.js 20 o superior y '$candidate' es $ver. Instalá Node.js 20 LTS (o copiá la versión portable a la carpeta node) y volvé a intentar." 5
     }
+    if ($candidate -match '^[A-Za-z]:\\Users\\' -or $candidate -match 'AppData') {
+        Write-Warn "Este node.exe está dentro de una carpeta de usuario ($candidate). La tarea corre como SYSTEM y puede no poder ejecutarlo (instalaciones por usuario, nvm, etc.). Si el agente no arranca, instalá Node para todos los usuarios o copiá el Node portable a la carpeta node."
+    }
     return @{ Path = $candidate; Version = $ver }
+}
+
+# Escribe config.json (UTF-8 SIN BOM: el agente lo lee con JSON.parse) y le deja permisos solo para SYSTEM y Administradores.
+function Write-AgentConfig([string]$Path, $Config) {
+    $json = $Config | ConvertTo-Json
+    [System.IO.File]::WriteAllText($Path, $json, (New-Object System.Text.UTF8Encoding($false)))
+    if ($env:BH_TEST_SKIP_ACL -ne '1') { Set-SecureAcl $Path $false }
 }
 
 # Deja en la carpeta/archivo solo SYSTEM y Administradores (por SID: funciona en cualquier idioma de Windows).
 function Set-SecureAcl([string]$Path, [bool]$IsDir) {
+    if ($env:BH_TEST_SKIP_ACL -eq '1') { return }   # solo pruebas automáticas
     $perm = 'F'
     if ($IsDir) { $perm = '(OI)(CI)F' }
     $r = Invoke-Native 'icacls.exe' ('"' + $Path + '" /inheritance:r /grant:r "*S-1-5-18:' + $perm + '" "*S-1-5-32-544:' + $perm + '"') ([System.IO.Path]::GetDirectoryName($Path)) 30
@@ -115,12 +131,38 @@ function Get-AgentTask([string]$TaskName) {
 }
 
 # Detiene la tarea y cualquier node.exe que esté corriendo ESTE print-agent.cjs (se identifica por su ruta).
+function Get-AgentProcesses([string]$Cjs) {
+    # Comparación sin distinguir mayúsculas: Windows no las distingue en rutas.
+    return @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($Cjs, [StringComparison]::OrdinalIgnoreCase) -ge 0 })
+}
+
+# Detiene la tarea y ESPERA a que el proceso termine de verdad (hasta ~15 s; a los ~8 s se fuerza). Si el archivo
+# del programa sigue bloqueado después de esperar, aborta con un mensaje claro.
 function Stop-AgentTask([string]$TaskName, [string]$Cjs) {
     $t = Get-AgentTask $TaskName
     if ($t) { try { Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue } catch { } }
-    $procs = Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -and $_.CommandLine.Contains($Cjs) }
-    foreach ($p in $procs) { try { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue } catch { } }
+    $start = Get-Date
+    $forced = $false
+    $grace = 8
+    if (-not $t) { $grace = 1 }   # sin tarea nadie lo va a cerrar solo
+    while ($true) {
+        $procs = @(Get-AgentProcesses $Cjs)
+        $locked = $false
+        if ($procs.Count -eq 0 -and (Test-Path -LiteralPath $Cjs)) {
+            try { $fs = [System.IO.File]::Open($Cjs, 'Open', 'ReadWrite', 'None'); $fs.Dispose() } catch { $locked = $true }
+        }
+        if ($procs.Count -eq 0 -and -not $locked) { return }
+        $elapsed = ((Get-Date) - $start).TotalSeconds
+        if ($elapsed -ge 15) {
+            Stop-WithError "No se pudo detener el agente: el archivo '$Cjs' sigue en uso después de 15 segundos. Cerrá el proceso node.exe desde el Administrador de tareas (o reiniciá la PC) y volvé a correr el comando." 7
+        }
+        if ($elapsed -ge $grace -and -not $forced -and $procs.Count -gt 0) {
+            $forced = $true
+            foreach ($p in $procs) { try { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue } catch { } }
+        }
+        Start-Sleep -Milliseconds 250
+    }
 }
 
 function Get-LogLength([string]$LogPath) {
@@ -167,6 +209,14 @@ function New-AgentTaskXml([string]$NodePath, [string]$CjsPath, [string]$WorkDir)
       <Enabled>true</Enabled>
       <Delay>PT30S</Delay>
     </BootTrigger>
+    <TimeTrigger>
+      <Repetition>
+        <Interval>PT5M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+      <StartBoundary>2026-01-01T00:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
   </Triggers>
   <Principals>
     <Principal id="Author">

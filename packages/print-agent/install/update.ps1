@@ -35,7 +35,7 @@ try {
     $paths = Get-AgentPaths $InstallDir
     $newCjs = Join-Path $ReleaseDir 'print-agent.cjs'
     if (-not (Test-Path -LiteralPath $paths.Cjs) -or -not (Test-Path -LiteralPath $paths.Config)) {
-        Stop-WithError "No hay una instalación en '$($paths.Dir)'. Primero instalá con install.ps1 (guía: docs/ops/print-agent-install.md)." 8
+        Stop-WithError "No hay una instalación en '$($paths.Dir)'. Primero instalá con install.ps1 (guía: GUIA-INSTALACION.md)." 8
     }
     if (-not (Test-Path -LiteralPath $newCjs)) {
         Stop-WithError "No se encontró print-agent.cjs en '$ReleaseDir'. Descomprimí el ZIP de la versión nueva y corré update.ps1 desde esa carpeta (o usá -ReleaseDir)." 2
@@ -50,26 +50,30 @@ try {
     if ($DryRun) { Write-Host ''; Write-Host 'SIMULACIÓN terminada: no se cambió nada.' -ForegroundColor Green; exit 0 }
 
     $task = Get-AgentTask $TaskName
-    $backup = [System.IO.File]::ReadAllBytes($paths.Cjs)
+    $bak = $paths.Cjs + '.bak'
+    $tmpNew = $paths.Cjs + '.new'
     Write-Step 'Actualizando'
     Stop-AgentTask $TaskName $paths.Cjs
-    Start-Sleep -Milliseconds 800
-    $replaced = $false
     try {
-        Copy-Item -LiteralPath $newCjs -Destination $paths.Cjs -Force
-        $replaced = $true
+        # Reemplazo atómico: se copia a .new, se guarda el programa viejo como .bak (en disco) y se mueve .new encima.
+        Copy-Item -LiteralPath $newCjs -Destination $tmpNew -Force
+        [System.IO.File]::Copy($paths.Cjs, $bak, $true)
+        Move-Item -LiteralPath $tmpNew -Destination $paths.Cjs -Force
         $chk = Invoke-Native $node.Path ('"' + $paths.Cjs + '" check') $paths.Dir 60
         Write-Host (($chk.Output -replace 'bhst_[A-Za-z0-9_-]{8,}', 'bhst_***') -replace '(?m)^', '  ')
         if ($chk.ExitCode -ne 0) { throw 'CHECK_FAILED' }
         Write-Ok 'Verificación correcta con el programa nuevo'
+        Remove-Item -LiteralPath $bak -Force
     }
     catch {
-        if ($replaced) { [System.IO.File]::WriteAllBytes($paths.Cjs, $backup) }
+        $failure = $_
+        if (Test-Path -LiteralPath $tmpNew) { Remove-Item -LiteralPath $tmpNew -Force -ErrorAction SilentlyContinue }
+        if (Test-Path -LiteralPath $bak) { Move-Item -LiteralPath $bak -Destination $paths.Cjs -Force }
         if ($task) { try { Start-ScheduledTask -TaskName $TaskName } catch { } }
-        if ($_.Exception.Message -eq 'CHECK_FAILED') {
+        if ($failure.Exception.Message -eq 'CHECK_FAILED') {
             Stop-WithError "La verificación con el programa nuevo falló (arriba está el motivo). Se volvió a dejar el programa anterior ($oldVer) y la tarea sigue funcionando." 6
         }
-        throw
+        throw $failure
     }
 
     if ($task) {

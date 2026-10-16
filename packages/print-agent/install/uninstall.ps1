@@ -62,7 +62,6 @@ try {
     Stop-AgentTask $TaskName $paths.Cjs
     if ($task) { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false; Write-Ok "Tarea '$TaskName' eliminada" }
     if ($RemoveData -and $hasDir) {
-        Start-Sleep -Milliseconds 800
         Remove-Item -LiteralPath $paths.Dir -Recurse -Force
         Write-Ok "Carpeta '$($paths.Dir)' borrada"
     }

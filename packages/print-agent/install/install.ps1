@@ -5,7 +5,7 @@
 .DESCRIPTION
     Pasos: copia el programa, guarda config.json (con permisos solo para SYSTEM y Administradores), busca Node.js 20+,
     verifica el token con "print-agent check" ANTES de registrar nada, opcionalmente imprime un ticket de prueba,
-    registra la tarea programada (BootTrigger +30 s, SYSTEM, reinicio cada 1 min), la inicia y espera la conexión.
+    registra la tarea programada (BootTrigger +30 s y vigilante cada 5 min, SYSTEM, reinicio cada 1 min), la inicia y espera la conexión.
 
     Códigos de salida: 0 ok | 1 error inesperado | 2 parámetros inválidos | 3 falta ser Administrador |
     4 ya hay una instalación (usar -Force) | 5 Node.js no sirve | 6 falló check/test-print | 7 no se pudo registrar/iniciar
@@ -168,7 +168,7 @@ try {
     $xml = New-AgentTaskXml $node.Path $paths.Cjs $paths.Dir
     Write-Step 'Plan'
     Write-Info "Carpeta de instalación : $($paths.Dir)"
-    Write-Info "Tarea programada      : $TaskName (al iniciar Windows, +30 s, usuario SYSTEM, reinicio cada 1 min)"
+    Write-Info "Tarea programada      : $TaskName (al iniciar Windows, +30 s, usuario SYSTEM, reinicio cada 1 min y vigilante cada 5 min)"
     Write-Info "Configuración (config.json, sin mostrar el token):"
     foreach ($k in $config.Keys) {
         $v = $config[$k]
@@ -194,6 +194,7 @@ try {
     $dirExisted = Test-Path -LiteralPath $paths.Dir
     $oldConfig = $null
     $oldCjs = $null
+    $oldTaskXml = $null
     if (Test-Path -LiteralPath $paths.Config) { $oldConfig = [System.IO.File]::ReadAllBytes($paths.Config) }
     if (Test-Path -LiteralPath $paths.Cjs) { $oldCjs = [System.IO.File]::ReadAllBytes($paths.Cjs) }
     $registered = $false
@@ -202,9 +203,7 @@ try {
         [void](New-Item -ItemType Directory -Force -Path $paths.Dir, $paths.Data, $paths.Logs)
         Set-SecureAcl $paths.Dir $true
         Copy-Item -LiteralPath $source -Destination $paths.Cjs -Force
-        $json = $config | ConvertTo-Json
-        [System.IO.File]::WriteAllText($paths.Config, $json, (New-Object System.Text.UTF8Encoding($false)))
-        Set-SecureAcl $paths.Config $false
+        Write-AgentConfig $paths.Config $config
         Write-Ok "Archivos en $($paths.Dir) (config.json solo legible por Administradores y SYSTEM)"
 
         # ---- 7. Verificación ANTES de registrar la tarea ----
@@ -228,36 +227,62 @@ try {
 
         # ---- 8. Registrar e iniciar la tarea ----
         Write-Step 'Registrando la tarea programada'
-        if (Get-AgentTask $TaskName) { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false }
-        [void](Register-ScheduledTask -TaskName $TaskName -Xml $xml -Force)
-        $registered = $true
-        Write-Ok "Tarea '$TaskName' registrada"
-
-        $offset = Get-LogLength $paths.Log
-        Start-ScheduledTask -TaskName $TaskName
-        Write-Info 'Esperando que el agente se conecte (hasta 30 segundos)...'
-        if (-not (Wait-AgentConnected $paths.Log $offset 30)) {
-            Write-Warn "La tarea quedó instalada pero no se vio 'Agente conectado' en 30 s. Mirá el log: $($paths.Log) y corré status.ps1."
-            exit 7
+        if ($env:BH_TEST_SKIP_TASK -eq '1') {
+            $registered = $true   # solo pruebas automáticas: no se toca el Programador de tareas
         }
-        Write-Ok 'El agente está conectado al servidor'
+        else {
+            # 8a. Validar la definición NUEVA con un nombre temporal antes de tocar la tarea vieja.
+            $tmpName = $TaskName + '-validar'
+            if (Get-AgentTask $tmpName) { Unregister-ScheduledTask -TaskName $tmpName -Confirm:$false }
+            [void](Register-ScheduledTask -TaskName $tmpName -Xml $xml -Force)
+            Unregister-ScheduledTask -TaskName $tmpName -Confirm:$false
+            # 8b. Cambiar: guardar la definición vieja para poder restaurarla si falla el alta nueva.
+            if (Get-AgentTask $TaskName) {
+                $oldTaskXml = Export-ScheduledTask -TaskName $TaskName
+                Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+            }
+            try { [void](Register-ScheduledTask -TaskName $TaskName -Xml $xml -Force) }
+            catch {
+                if ($null -ne $oldTaskXml) { try { [void](Register-ScheduledTask -TaskName $TaskName -Xml $oldTaskXml -Force) } catch { } }
+                throw
+            }
+            $registered = $true
+        }
+        Write-Ok "Tarea '$TaskName' registrada"
+        if ($env:BH_TEST_FAIL_AFTER_REGISTER -eq '1') { throw 'Fallo simulado después del registro (solo pruebas)' }
+
+        if ($env:BH_TEST_SKIP_TASK -ne '1') {
+            $offset = Get-LogLength $paths.Log
+            Start-ScheduledTask -TaskName $TaskName
+            Write-Info 'Esperando que el agente se conecte (hasta 30 segundos)...'
+            if (-not (Wait-AgentConnected $paths.Log $offset 30)) {
+                Write-Warn "La tarea quedó instalada pero no se vio 'Agente conectado' en 30 s. Mirá el log: $($paths.Log) y corré status.ps1."
+                exit 7
+            }
+            Write-Ok 'El agente está conectado al servidor'
+        }
     }
     catch {
         $failure = $_
-        $failMsg = $failure.Exception.Message
-        if (-not $registered) {
-            # Sin tarea registrada: volver al estado anterior (no dejar una instalación a medias).
-            try {
-                if ($dirExisted) {
-                    if ($null -ne $oldConfig) { [System.IO.File]::WriteAllBytes($paths.Config, $oldConfig) } elseif (Test-Path -LiteralPath $paths.Config) { Remove-Item -LiteralPath $paths.Config -Force }
-                    if ($null -ne $oldCjs) { [System.IO.File]::WriteAllBytes($paths.Cjs, $oldCjs) } elseif (Test-Path -LiteralPath $paths.Cjs) { Remove-Item -LiteralPath $paths.Cjs -Force }
-                }
-                elseif (Test-Path -LiteralPath $paths.Dir) { Remove-Item -LiteralPath $paths.Dir -Recurse -Force }
-            }
-            catch { }
-            # Si ya había una tarea funcionando (reinstalación con -Force), volver a iniciarla.
-            if ($Force -and (Get-AgentTask $TaskName)) { try { Start-ScheduledTask -TaskName $TaskName } catch { } }
+        $failMsg = $failure.Exception.Message -replace 'bhst_[A-Za-z0-9_-]{8,}', 'bhst_***'
+        if ($registered) {
+            # La tarea ya existe: se deja instalada (los archivos pasaron la verificación) y se explica con exactitud.
+            Write-Host ''
+            Write-Host "  [ERROR] La tarea '$TaskName' quedó registrada y los archivos están en '$($paths.Dir)', pero un paso posterior falló: $failMsg" -ForegroundColor Red
+            Write-Host '  No se deshizo nada. Revisá el estado con status.ps1 o repetí el comando agregando -Force.' -ForegroundColor Red
+            exit 7
         }
+        # Sin tarea nueva registrada: volver al estado anterior (no dejar una instalación a medias).
+        try {
+            if ($dirExisted) {
+                if ($null -ne $oldConfig) { [System.IO.File]::WriteAllBytes($paths.Config, $oldConfig) } elseif (Test-Path -LiteralPath $paths.Config) { Remove-Item -LiteralPath $paths.Config -Force }
+                if ($null -ne $oldCjs) { [System.IO.File]::WriteAllBytes($paths.Cjs, $oldCjs) } elseif (Test-Path -LiteralPath $paths.Cjs) { Remove-Item -LiteralPath $paths.Cjs -Force }
+            }
+            elseif (Test-Path -LiteralPath $paths.Dir) { Remove-Item -LiteralPath $paths.Dir -Recurse -Force }
+        }
+        catch { }
+        # Si ya había una tarea funcionando (reinstalación con -Force), volver a iniciarla.
+        if ($Force -and $env:BH_TEST_SKIP_TASK -ne '1' -and (Get-AgentTask $TaskName)) { try { Start-ScheduledTask -TaskName $TaskName } catch { } }
         if ($failMsg -match '^BH_FAIL:([0-9]+):(.*)$') { Stop-WithError $Matches[2] ([int]$Matches[1]) }
         throw $failure
     }
@@ -276,6 +301,6 @@ catch {
     $msg = ($_.Exception.Message -replace 'bhst_[A-Za-z0-9_-]{8,}', 'bhst_***')
     Write-Host ''
     Write-Host "  [ERROR] Falló la instalación: $msg" -ForegroundColor Red
-    Write-Host '  No quedó nada a medias: la tarea no se registró. Revisá el mensaje, corregí y volvé a correr el comando.' -ForegroundColor Red
+    Write-Host '  Si la instalación había empezado, se restauró el estado anterior y la tarea programada no quedó modificada. Revisá el mensaje, corregí y volvé a correr el comando.' -ForegroundColor Red
     exit 1
 }

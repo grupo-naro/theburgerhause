@@ -25,7 +25,7 @@ const leeme = `BURGER HAUSE PRINT AGENT ${pkg.version}
 
 1. Abrir PowerShell COMO ADMINISTRADOR y entrar a esta carpeta (cd "<ruta de esta carpeta>").
 2. Correr:  .\\install.ps1 -ServerUrl https://TU-SERVIDOR -PrinterName "NOMBRE DE LA IMPRESORA"   (pide el token en pantalla)
-3. Guia completa paso a paso, solucion de problemas y lista de las 9 PCs: docs/ops/print-agent-install.md
+3. Guia completa paso a paso, solucion de problemas y lista de las 9 PCs: GUIA-INSTALACION.md (en esta carpeta)
 
 Otros programas de esta carpeta: status.ps1 (ver el estado), update.ps1 (actualizar), uninstall.ps1 (desinstalar).
 `;
@@ -46,6 +46,7 @@ const files = [
   ["install/update.ps1", "update.ps1"],
   ["install/common.ps1", "common.ps1"],
   ["install/config.example.json", "config.example.json"],
+  ["../../docs/ops/print-agent-install.md", "GUIA-INSTALACION.md"],
 ];
 for (const [from, to] of files) fs.copyFileSync(path.join(root, from), path.join(folder, to));
 // UTF-8 with BOM so Windows Notepad shows the accents.
