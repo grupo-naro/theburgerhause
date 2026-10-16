@@ -38,9 +38,9 @@ describe("requireSessionOrRedirect", () => {
 
   it("redirects a wrong role to its own home", async () => {
     await loginAs(fx.cora);
-    expect(await redirectOf(requireSessionOrRedirect(["admin"], "/admin"))).toBe("/caja");
+    expect(await redirectOf(requireSessionOrRedirect(["admin"], "/admin"))).toBe("/mostrador");
     await loginAs(fx.enca);
-    expect(await redirectOf(requireSessionOrRedirect(["admin", "cajera"]))).toBe("/despacho");
+    expect(await redirectOf(requireSessionOrRedirect(["admin", "cajera"]))).toBe("/delivery");
   });
 
   it("returns the session for an allowed role", async () => {
