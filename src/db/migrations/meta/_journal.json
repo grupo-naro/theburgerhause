@@ -29,6 +29,13 @@
       "when": 1792116586449,
       "tag": "0003_settlements_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792118124151,
+      "tag": "0004_settlements_received_amount",
+      "breakpoints": true
     }
   ]
 }

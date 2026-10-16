@@ -287,9 +287,12 @@ export const settlements = pgTable(
     cadetId: integer("cadet_id")
       .notNull()
       .references(() => cadets.id, { onDelete: "restrict" }),
+    /** Centavos of debt cleared: the sum of the settled orders. */
     amount: integer("amount").notNull(),
+    /** Centavos the cadet actually handed over; shortage = amount - received_amount. */
+    receivedAmount: integer("received_amount").notNull(),
     settledBy: integer("settled_by").references(() => users.id, { onDelete: "set null" }),
-    /** Free text from the manager (e.g. a cash shortage); never changes the settled amount. */
+    /** Free text from the manager; required (explaining the shortage) when received_amount < amount. */
     note: text("note"),
     createdAt: createdAt(),
   },
@@ -297,6 +300,8 @@ export const settlements = pgTable(
     index("settlements_cadet_idx").on(t.cadetId),
     index("settlements_settled_by_idx").on(t.settledBy),
     check("settlements_amount_positive", sql`${t.amount} > 0`),
+    check("settlements_received_nonneg", sql`${t.receivedAmount} >= 0`),
+    check("settlements_received_le_amount", sql`${t.receivedAmount} <= ${t.amount}`),
     check("settlements_note_len", sql`char_length(${t.note}) <= 200`),
   ],
 );

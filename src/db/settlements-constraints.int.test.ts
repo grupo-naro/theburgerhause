@@ -48,7 +48,7 @@ async function makeSettlement(over: Partial<typeof s.settlements.$inferInsert> =
   const [c] = await db().insert(s.cadets).values({ name: "Nahuel" }).returning();
   const [st] = await db()
     .insert(s.settlements)
-    .values({ cadetId: c.id, amount: 1000, ...over })
+    .values({ cadetId: c.id, amount: 1000, receivedAmount: 1000, ...over })
     .returning();
   return { cadet: c, settlement: st };
 }
@@ -60,16 +60,30 @@ describe("settlements constraints", () => {
   it("amount must be positive", async () => {
     const [c] = await db().insert(s.cadets).values({ name: "Nahuel" }).returning();
     for (const amount of [0, -1]) {
-      expect(await pgCode(db().insert(s.settlements).values({ cadetId: c.id, amount })), String(amount)).toBe(CHECK_VIOLATION);
+      expect(await pgCode(db().insert(s.settlements).values({ cadetId: c.id, amount, receivedAmount: 0 })), String(amount)).toBe(CHECK_VIOLATION);
     }
-    await expect(db().insert(s.settlements).values({ cadetId: c.id, amount: 1 })).resolves.toBeDefined();
+    await expect(db().insert(s.settlements).values({ cadetId: c.id, amount: 1, receivedAmount: 1 })).resolves.toBeDefined();
   });
 
   it("note is optional and capped at 200 characters", async () => {
     const [c] = await db().insert(s.cadets).values({ name: "Nahuel" }).returning();
-    await expect(db().insert(s.settlements).values({ cadetId: c.id, amount: 5, note: null })).resolves.toBeDefined();
-    await expect(db().insert(s.settlements).values({ cadetId: c.id, amount: 5, note: "a".repeat(200) })).resolves.toBeDefined();
-    expect(await pgCode(db().insert(s.settlements).values({ cadetId: c.id, amount: 5, note: "a".repeat(201) }))).toBe(CHECK_VIOLATION);
+    await expect(db().insert(s.settlements).values({ cadetId: c.id, amount: 5, receivedAmount: 5, note: null })).resolves.toBeDefined();
+    await expect(db().insert(s.settlements).values({ cadetId: c.id, amount: 5, receivedAmount: 5, note: "a".repeat(200) })).resolves.toBeDefined();
+    expect(await pgCode(db().insert(s.settlements).values({ cadetId: c.id, amount: 5, receivedAmount: 5, note: "a".repeat(201) }))).toBe(CHECK_VIOLATION);
+  });
+});
+
+describe("settlements received_amount", () => {
+  it("is required, never negative and never above the debt cleared", async () => {
+    const [c] = await db().insert(s.cadets).values({ name: "Nahuel" }).returning();
+    const ins = (receivedAmount: number | null) =>
+      db().insert(s.settlements).values({ cadetId: c.id, amount: 1000, receivedAmount: receivedAmount as number });
+    expect(await pgCode(ins(null))).toBe("23502");
+    expect(await pgCode(ins(-1))).toBe(CHECK_VIOLATION);
+    expect(await pgCode(ins(1001))).toBe(CHECK_VIOLATION);
+    await expect(ins(0)).resolves.toBeDefined();
+    await expect(ins(999)).resolves.toBeDefined();
+    await expect(ins(1000)).resolves.toBeDefined();
   });
 });
 
@@ -83,7 +97,7 @@ describe("settlement_orders constraints", () => {
 
   it("an order can be settled at most once, even by a different settlement (23505)", async () => {
     const { cadet, settlement } = await makeSettlement();
-    const [second] = await db().insert(s.settlements).values({ cadetId: cadet.id, amount: 1000 }).returning();
+    const [second] = await db().insert(s.settlements).values({ cadetId: cadet.id, amount: 1000, receivedAmount: 1000 }).returning();
     const o = await makeOrder();
     await db().insert(s.settlementOrders).values({ settlementId: settlement.id, orderId: o.id, amount: 1000 });
     expect(await pgCode(db().insert(s.settlementOrders).values({ settlementId: second.id, orderId: o.id, amount: 1000 }))).toBe(UNIQUE_VIOLATION);
