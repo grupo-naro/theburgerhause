@@ -10,7 +10,7 @@ import { cleanBoard, dcard, lane, openDespacho, runCleanups } from "./helpers/de
 import { customerContext, staffContext } from "./helpers/journey";
 import { cadetCard, deliveredFor, ensureCadet, openDetail, retireCadets, settlementsOf, tag } from "./helpers/rendicion";
 import { shot, shotViewport } from "./helpers/shots";
-import { currentStep, headline, openTracking } from "./helpers/tracking";
+import { headline, openTracking } from "./helpers/tracking";
 import { authFile } from "./helpers/users";
 
 const STATION = "Mostrador 1";
