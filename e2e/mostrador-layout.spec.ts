@@ -171,6 +171,11 @@ test("the ticket slide-over opens from the bottom bar and closes with its button
   await expect(page.getByTestId("ticket-aside")).toBeHidden();
   await bar.click();
   await expect(page.getByTestId("ticket-aside")).toBeVisible();
+  // Focus stays inside the slide-over: the catalog behind it is inert.
+  for (let i = 0; i < 25; i++) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => !!document.activeElement?.closest("[aria-label=Productos]"))).toBe(false);
+  }
   await page.getByRole("button", { name: "Cerrar ticket" }).click();
   await expect(page.getByTestId("ticket-aside")).toBeHidden();
   await expect(bar).toBeFocused();
@@ -182,3 +187,70 @@ test("the ticket slide-over opens from the bottom bar and closes with its button
   await expect(page.getByTestId("ticket-aside")).toBeHidden();
 });
 
+
+test.describe("laptop-1366x768", () => {
+  test.use({ viewport: { width: 1366, height: 768 } });
+
+  test("with 4 lines the pager, badges, payment and charge are reachable with one scroll and nothing hides under the footer", async ({ page }) => {
+    test.setTimeout(90_000);
+    await releaseCounterState();
+    for (const pager of [3, 7, 12]) await seedCounterOrder(pager);
+    await openPos(page);
+    expect(await noHorizontalOverflow(page)).toBe(true);
+    await tileMain(page, "Ranchita simple").click();
+    await shot(page, "pos-laptop-1-line-1366x768");
+
+    await tileMain(page, "Melt simple").click();
+    await tileMain(page, "Huevo simple").click();
+    await tileCustomize(page, "Cuarto de libra simple").click();
+    const dialog = page.getByTestId("configure-dialog");
+    await modifierRow(dialog, "Sin cheddar").click();
+    await modifierRow(dialog, "+ Dips de cheddar").click();
+    await dialog.getByTestId("configure-confirm").click();
+    await expect(page.getByTestId("ticket-line")).toHaveCount(4);
+    await shot(page, "pos-laptop-4-lines-1366x768");
+
+    const body = page.getByTestId("ticket-body");
+    const footer = page.getByTestId("ticket-panel").locator("footer");
+    const insideBody = async (what: string, target: Locator) => {
+      const [b, bb, fb] = [await target.boundingBox(), await body.boundingBox(), await footer.boundingBox()];
+      expect(b, what).not.toBeNull();
+      expect(b!.y, `${what} below the body top`).toBeGreaterThanOrEqual(bb!.y - 1);
+      expect(b!.y + b!.height, `${what} above the pinned footer`).toBeLessThanOrEqual(fb!.y + 1);
+    };
+
+    // ONE scroll of the ticket body (to the pager) shows the pinned value, the badges, the keypad.
+    await page.getByTestId("pager-section").evaluate((el) => el.scrollIntoView({ block: "start" }));
+    for (const [what, loc] of [
+      ["pager input", pagerInput(page)],
+      ["in-use badges", page.getByTestId("pagers-in-use")],
+      ["keypad 5", page.getByTestId("pager-key-5")],
+      ["keypad 0", page.getByTestId("pager-key-0")],
+      ["Siguiente libre", page.getByTestId("pager-next-free")],
+    ] as const) await insideBody(what, loc);
+
+    // Scrolling through the keypad keeps the typed value pinned in view.
+    await body.evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await typePager(page, "5");
+    await insideBody("pinned pager input at the bottom", pagerInput(page));
+    await insideBody("in-use badges at the bottom", page.getByTestId("pagers-in-use"));
+    await insideBody("keypad 0 at the bottom", page.getByTestId("pager-key-0"));
+
+    // Payment buttons: one scroll as well.
+    for (const id of ["pay-cash", "pay-transfer"]) {
+      await page.getByTestId(id).scrollIntoViewIfNeeded();
+      await insideBody(id, page.getByTestId(id));
+    }
+    await page.getByTestId("pay-cash").click();
+    await page.getByTestId("quick-amount").last().click();
+    await expect(chargeButton(page)).toBeEnabled();
+    await expectTargets(chargeButton(page), 56, 200);
+    const fb = await footer.boundingBox();
+    const cb = await chargeButton(page).boundingBox();
+    expect(cb!.y + cb!.height).toBeLessThanOrEqual(768);
+    expect(cb!.y).toBeGreaterThanOrEqual(fb!.y);
+    await page.getByTestId("pager-section").evaluate((el) => el.scrollIntoView({ block: "start" }));
+    await insideBody("pager input with the cash block open", pagerInput(page));
+    await shot(page, "pos-laptop-cash-pager-1366x768");
+  });
+});

@@ -269,6 +269,7 @@ test("stale item: a product deactivated while in the ticket is named, removed, n
     await chargeButton(page).click();
     const issues = page.getByTestId("unit-issues");
     await expect(issues).toBeVisible();
+    await expect(issues).toContainText("Quitamos estas unidades del ticket");
     await expect(issues).toContainText("«Huevo simple» ya no está disponible");
     await expect(linesOf(page, "Huevo simple")).toHaveCount(0);
     await expect(linesOf(page, "Ranchita simple")).toHaveCount(1);
@@ -375,4 +376,65 @@ test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a fail
   await page.getByTestId("reprint").click();
   await expect(status).toHaveAttribute("data-status", "printing");
   await expect(async () => expect(await jobsOf(order.id)).toHaveLength(6)).toPass();
+});
+
+test("network error on charge: ticket intact, retry reuses the SAME key (one order); an edited ticket gets a NEW key", async ({ page }) => {
+  test.setTimeout(60_000);
+  await releaseCounterState();
+  const station = await findStation(STATION);
+  const storedKey = async () => {
+    const raw = await page.evaluate((k) => sessionStorage.getItem(k), `bh_pos_key_v1:${station.id}`);
+    return raw ? (JSON.parse(raw) as { k: string }).k : null;
+  };
+  let lose = false;
+  await page.route("**/mostrador", async (route) => {
+    if (lose && route.request().method() === "POST" && route.request().headers()["next-action"]) {
+      lose = false;
+      await route.fetch(); // the server DOES process it...
+      await route.fulfill({ status: 500, body: "boom" }); // ...but the answer is lost
+    } else await route.continue();
+  });
+  await openPos(page);
+  const before = await counterOrderCount();
+
+  // 1) Lost response, then an unchanged retry: same key, ONE order.
+  await tileMain(page, "Ranchita simple").click();
+  await readySale(page, { pager: "5" });
+  lose = true;
+  await chargeButton(page).click();
+  await expect(page.getByTestId("sale-error")).toBeVisible();
+  await expect(overlay(page)).toHaveCount(0);
+  await expect(ticketLines(page)).toHaveCount(1);
+  // The lost sale already holds pager 5 (the page learns it from the live event): the retry must still be allowed.
+  await expect(page.locator('[data-testid="pager-badge"][data-pager="5"]')).toBeVisible();
+  await expect(chargeButton(page)).toBeEnabled(); // retryable
+  const key1 = await storedKey();
+  expect(key1).not.toBeNull();
+  await chargeButton(page).click();
+  await expect(overlay(page)).toBeVisible();
+  expect(await counterOrderCount()).toBe(before + 1);
+  const first = await latestCounterOrder();
+  expect(first.idempotencyKey).toBe(key1);
+  await page.getByTestId("new-sale").click();
+
+  // 2) Lost response, then the ticket is EDITED before retrying: a new key, a second order.
+  await tileMain(page, "Ranchita simple").click();
+  await readySale(page, { pager: "6" });
+  lose = true;
+  await chargeButton(page).click();
+  await expect(page.getByTestId("sale-error")).toBeVisible();
+  const key2 = await storedKey();
+  expect(key2).not.toBe(key1);
+  const lost = await latestCounterOrder();
+  expect(lost.idempotencyKey).toBe(key2);
+  await tileMain(page, "Melt simple").click();
+  // (the lost sale holds pager 6, so the edited ticket also needs another number)
+  await page.getByTestId("pager-key-back").click();
+  await typePager(page, "7");
+  await chargeButton(page).click();
+  await expect(overlay(page)).toBeVisible();
+  const retried = await latestCounterOrder();
+  expect(retried.id).not.toBe(lost.id);
+  expect(retried.idempotencyKey).not.toBe(key2);
+  expect(await counterOrderCount()).toBe(before + 3);
 });

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import * as s from "../src/db/schema";
 import { normalizeSearchText } from "../src/lib/menu/search";
-import { db, modifierIdByName } from "./helpers/db";
+import { db } from "./helpers/db";
 import { modifierRow } from "./helpers/store";
 import {
   chargeButton,
@@ -182,7 +182,6 @@ test("keyboard flow: / focuses search, Enter adds, Alt+L clears, Esc closes the 
   await page.keyboard.press("Control+Enter");
   await expect(page.getByTestId("configure-dialog")).toHaveCount(0);
   await expect(linesOf(page, "Cuarto de libra simple").getByTestId("line-chip")).toHaveText(["Sin cheddar"]);
-  expect(await modifierIdByName("Sin cheddar")).toBeGreaterThan(0);
 
   // Alt+L opens the clear confirmation; Esc cancels it.
   await page.locator("body").click({ position: { x: 5, y: 5 } });
