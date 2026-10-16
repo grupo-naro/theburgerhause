@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
-import { settleCadetAction } from "@/app/(staff)/despacho/rendicion/actions";
+import { settleCadetAction } from "@/app/(staff)/delivery/rendicion/actions";
 import { useGuardedAction } from "@/components/caja/use-guarded-action";
 import { buildReceipt, mismatchMessage, pluralOrders } from "@/lib/rendicion/receipt";
 import { formatMoney } from "@/lib/rendicion/shortage";
@@ -111,7 +111,7 @@ export function CadetDetail({ detail, serverNow, settledByName, historyAll, hist
   const owes = !done && expected > 0;
   return (
     <div data-testid="cadet-detail" data-cadet-id={cadetId} className="space-y-5">
-      <Link href="/despacho/rendicion" data-testid="back-to-list" className="inline-flex min-h-12 items-center text-base font-bold text-brand-600 underline underline-offset-4">
+      <Link href="/delivery/rendicion" data-testid="back-to-list" className="inline-flex min-h-12 items-center text-base font-bold text-brand-600 underline underline-offset-4">
         ← Todos los cadetes
       </Link>
 
@@ -174,7 +174,7 @@ export function CadetDetail({ detail, serverNow, settledByName, historyAll, hist
                   Imprimir comprobante
                 </button>
                 <Link
-                  href="/despacho/rendicion"
+                  href="/delivery/rendicion"
                   data-testid="back-after-settle"
                   className="flex min-h-14 items-center justify-center rounded-full border-2 border-ink px-6 font-display text-lg font-bold hover:bg-brand-50"
                 >

@@ -2,14 +2,14 @@ import { Suspense } from "react";
 import { getDb } from "@/db/client";
 import { CajaBoard } from "@/components/caja/caja-board";
 import { StaffShell, StaffShellFallback } from "@/components/staff/staff-shell";
-import { requireSessionOrRedirect, requireStationOrRedirect } from "@/lib/auth/guards";
+import { requireGeneralView } from "@/lib/auth/workspace";
 import { listFailedPrintJobs, listPendingApproval, listRecentProcessed } from "@/lib/orders/caja-queries";
 
-export const metadata = { title: "Caja · The Burger House 828" };
+export const metadata = { title: "Vista general · The Burger House 828" };
 
 async function CajaPage() {
-  const session = await requireSessionOrRedirect(["cajera", "encargada_delivery", "admin"], "/caja");
-  if (session.user.role !== "admin") requireStationOrRedirect(session, "/caja");
+  // Read-all view, admin only: staff are sent to the workspace of their sector.
+  const session = await requireGeneralView("caja", "/caja");
 
   const db = getDb();
   const now = new Date();
@@ -21,7 +21,7 @@ async function CajaPage() {
 
   return (
     <StaffShell session={session}>
-      <h1 className="sr-only">Caja</h1>
+      <h1 className="sr-only">Vista general · Caja</h1>
       <CajaBoard
         pending={pending}
         recent={recent}

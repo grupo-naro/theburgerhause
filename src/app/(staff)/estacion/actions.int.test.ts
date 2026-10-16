@@ -27,20 +27,39 @@ afterAll(closeDb);
 
 describe("selectStation", () => {
   it("stores the station on the session and device cookie, then goes to the role home", async () => {
-    expect(await redirectOf(selectStation(form({ stationId: String(fx.station) })))).toBe("/caja");
+    expect(await redirectOf(selectStation(form({ stationId: String(fx.station) })))).toBe("/mostrador");
     expect(await stationOf()).toBe(fx.station);
     expect(jar.get("bh_station")).toBe(String(fx.station));
   });
 
   it("honours a safe next and ignores an unsafe one", async () => {
     expect(await redirectOf(selectStation(form({ stationId: String(fx.station), next: "/mostrador" })))).toBe("/mostrador");
-    expect(await redirectOf(selectStation(form({ stationId: String(fx.station), next: "//evil.com" })))).toBe("/caja");
+    expect(await redirectOf(selectStation(form({ stationId: String(fx.station), next: "//evil.com" })))).toBe("/mostrador");
   });
 
   it.each(["99999", "abc", "-1", ""])("rejects station id %j without side effects", async (id) => {
     expect(await redirectOf(selectStation(form({ stationId: id })))).toBe("/estacion");
     expect(jar.has("bh_station")).toBe(false);
     expect(await stationOf()).toBeNull();
+  });
+
+  it("a cashier cannot sit at a Delivery station (unsupported combination): back to the picker with the reason, nothing stored", async () => {
+    expect(await redirectOf(selectStation(form({ stationId: String(fx.deliveryStation), next: "/retiro" })))).toBe(
+      "/estacion?next=%2Fretiro&motivo=sector",
+    );
+    expect(jar.has("bh_station")).toBe(false);
+    expect(await stationOf()).toBeNull();
+  });
+
+  it("the delivery manager can sit at Delivery but not at Mostrador; admin anywhere", async () => {
+    const { token } = await createSession(testDb(), { userId: fx.enca });
+    jar.set("bh_session", token);
+    expect(await redirectOf(selectStation(form({ stationId: String(fx.station) })))).toBe("/estacion?motivo=sector");
+    expect(await redirectOf(selectStation(form({ stationId: String(fx.deliveryStation) })))).toBe("/delivery");
+    const admin = await createSession(testDb(), { userId: fx.admin });
+    jar.set("bh_session", admin.token);
+    expect(await redirectOf(selectStation(form({ stationId: String(fx.deliveryStation) })))).toBe("/admin");
+    expect(await redirectOf(selectStation(form({ stationId: String(fx.station) })))).toBe("/admin");
   });
 
   it("requires a session", async () => {

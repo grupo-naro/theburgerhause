@@ -5,7 +5,7 @@ import { getDb } from "@/db/client";
 import { LiveRefresh } from "@/components/live/live-refresh";
 import { LogoutButton } from "@/components/logout-button";
 import type { AuthSession } from "@/lib/auth/roles";
-import { navLinksForRole } from "@/lib/caja/nav";
+import { navLinksFor } from "@/lib/caja/nav";
 import { derivePrinterStatus } from "@/lib/caja/printer-status";
 import { getStationHeader } from "@/lib/stations/header";
 import { PrinterHeartbeatRefresh } from "./printer-heartbeat-refresh";
@@ -45,7 +45,7 @@ export async function StaffShell({ session, children }: { session: AuthSession; 
           <LogoutButton />
         </div>
       </header>
-      <StaffNav links={navLinksForRole(session.user.role)} />
+      <StaffNav links={navLinksFor(session.user.role, session.stationKind)} />
       <main className="min-w-0 px-4 py-6 sm:px-6 lg:col-start-2 lg:row-start-2">{children}</main>
     </div>
   );

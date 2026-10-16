@@ -124,7 +124,7 @@ export function EnRouteCard({ group, phone, now, caps }: { group: EnRouteGroup; 
 
       {caps.canRender && (
         <Link
-          href={`/despacho/rendicion?cadet=${cadet.id}`}
+          href={`/delivery/rendicion?cadet=${cadet.id}`}
           data-testid="render-link"
           className="mt-4 flex min-h-14 items-center justify-center rounded-full border-2 border-state-route px-5 font-display text-lg font-bold text-state-route hover:bg-violet-50"
         >

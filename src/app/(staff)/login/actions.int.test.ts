@@ -35,9 +35,9 @@ describe("login action", () => {
     expect(jar.has("bh_session")).toBe(false);
   });
 
-  it("sends a cajera with a valid station cookie to /caja and stores the station on the session", async () => {
+  it("sends a cajera with a valid station cookie to /mostrador and stores the station on the session", async () => {
     jar.set("bh_station", String(fx.station));
-    expect(await redirectOf(login(prev, form({ username: "cora", password: PASSWORD })))).toBe("/caja");
+    expect(await redirectOf(login(prev, form({ username: "cora", password: PASSWORD })))).toBe("/mostrador");
     const rows = await sessions();
     expect(rows).toHaveLength(1);
     expect(rows[0].stationId).toBe(fx.station);
@@ -48,6 +48,18 @@ describe("login action", () => {
     if (cookie) jar.set("bh_station", cookie);
     expect(await redirectOf(login(prev, form({ username: "cora", password: PASSWORD })))).toBe("/estacion");
     expect((await sessions())[0].stationId).toBeNull();
+  });
+
+  it("a cashier whose device cookie points at a Delivery station is sent to pick another one, no station stored", async () => {
+    jar.set("bh_station", String(fx.deliveryStation));
+    expect(await redirectOf(login(prev, form({ username: "cora", password: PASSWORD })))).toBe("/estacion?motivo=sector");
+    expect((await sessions())[0].stationId).toBeNull();
+  });
+
+  it("the delivery manager with the Delivery cookie goes straight to Gestión Delivery", async () => {
+    jar.set("bh_station", String(fx.deliveryStation));
+    expect(await redirectOf(login(prev, form({ username: "enca", password: PASSWORD })))).toBe("/delivery");
+    expect((await sessions())[0].stationId).toBe(fx.deliveryStation);
   });
 
   it("carries a safe next through /estacion", async () => {
@@ -65,7 +77,7 @@ describe("login action", () => {
   it.each(["//evil.com", "https://evil.com", "/login"])("ignores unsafe next %j", async (next) => {
     expect(await redirectOf(login(prev, form({ username: "admin", password: PASSWORD, next })))).toBe("/admin");
     jar.set("bh_station", String(fx.station));
-    expect(await redirectOf(login(prev, form({ username: "cora", password: PASSWORD, next })))).toBe("/caja");
+    expect(await redirectOf(login(prev, form({ username: "cora", password: PASSWORD, next })))).toBe("/mostrador");
   });
 
   it("rate-limits the 6th attempt for the same ip|username", async () => {

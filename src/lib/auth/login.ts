@@ -41,8 +41,8 @@ export async function authenticate(
 
 const ROLE_HOME: Record<Role, string> = {
   admin: "/admin",
-  cajera: "/caja",
-  encargada_delivery: "/despacho",
+  cajera: "/mostrador",
+  encargada_delivery: "/delivery",
 };
 
 export function roleHome(role: Role): string {

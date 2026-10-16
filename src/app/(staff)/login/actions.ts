@@ -9,7 +9,9 @@ import { checkLoginRate } from "@/lib/auth/login-rate-limit";
 import { setSessionCookie } from "@/lib/auth/session";
 import { createSession, setSessionStation } from "@/lib/auth/session-store";
 import { getStationCookie } from "@/lib/auth/station-cookie";
+import { WRONG_STATION_REASON } from "@/lib/auth/workspace";
 import { clientIp } from "@/lib/client-ip";
+import { stationAllowedForRole } from "@/lib/orders/sector";
 import { findStation } from "@/lib/stations";
 
 export type LoginState = { error: string | null };
@@ -45,7 +47,11 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   } else {
     const stationId = await getStationCookie();
     const station = stationId === null ? null : await findStation(db, stationId);
-    if (station) {
+    if (station && !stationAllowedForRole(user.role, station.kind)) {
+      // A device left on the other kind of station: pick again (the page explains why).
+      const safe = safeNextPath(next, "");
+      destination = `/estacion?${safe ? `next=${encodeURIComponent(safe)}&` : ""}motivo=${WRONG_STATION_REASON}`;
+    } else if (station) {
       await setSessionStation(db, token, station.id);
       destination = safeNextPath(next, roleHome(user.role));
     } else {

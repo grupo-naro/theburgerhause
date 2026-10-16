@@ -8,6 +8,8 @@ import { roleHome, safeNextPath } from "@/lib/auth/login";
 import { getSessionToken } from "@/lib/auth/session";
 import { setSessionStation } from "@/lib/auth/session-store";
 import { setStationCookie } from "@/lib/auth/station-cookie";
+import { stationAllowedForRole } from "@/lib/orders/sector";
+import { WRONG_STATION_REASON } from "@/lib/auth/workspace";
 import { findStation } from "@/lib/stations";
 
 export async function selectStation(formData: FormData): Promise<void> {
@@ -22,6 +24,11 @@ export async function selectStation(formData: FormData): Promise<void> {
   const station = await findStation(db, id.data);
   const token = await getSessionToken();
   if (!station || !token) redirect(back);
+
+  // One workspace per sector: staff sit at a station of their own kind (admin anywhere).
+  if (!stationAllowedForRole(session.user.role, station.kind)) {
+    redirect(`/estacion?${next ? `next=${encodeURIComponent(next)}&` : ""}motivo=${WRONG_STATION_REASON}`);
+  }
 
   await setSessionStation(db, token, station.id);
   await setStationCookie(station.id);

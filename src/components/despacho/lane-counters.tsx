@@ -1,6 +1,7 @@
 "use client";
 
 import type { LaneCounts } from "@/lib/despacho/lanes";
+import type { LaneId } from "@/lib/caja/workspaces";
 
 const ITEMS = [
   { key: "preparing", lane: "preparing", label: "En preparación", dot: "bg-state-preparing" },
@@ -10,7 +11,7 @@ const ITEMS = [
 ] as const;
 
 /** Header counters: each is a button that jumps to (and focuses) its lane. */
-export function LaneCounters({ counts }: { counts: LaneCounts }) {
+export function LaneCounters({ counts, lanes }: { counts: LaneCounts; lanes?: readonly LaneId[] }) {
   const jump = (lane: string) => {
     const section = document.getElementById(`lane-${lane}`);
     const heading = document.getElementById(`lane-${lane}-h`);
@@ -18,8 +19,8 @@ export function LaneCounters({ counts }: { counts: LaneCounts }) {
     heading?.focus({ preventScroll: true });
   };
   return (
-    <nav aria-label="Resumen del tablero" className="grid grid-cols-2 gap-2 md:grid-cols-4">
-      {ITEMS.map((i) => {
+    <nav aria-label="Resumen del tablero" className={`grid grid-cols-2 gap-2 ${(lanes?.length ?? 4) === 3 ? "md:grid-cols-3" : "md:grid-cols-4"}`}>
+      {ITEMS.filter((i) => !lanes || lanes.includes(i.lane)).map((i) => {
         const n = counts[i.key];
         const hot = i.key === "ready" && counts.readyDelivery > 0;
         return (

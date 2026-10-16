@@ -31,7 +31,7 @@ describe("safeNextPath", () => {
 describe("roleHome", () => {
   it("maps each role to its landing page", () => {
     expect(roleHome("admin")).toBe("/admin");
-    expect(roleHome("cajera")).toBe("/caja");
-    expect(roleHome("encargada_delivery")).toBe("/despacho");
+    expect(roleHome("cajera")).toBe("/mostrador");
+    expect(roleHome("encargada_delivery")).toBe("/delivery");
   });
 });

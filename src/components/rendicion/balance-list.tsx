@@ -19,7 +19,7 @@ function CadetCard({ c, now }: { c: CadetBalance; now: Date }) {
         <div className="min-w-0">
           <h2 className="font-display text-2xl leading-tight font-extrabold break-words">
             <Link
-              href={`/despacho/rendicion?cadet=${c.cadetId}`}
+              href={`/delivery/rendicion?cadet=${c.cadetId}`}
               data-testid="cadet-open"
               className="rounded-md after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-offset-4"
             >

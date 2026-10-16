@@ -9,7 +9,7 @@ const FLASH_INTERVAL_MS = 1000;
  * Keeps `document.title` at `(N) Caja`; while `alert` is on it alternates with `¡Nuevo pedido!`.
  * (When the page is unmounted the previous title is restored.)
  */
-export function useDocumentTitle(pending: number, alert: boolean): void {
+export function useDocumentTitle(pending: number, alert: boolean, base?: string): void {
   const [phase, setPhase] = useState(false);
 
   useEffect(() => {
@@ -26,6 +26,6 @@ export function useDocumentTitle(pending: number, alert: boolean): void {
   }, [alert]);
 
   useEffect(() => {
-    document.title = buildTitle({ pending, alert: alert && phase });
-  }, [pending, alert, phase]);
+    document.title = buildTitle({ pending, alert: alert && phase, base });
+  }, [pending, alert, phase, base]);
 }

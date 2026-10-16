@@ -17,7 +17,7 @@ export type SoundHint = "off" | "locked" | null;
  * Everything the cashier perceives when an order arrives: a beep (opt-in), a highlight on the new
  * card (~4 s), the tab title, and a polite live-region message. The FIRST render never alerts.
  */
-export function useNewOrderAlert(orders: Watched[]) {
+export function useNewOrderAlert(orders: Watched[], titleBase?: string) {
   const soundOn = useSoundPreference();
   const beeper = useRef<Beeper | null>(null);
   const seen = useRef<Set<number> | null>(null);
@@ -65,7 +65,7 @@ export function useNewOrderAlert(orders: Watched[]) {
       document.removeEventListener("visibilitychange", seenIt);
     };
   }, []);
-  useDocumentTitle(orders.length, titleAlert);
+  useDocumentTitle(orders.length, titleAlert, titleBase);
 
   // A stored "on" needs one user gesture per page load before the browser lets us play.
   useEffect(() => {

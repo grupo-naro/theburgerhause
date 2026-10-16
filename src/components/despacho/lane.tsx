@@ -19,11 +19,13 @@ type Props = {
   className?: string;
   /** Sub-lane inside another lane: smaller heading, lighter frame. */
   sub?: boolean;
+  /** Cards in a responsive multi-column grid (a lane that has the whole page for itself). */
+  wide?: boolean;
   children: ReactNode;
 };
 
 /** A titled lane (column / section) of the board. The heading is focusable so counters can jump to it. */
-export function Lane({ id, title, count, tone, empty, actions, className = "", sub = false, children }: Props) {
+export function Lane({ id, title, count, tone, empty, actions, className = "", sub = false, wide = false, children }: Props) {
   const t = TONES[tone];
   const Heading = sub ? "h3" : "h2";
   return (
@@ -47,7 +49,7 @@ export function Lane({ id, title, count, tone, empty, actions, className = "", s
           {empty}
         </p>
       ) : (
-        <div className="space-y-3">{children}</div>
+        <div className={wide ? "grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>{children}</div>
       )}
     </section>
   );

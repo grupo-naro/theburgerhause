@@ -19,3 +19,11 @@ describe("buildTitle", () => {
     expect(buildTitle({ pending: 2.9, alert: false })).toBe("(2) Caja");
   });
 });
+
+describe("buildTitle base", () => {
+  it("a workspace can name its own base title", () => {
+    expect(buildTitle({ pending: 2, alert: false, base: "Gestión Delivery" })).toBe("(2) Gestión Delivery");
+    expect(buildTitle({ pending: 0, alert: false, base: "Retiro en local" })).toBe("Retiro en local");
+    expect(buildTitle({ pending: 2, alert: true, base: "Retiro en local" })).toBe("(2) ¡Nuevo pedido!");
+  });
+});
