@@ -10,6 +10,7 @@ import {
   orderIdInputSchema,
   returnToDispatchInputSchema,
 } from "./dispatch-schemas";
+import { decideSector, sectorOfFulfillment, type Sector } from "./sector";
 import { transitionOrder, UNEXPECTED_MESSAGE, type OrderFailure } from "./transition";
 
 /**
@@ -27,6 +28,7 @@ export type DispatchFailureCode =
   | "CADET_INACTIVE"
   | "CADET_NOT_FOUND"
   | "NOT_DELIVERY"
+  | "WRONG_SECTOR"
   | "UNEXPECTED";
 export type DispatchFailureDetail = { orderId: number; orderNumber: number | null; reason: string };
 export type DispatchFailure = {
@@ -38,6 +40,8 @@ export type DispatchFailure = {
 };
 export type DispatchResult<T> = { ok: true; data: T } | DispatchFailure;
 export type DispatchContext = { now?: Date };
+/** Every operation takes the acting station's `sector` (null/undefined = admin, exempt): other sectors' orders are refused with WRONG_SECTOR before any write. */
+export type SectorInput = { sector?: Sector | null };
 
 export type DispatchOrderData = {
   orderId: number;
@@ -107,11 +111,13 @@ type Move = {
 };
 
 /** Lock -> validate with the domain table -> transition core, all in one transaction. */
-async function move(db: Db, orderId: number, userId: number, m: Move): Promise<DispatchResult<DispatchOrderData>> {
+async function move(db: Db, orderId: number, userId: number, sector: Sector | null | undefined, m: Move): Promise<DispatchResult<DispatchOrderData>> {
   try {
     return await db.transaction(async (tx): Promise<DispatchResult<DispatchOrderData>> => {
       const o = await lockOrder(tx, orderId);
       if (!o) return fail("NOT_FOUND", "El pedido no existe");
+      const sectorOk = decideSector(sector, o.fulfillment);
+      if (!sectorOk.ok) return fail("WRONG_SECTOR", sectorOk.message);
       const early = m.pre?.(o);
       if (early) return early;
       if (o.status !== (typeof m.from === "function" ? m.from(o) : m.from) || !canTransition(o.status, m.to, o.fulfillment)) return fail("INVALID_TRANSITION", stateOf(o.number, o.status, m.refusal));
@@ -130,10 +136,10 @@ async function move(db: Db, orderId: number, userId: number, m: Move): Promise<D
 }
 
 /** en_preparacion -> listo_despacho, web and counter orders alike. */
-export async function markReady(db: Db, raw: { orderId: number; userId: number }): Promise<DispatchResult<DispatchOrderData>> {
+export async function markReady(db: Db, raw: { orderId: number; userId: number } & SectorInput): Promise<DispatchResult<DispatchOrderData>> {
   const input = orderIdInputSchema.safeParse(raw);
   if (!input.success) return fail("VALIDATION", "Solicitud inválida");
-  return move(db, input.data.orderId, input.data.userId, {
+  return move(db, input.data.orderId, input.data.userId, raw.sector, {
     op: "markReady",
     from: "en_preparacion",
     to: "listo_despacho",
@@ -142,10 +148,10 @@ export async function markReady(db: Db, raw: { orderId: number; userId: number }
 }
 
 /** listo_despacho -> para_retirar, takeaway orders only (delivery goes out with a cadet). */
-export async function markPickup(db: Db, raw: { orderId: number; userId: number }): Promise<DispatchResult<DispatchOrderData>> {
+export async function markPickup(db: Db, raw: { orderId: number; userId: number } & SectorInput): Promise<DispatchResult<DispatchOrderData>> {
   const input = orderIdInputSchema.safeParse(raw);
   if (!input.success) return fail("VALIDATION", "Solicitud inválida");
-  return move(db, input.data.orderId, input.data.userId, {
+  return move(db, input.data.orderId, input.data.userId, raw.sector, {
     op: "markPickup",
     from: "listo_despacho",
     to: "para_retirar",
@@ -165,7 +171,7 @@ export async function markPickup(db: Db, raw: { orderId: number; userId: number 
  */
 export async function markDelivered(
   db: Db,
-  raw: { orderId: number; userId: number; collected?: boolean },
+  raw: { orderId: number; userId: number; collected?: boolean } & SectorInput,
   ctx: DispatchContext = {},
 ): Promise<DispatchResult<DispatchOrderData>> {
   const input = markDeliveredInputSchema.safeParse(raw);
@@ -173,7 +179,7 @@ export async function markDelivered(
   const { orderId, userId, collected } = input.data;
   const at = ctx.now ?? new Date();
   const collects = (o: LockedOrder) => o.fulfillment === "takeaway" && o.paymentStatus === "pending";
-  return move(db, orderId, userId, {
+  return move(db, orderId, userId, raw.sector, {
     op: "markDelivered",
     // The domain table also allows para_retirar -> entregado for any order; a delivery order is
     // only delivered from en_camino and a takeaway one from para_retirar.
@@ -191,11 +197,11 @@ export async function markDelivered(
 /** en_camino -> listo_despacho (failed delivery): clears the cadet; the reason goes in the event note. */
 export async function returnToDispatch(
   db: Db,
-  raw: { orderId: number; userId: number; reason: string },
+  raw: { orderId: number; userId: number; reason: string } & SectorInput,
 ): Promise<DispatchResult<DispatchOrderData>> {
   const input = returnToDispatchInputSchema.safeParse(raw);
   if (!input.success) return fail("VALIDATION", input.error.issues[0]?.message ?? "Solicitud inválida");
-  return move(db, input.data.orderId, input.data.userId, {
+  return move(db, input.data.orderId, input.data.userId, raw.sector, {
     op: "returnToDispatch",
     from: "en_camino",
     to: "listo_despacho",
@@ -233,7 +239,7 @@ class AbortAssign extends Error {
  */
 export async function assignCadet(
   db: Db,
-  raw: { orderIds: number[]; cadetId: number; userId: number },
+  raw: { orderIds: number[]; cadetId: number; userId: number } & SectorInput,
 ): Promise<DispatchResult<AssignCadetData>> {
   const input = assignCadetInputSchema.safeParse(raw);
   if (!input.success) return fail("VALIDATION", input.error.issues[0]?.message ?? "Solicitud inválida");
@@ -264,6 +270,9 @@ export async function assignCadet(
         if (!o) {
           codes.add("NOT_FOUND");
           details.push({ orderId: id, orderNumber: null, reason: "El pedido no existe" });
+        } else if (raw.sector != null && sectorOfFulfillment(o.fulfillment) !== raw.sector) {
+          codes.add("WRONG_SECTOR");
+          details.push({ orderId: id, orderNumber: o.number, reason: "Es de otro sector: lo gestiona la otra estación" });
         } else if (o.fulfillment !== "delivery") {
           codes.add("NOT_DELIVERY");
           details.push({ orderId: id, orderNumber: o.number, reason: "Es un pedido para retirar: no lleva cadete" });
@@ -275,9 +284,11 @@ export async function assignCadet(
       if (details.length > 0) {
         const code: DispatchFailureCode = codes.has("NOT_FOUND")
           ? "NOT_FOUND"
-          : codes.has("NOT_DELIVERY")
-            ? "NOT_DELIVERY"
-            : "INVALID_TRANSITION";
+          : codes.has("WRONG_SECTOR")
+            ? "WRONG_SECTOR"
+            : codes.has("NOT_DELIVERY")
+              ? "NOT_DELIVERY"
+              : "INVALID_TRANSITION";
         const list = details.map((d) => `${d.orderNumber === null ? `#${d.orderId}` : `#${d.orderNumber}`} (${d.reason})`).join("; ");
         return fail(code, `No se asignó ningún pedido. ${list}`, details);
       }

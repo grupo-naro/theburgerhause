@@ -28,6 +28,7 @@ import { revokeSessionsAction, saveUserAction, toggleUserActiveAction } from "./
 const session = (role: "admin" | "cajera", id = 1): AuthSession => ({
   user: { id, name: "U", username: "u", role },
   stationId: null,
+  stationKind: null,
   sessionId: "x",
 });
 const asAdmin = (id = 1) => vi.mocked(requireRole).mockResolvedValue(session("admin", id));

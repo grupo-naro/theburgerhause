@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Db } from "@/db/client";
 import { pgErrorCode } from "./create-order";
 import { cleanText } from "./schemas";
+import type { Sector } from "./sector";
 import { failure, transitionOrder, UNEXPECTED_MESSAGE, type OrderResult } from "./transition";
 
 /** Cashier rejection: pendiente_aprobacion -> cancelado with a reason. No print jobs. No next/*. */
@@ -19,7 +20,7 @@ export const rejectReasonSchema = z
 const id = z.number().int().positive().max(2_147_483_647);
 const inputSchema = z.object({ orderId: id, userId: id });
 
-export type RejectOrderInput = { orderId: number; userId: number; reason: string };
+export type RejectOrderInput = { orderId: number; userId: number; reason: string; sector?: Sector | null };
 export type RejectOrderData = { orderId: number; status: "cancelado" };
 
 export async function rejectOrder(db: Db, raw: RejectOrderInput): Promise<OrderResult<RejectOrderData>> {
@@ -35,6 +36,7 @@ export async function rejectOrder(db: Db, raw: RejectOrderInput): Promise<OrderR
         to: "cancelado",
         userId: ids.data.userId,
         from: ["pendiente_aprobacion"],
+        sector: raw.sector,
         note: reason.data,
       });
       if (!moved.ok) return moved;

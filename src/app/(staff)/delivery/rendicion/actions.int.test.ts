@@ -21,9 +21,11 @@ import { deliveredOrder, sumTotals } from "@/test-support/settlements";
 import { settleCadetAction } from "./actions";
 
 let fx: Fx;
+/** Staff sit at a station of their own kind (cashier: Mostrador, delivery manager: Delivery); admin needs none. */
 const session = (role: Role, userId = fx.userId): AuthSession => ({
   user: { id: userId, name: "U", username: "u", role },
-  stationId: null,
+  stationId: role === "cajera" ? fx.stationId : role === "encargada_delivery" ? fx.otherStationId : null,
+  stationKind: role === "cajera" ? "mostrador" : role === "encargada_delivery" ? "delivery" : null,
   sessionId: "x",
 });
 /** Mimics the real requireRole: the session is returned only when its role is allowed. */
@@ -205,5 +207,45 @@ describe("module shape", () => {
       expect(value.constructor.name, name).toBe("AsyncFunction");
     }
     expect(Object.keys(mod)).toEqual(["settleCadetAction"]);
+  });
+});
+
+describe("sector rule (server side)", () => {
+  it("an encargada sitting at a Mostrador station gets WRONG_SECTOR and nothing is settled", async () => {
+    const { cadet, ids, owed } = await debt();
+    vi.mocked(requireRole).mockImplementation(async () => ({
+      user: { id: fx.userId, name: "U", username: "u", role: "encargada_delivery" },
+      stationId: fx.stationId,
+      stationKind: "mostrador",
+      sessionId: "x",
+    }));
+    const r = await settleCadetAction({ cadetId: cadet.id, expectedAmount: owed });
+    expect(r).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(core.settleCadet).not.toHaveBeenCalled();
+    expect((await orderRow(ids[0])).paymentStatus).toBe("pending");
+    expect(await testDb().select().from(s.settlements)).toHaveLength(0);
+  });
+
+  it("an encargada without a station is refused (STATION_REQUIRED) before the core", async () => {
+    const { cadet, owed } = await debt();
+    vi.mocked(requireRole).mockImplementation(async () => ({
+      user: { id: fx.userId, name: "U", username: "u", role: "encargada_delivery" },
+      stationId: null,
+      stationKind: null,
+      sessionId: "x",
+    }));
+    expect(await settleCadetAction({ cadetId: cadet.id, expectedAmount: owed })).toMatchObject({ ok: false, code: "STATION_REQUIRED" });
+    expect(core.settleCadet).not.toHaveBeenCalled();
+  });
+
+  it("admin is exempt even on a Mostrador station", async () => {
+    const { cadet, owed } = await debt();
+    vi.mocked(requireRole).mockImplementation(async () => ({
+      user: { id: fx.userId, name: "U", username: "u", role: "admin" },
+      stationId: fx.stationId,
+      stationKind: "mostrador",
+      sessionId: "x",
+    }));
+    expect(await settleCadetAction({ cadetId: cadet.id, expectedAmount: owed })).toMatchObject({ ok: true });
   });
 });

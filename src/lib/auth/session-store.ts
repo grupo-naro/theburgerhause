@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { eq, lt } from "drizzle-orm";
 import type { Db, DbTransaction } from "@/db/client";
-import { sessions, users } from "@/db/schema";
+import { sessions, stations, users } from "@/db/schema";
 import type { AuthSession } from "@/lib/auth/roles";
 
 type Executor = Db | DbTransaction;
@@ -38,6 +38,7 @@ export async function validateSessionToken(
     .select({
       expiresAt: sessions.expiresAt,
       stationId: sessions.stationId,
+      stationKind: stations.kind,
       userId: users.id,
       name: users.name,
       username: users.username,
@@ -46,6 +47,7 @@ export async function validateSessionToken(
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
+    .leftJoin(stations, eq(stations.id, sessions.stationId))
     .where(eq(sessions.id, id));
   if (!row || !row.active) return null;
   const remaining = row.expiresAt.getTime() - now.getTime();
@@ -59,6 +61,7 @@ export async function validateSessionToken(
   return {
     user: { id: row.userId, name: row.name, username: row.username, role: row.role },
     stationId: row.stationId,
+    stationKind: row.stationKind ?? null,
     sessionId: id,
   };
 }

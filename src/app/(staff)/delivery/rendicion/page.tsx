@@ -4,7 +4,7 @@ import { getDb } from "@/db/client";
 import { BalanceList } from "@/components/rendicion/balance-list";
 import { CadetDetail } from "@/components/rendicion/cadet-detail";
 import { StaffShell, StaffShellFallback } from "@/components/staff/staff-shell";
-import { requireSessionOrRedirect, requireStationOrRedirect } from "@/lib/auth/guards";
+import { requireWorkspace } from "@/lib/auth/workspace";
 import { getCadetSettlementDetail, listCadetBalances, listSettlements } from "@/lib/settlements/queries";
 
 export const metadata = { title: "Rendición · The Burger House 828" };
@@ -26,16 +26,15 @@ function NotFound() {
     <div data-testid="cadet-not-found" className="mx-auto max-w-xl space-y-4 rounded-2xl border border-line bg-surface px-6 py-10 text-center">
       <h1 className="font-display text-3xl font-extrabold">No encontramos a ese cadete</h1>
       <p className="text-lg text-ink-muted">El enlace puede estar mal o el cadete ya no existe.</p>
-      <Link href="/despacho/rendicion" className="inline-flex min-h-14 items-center rounded-full bg-brand-600 px-6 font-display text-lg font-bold text-white hover:bg-brand-700">
+      <Link href="/delivery/rendicion" className="inline-flex min-h-14 items-center rounded-full bg-brand-600 px-6 font-display text-lg font-bold text-white hover:bg-brand-700">
         Volver a rendiciones
       </Link>
     </div>
   );
 }
 
-async function RendicionPage({ searchParams }: PageProps<"/despacho/rendicion">) {
-  const session = await requireSessionOrRedirect(["encargada_delivery", "admin"], "/despacho/rendicion");
-  if (session.user.role !== "admin") requireStationOrRedirect(session, "/despacho/rendicion");
+async function RendicionPage({ searchParams }: PageProps<"/delivery/rendicion">) {
+  const { session } = await requireWorkspace("delivery", ["encargada_delivery", "admin"], "/delivery/rendicion");
 
   const sp = await searchParams;
   const cadet = parseCadetParam(sp.cadet);
@@ -74,7 +73,7 @@ async function RendicionPage({ searchParams }: PageProps<"/despacho/rendicion">)
 }
 
 /** Dynamic (cookies + DB): everything runs inside Suspense; the guards run in the page itself. */
-export default function Page(props: PageProps<"/despacho/rendicion">) {
+export default function Page(props: PageProps<"/delivery/rendicion">) {
   return (
     <Suspense fallback={<StaffShellFallback />}>
       <RendicionPage {...props} />

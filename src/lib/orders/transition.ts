@@ -4,6 +4,7 @@ import * as s from "@/db/schema";
 import { canTransition, type Fulfillment, type OrderStatus } from "@/domain/order-status";
 import { ORDERS_CHANNEL } from "@/lib/events/channels";
 import { notifyInTx } from "@/lib/events/notify";
+import { decideSector, type Sector } from "./sector";
 
 /**
  * Generic, reusable order state transition. No next/* imports. MUST run inside the caller's
@@ -12,7 +13,7 @@ import { notifyInTx } from "@/lib/events/notify";
  * realtime notification (delivered only if the caller's transaction commits).
  */
 
-export type OrderFailureCode = "NOT_FOUND" | "INVALID_TRANSITION" | "VALIDATION" | "STATION_REQUIRED" | "UNEXPECTED";
+export type OrderFailureCode = "NOT_FOUND" | "INVALID_TRANSITION" | "VALIDATION" | "STATION_REQUIRED" | "WRONG_SECTOR" | "UNEXPECTED";
 export type OrderFailure = { ok: false; code: OrderFailureCode; message: string };
 export type OrderResult<T> = { ok: true; data: T } | OrderFailure;
 
@@ -50,6 +51,8 @@ export type TransitionInput = {
   /** Extra allow-list on the CURRENT status, on top of the domain table. */
   from?: OrderStatus[];
   patch?: TransitionPatch;
+  /** Sector of the acting station (null/undefined = admin, exempt): an order of another sector is refused with WRONG_SECTOR before any write. */
+  sector?: Sector | null;
   /** Realtime hint for the ORDERS notify (default "status"; dispatch uses "assigned"). */
   event?: "status" | "assigned";
 };
@@ -74,6 +77,8 @@ export async function transitionOrder(
     .where(eq(s.orders.id, orderId))
     .for("update");
   if (!current) return failure("NOT_FOUND", "El pedido no existe");
+  const sectorOk = decideSector(input.sector, current.fulfillment);
+  if (!sectorOk.ok) return failure("WRONG_SECTOR", sectorOk.message);
 
   const allowed = canTransition(current.status, to, current.fulfillment) && (!input.from || input.from.includes(current.status));
   if (!allowed) return failure("INVALID_TRANSITION", currentStateMessage(current.status));

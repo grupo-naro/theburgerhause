@@ -55,6 +55,7 @@ describe("session-store", () => {
     expect(session).toEqual({
       user: { id: u.id, name: "Eli", username: u.username, role: "encargada_delivery" },
       stationId: st.id,
+      stationKind: "mostrador",
       sessionId: sha256(token),
     });
   });

@@ -2,7 +2,8 @@ export type Role = "admin" | "cajera" | "encargada_delivery";
 
 export type AuthUser = { id: number; name: string; username: string; role: Role };
 
-export type AuthSession = { user: AuthUser; stationId: number | null; sessionId: string };
+/** `stationKind` is the kind of the session station (null without one): it decides the staff sector. */
+export type AuthSession = { user: AuthUser; stationId: number | null; stationKind: "mostrador" | "delivery" | null; sessionId: string };
 
 export class AuthError extends Error {
   readonly code: "UNAUTHENTICATED" | "FORBIDDEN";

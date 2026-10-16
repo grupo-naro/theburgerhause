@@ -11,7 +11,7 @@ import { defaultRevalidate } from "./sse";
 const db = () => testDb();
 const reqWith = (token: string | null) =>
   new Request("http://localhost/api/events", { headers: token ? { cookie: `x=1; ${SESSION_COOKIE}=${token}` } : {} });
-const asSession = (id: number): AuthSession => ({ user: { id, name: "n", username: "u", role: "cajera" }, stationId: null, sessionId: "s" });
+const asSession = (id: number): AuthSession => ({ user: { id, name: "n", username: "u", role: "cajera" }, stationId: null, stationKind: null, sessionId: "s" });
 
 let userId: number;
 beforeEach(async () => {

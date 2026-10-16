@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, gt, inArray, ne, notExists, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, ne, notExists, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import type { Fulfillment, OrderStatus } from "@/domain/order-status";
+import type { Sector } from "./sector";
 import { groupTrackingItems, type SnapshotItem, type TrackingGroup } from "./tracking-groups";
 
 /**
@@ -45,7 +46,24 @@ export type FailedPrintJob = {
   attempts: number;
   createdAt: string;
 };
-export type CajaQueryContext = { now?: Date };
+/**
+ * `sector` keeps only the orders of one sector (delivery orders vs takeaway + counter sales; see sector.ts),
+ * `channel` narrows further (web takeaway vs counter sales). Absent = no filter (admin general views).
+ */
+export type SectorScope = { sector?: Sector | null; channel?: "web" | "counter" | null };
+export type CajaQueryContext = { now?: Date } & SectorScope;
+
+/** SQL predicate of a sector scope on `orders` (undefined = everything). The single SQL home of the sector mapping. */
+export function sectorScopeSql(scope: SectorScope = {}): SQL | undefined {
+  return and(
+    scope.sector == null
+      ? undefined
+      : scope.sector === "delivery"
+        ? eq(s.orders.fulfillment, "delivery")
+        : ne(s.orders.fulfillment, "delivery"),
+    scope.channel == null ? undefined : eq(s.orders.channel, scope.channel),
+  );
+}
 
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 30;
@@ -167,7 +185,7 @@ export async function listPendingApproval(db: Db, ctx: CajaQueryContext = {}): P
   const rows = await db
     .select(orderColumns)
     .from(s.orders)
-    .where(eq(s.orders.status, "pendiente_aprobacion"))
+    .where(and(eq(s.orders.status, "pendiente_aprobacion"), sectorScopeSql(ctx)))
     .orderBy(asc(s.orders.createdAt), asc(s.orders.id));
   return hydrate(db, rows, ctx.now ?? new Date());
 }
@@ -179,14 +197,14 @@ export async function listRecentProcessed(db: Db, opts: { limit?: number } & Caj
   const rows = await db
     .select(orderColumns)
     .from(s.orders)
-    .where(ne(s.orders.status, "pendiente_aprobacion"))
+    .where(and(ne(s.orders.status, "pendiente_aprobacion"), sectorScopeSql(opts)))
     .orderBy(desc(s.orders.createdAt), desc(s.orders.id))
     .limit(limit);
   return hydrate(db, rows, opts.now ?? new Date());
 }
 
 /** UNHANDLED failed print jobs (see UNHANDLED_FAILED), newest first, optionally only those of one station. */
-export async function listFailedPrintJobs(db: Db, stationId?: number): Promise<FailedPrintJob[]> {
+export async function listFailedPrintJobs(db: Db, stationId?: number, scope: SectorScope = {}): Promise<FailedPrintJob[]> {
   const later = alias(s.printJobs, "later");
   const rows = await db
     .select({
@@ -219,6 +237,7 @@ export async function listFailedPrintJobs(db: Db, stationId?: number): Promise<F
             ),
         ),
         stationId === undefined ? undefined : eq(s.printJobs.stationId, stationId),
+        sectorScopeSql(scope),
       ),
     )
     .orderBy(desc(s.printJobs.createdAt), desc(s.printJobs.id))

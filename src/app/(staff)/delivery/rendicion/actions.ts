@@ -5,6 +5,7 @@ import { getDb } from "@/db/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type Role } from "@/lib/auth/roles";
 import { pgErrorCode } from "@/lib/orders/create-order";
+import { actorSectorFor, WRONG_SECTOR_MESSAGE } from "@/lib/orders/sector";
 import { settleCadetPayloadSchema } from "@/lib/settlements/schemas";
 import { settleCadet, type SettleData, type SettleFailure } from "@/lib/settlements/settle-cadet";
 
@@ -23,7 +24,7 @@ import { settleCadet, type SettleData, type SettleFailure } from "@/lib/settleme
 
 export type SettleActionResult =
   | { ok: true; data: SettleData }
-  | { ok: false; code: SettleFailure["code"] | "FORBIDDEN"; message: string; details?: SettleFailure["details"] };
+  | { ok: false; code: SettleFailure["code"] | "FORBIDDEN" | "WRONG_SECTOR" | "STATION_REQUIRED"; message: string; details?: SettleFailure["details"] };
 
 const GENERIC_ERROR = "No se pudo completar la acción. Probá de nuevo.";
 const FORBIDDEN_MESSAGE = "No tenés permisos para realizar esta acción.";
@@ -34,7 +35,12 @@ const SETTLE_ROLES: Role[] = ["encargada_delivery", "admin"];
 export async function settleCadetAction(input: unknown): Promise<SettleActionResult> {
   let userId: number;
   try {
-    userId = (await requireRole(...SETTLE_ROLES)).user.id;
+    const session = await requireRole(...SETTLE_ROLES);
+    userId = session.user.id;
+    // Sector rule, server side: cadet cash belongs to the delivery sector (admin exempt).
+    const actor = actorSectorFor(session.user.role, session.stationKind);
+    if (!actor.ok) return { ok: false, code: "STATION_REQUIRED", message: "Elegí tu estación para trabajar" };
+    if (actor.sector !== null && actor.sector !== "delivery") return { ok: false, code: "WRONG_SECTOR", message: WRONG_SECTOR_MESSAGE };
   } catch (e) {
     if (e instanceof AuthError) {
       if (e.code === "UNAUTHENTICATED") redirect("/login");

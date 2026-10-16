@@ -33,9 +33,11 @@ import {
 } from "./actions";
 
 let fx: Fx;
+/** Staff sit at a station of their own kind (cashier: Mostrador, delivery manager: Delivery); admin needs none. */
 const session = (role: Role, userId = fx.userId): AuthSession => ({
   user: { id: userId, name: "U", username: "u", role },
-  stationId: null,
+  stationId: role === "cajera" ? fx.stationId : role === "encargada_delivery" ? fx.otherStationId : null,
+  stationKind: role === "cajera" ? "mostrador" : role === "encargada_delivery" ? "delivery" : null,
   sessionId: "x",
 });
 /** Mimics the real requireRole: the session is returned only when its role is allowed. */
@@ -112,26 +114,30 @@ describe("authorization", () => {
     expect(await assignCadetAction({ orderIds: [o.id], cadetId: cadet.id })).toMatchObject({ ok: true });
   });
 
-  it.each(ROLES)("%s can run the four order actions", async (role) => {
+  it.each(ROLES)("%s can run the order actions on the orders of their sector", async (role) => {
     as(role);
-    const o = await preparingWebOrder(fx, { fulfillment: "takeaway", paymentMethod: "transfer" });
-    expect(await markReadyAction({ orderId: o.id })).toMatchObject({ ok: true, data: { status: "listo_despacho" } });
-    expect(await markPickupAction({ orderId: o.id })).toMatchObject({ ok: true, data: { status: "para_retirar" } });
-    expect(await markDeliveredAction({ orderId: o.id })).toMatchObject({ ok: true, data: { status: "entregado" } });
-    const d = await preparingWebOrder(fx, { fulfillment: "delivery" });
-    await markReadyAction({ orderId: d.id });
-    await testDb().update(s.orders).set({ status: "en_camino" }).where(eq(s.orders.id, d.id));
-    expect(await returnToDispatchAction({ orderId: d.id, reason: "no estaba" })).toMatchObject({ ok: true });
+    if (role !== "encargada_delivery") {
+      const o = await preparingWebOrder(fx, { fulfillment: "takeaway", paymentMethod: "transfer" });
+      expect(await markReadyAction({ orderId: o.id })).toMatchObject({ ok: true, data: { status: "listo_despacho" } });
+      expect(await markPickupAction({ orderId: o.id })).toMatchObject({ ok: true, data: { status: "para_retirar" } });
+      expect(await markDeliveredAction({ orderId: o.id })).toMatchObject({ ok: true, data: { status: "entregado" } });
+    }
+    if (role !== "cajera") {
+      const d = await preparingWebOrder(fx, { fulfillment: "delivery" });
+      expect(await markReadyAction({ orderId: d.id })).toMatchObject({ ok: true });
+      await testDb().update(s.orders).set({ status: "en_camino" }).where(eq(s.orders.id, d.id));
+      expect(await returnToDispatchAction({ orderId: d.id, reason: "no estaba" })).toMatchObject({ ok: true });
+    }
   });
 });
 
 describe("session identity and payload hygiene", () => {
   it("takes userId from the session, ignoring a client-sent one; extra fields are stripped", async () => {
-    const o = await preparingWebOrder(fx);
+    const o = await preparingWebOrder(fx, { fulfillment: "takeaway" });
     as("cajera", fx.otherUserId);
     const forged = { orderId: o.id, userId: fx.userId, status: "entregado", total: 1 };
     expect(await markReadyAction(forged as never)).toMatchObject({ ok: true });
-    expect(vi.mocked(dispatch.markReady).mock.calls[0][1]).toEqual({ orderId: o.id, userId: fx.otherUserId });
+    expect(vi.mocked(dispatch.markReady).mock.calls[0][1]).toEqual({ orderId: o.id, userId: fx.otherUserId, sector: "mostrador" });
     expect((await events(o.id)).at(-1)).toMatchObject({ userId: fx.otherUserId, toStatus: "listo_despacho" });
   });
 
@@ -142,7 +148,7 @@ describe("session identity and payload hygiene", () => {
     as("encargada_delivery", fx.otherUserId);
     const r = await assignCadetAction({ orderIds: [o.id, o.id], cadetId: cadet.id, userId: fx.userId, cashToCollect: 0 } as never);
     expect(r).toMatchObject({ ok: true, data: { count: 1, cadet: { name: "Nahuel" } } });
-    expect(vi.mocked(dispatch.assignCadet).mock.calls[0][1]).toEqual({ orderIds: [o.id, o.id], cadetId: cadet.id, userId: fx.otherUserId });
+    expect(vi.mocked(dispatch.assignCadet).mock.calls[0][1]).toEqual({ orderIds: [o.id, o.id], cadetId: cadet.id, userId: fx.otherUserId, sector: "delivery" });
     expect(JSON.parse(JSON.stringify(r))).toEqual(r);
     expect((await events(o.id)).at(-1)).toMatchObject({ userId: fx.otherUserId });
   });
@@ -197,7 +203,7 @@ describe("expected failures are returned, not thrown", () => {
     const takeaway = await preparingWebOrder(fx, { fulfillment: "takeaway" });
     await dispatch.markReady(testDb(), { orderId: takeaway.id, userId: fx.userId });
     const cadet = await makeCadet();
-    as("encargada_delivery");
+    as("admin");
     expect(await markReadyAction({ orderId: takeaway.id })).toMatchObject({ ok: false, code: "INVALID_TRANSITION" });
     const r = await assignCadetAction({ orderIds: [takeaway.id], cadetId: cadet.id });
     expect(r).toMatchObject({ ok: false, code: "NOT_DELIVERY", details: [{ orderId: takeaway.id, orderNumber: takeaway.number }] });
@@ -240,5 +246,50 @@ describe("module shape", () => {
       "markReadyAction",
       "returnToDispatchAction",
     ]);
+  });
+});
+
+describe("sector rule (server side)", () => {
+  const OTHER: Record<string, "delivery" | "takeaway"> = { cajera: "delivery", encargada_delivery: "takeaway" };
+
+  it.each(["cajera", "encargada_delivery"] as const)("%s: every order action on the other sector's order -> WRONG_SECTOR, nothing written", async (role) => {
+    const o = await preparingWebOrder(fx, { fulfillment: OTHER[role] });
+    const before = JSON.stringify([await row(o.id), await events(o.id)]);
+    as(role);
+    expect(await markReadyAction({ orderId: o.id })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(await markPickupAction({ orderId: o.id })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(await markDeliveredAction({ orderId: o.id, collected: true })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(await returnToDispatchAction({ orderId: o.id, reason: "motivo" })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(JSON.stringify([await row(o.id), await events(o.id)])).toBe(before);
+  });
+
+  it("assign by the delivery manager's own sector works; an order of the counter sector is refused as WRONG_SECTOR", async () => {
+    const cadet = await makeCadet();
+    const t = await preparingWebOrder(fx, { fulfillment: "takeaway" });
+    await dispatch.markReady(testDb(), { orderId: t.id, userId: fx.userId });
+    as("encargada_delivery");
+    expect(await assignCadetAction({ orderIds: [t.id], cadetId: cadet.id })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect((await row(t.id)).status).toBe("listo_despacho");
+  });
+
+  it.each(["cajera", "encargada_delivery"] as const)("%s without a station is refused before the core", async (role) => {
+    const o = await preparingWebOrder(fx, { fulfillment: "takeaway" });
+    vi.mocked(requireRole).mockImplementation(async (...allowed: Role[]) => {
+      if (!allowed.includes(role)) throw new AuthError("FORBIDDEN");
+      return { user: { id: fx.userId, name: "U", username: "u", role }, stationId: null, stationKind: null, sessionId: "x" };
+    });
+    expect(await markReadyAction({ orderId: o.id })).toMatchObject({ ok: false, code: "STATION_REQUIRED" });
+    expect(await markPickupAction({ orderId: o.id })).toMatchObject({ ok: false, code: "STATION_REQUIRED" });
+    expect(dispatch.markReady).not.toHaveBeenCalled();
+    expect(dispatch.markPickup).not.toHaveBeenCalled();
+  });
+
+  it("admin is exempt on both sectors, whatever the station", async () => {
+    const d = await preparingWebOrder(fx, { fulfillment: "delivery" });
+    const t = await preparingWebOrder(fx, { fulfillment: "takeaway" });
+    as("admin");
+    expect(await markReadyAction({ orderId: d.id })).toMatchObject({ ok: true });
+    expect(await markReadyAction({ orderId: t.id })).toMatchObject({ ok: true });
+    expect(vi.mocked(dispatch.markReady).mock.calls[0][1]).toMatchObject({ sector: null });
   });
 });

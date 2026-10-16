@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession } from "@/lib/auth/roles";
+import { actorSectorFor, type Sector } from "@/lib/orders/sector";
 import { approveOrder, type ApproveOrderData } from "@/lib/orders/approve-order";
 import { pgErrorCode } from "@/lib/orders/create-order";
 import { rejectOrder, type RejectOrderData } from "@/lib/orders/reject-order";
@@ -33,12 +34,17 @@ const approveSchema = z.object({ orderId, paymentVerified: z.boolean() });
 const rejectSchema = z.object({ orderId, reason: z.string() });
 const reprintSchema = z.object({ orderId, which: z.enum(["kitchen", "ticket", "both"]) });
 
-type Authorized = { session: AuthSession } | { result: ActionResult<never> };
+type Authorized = { session: AuthSession; sector: Sector | null } | { result: ActionResult<never> };
+
+const STATION_REQUIRED_RESULT: ActionResult<never> = { ok: false, code: "STATION_REQUIRED", message: "Elegí tu estación para trabajar" };
 
 /** UNAUTHENTICATED -> /login; FORBIDDEN -> generic error result. */
 async function authorize(): Promise<Authorized> {
   try {
-    return { session: await requireRole("cajera", "encargada_delivery", "admin") };
+    const session = await requireRole("cajera", "encargada_delivery", "admin");
+    // Sector rule, server side: staff only act on orders of their station kind (admin exempt).
+    const actor = actorSectorFor(session.user.role, session.stationKind);
+    return actor.ok ? { session, sector: actor.sector } : { result: STATION_REQUIRED_RESULT };
   } catch (e) {
     if (e instanceof AuthError) {
       if (e.code === "UNAUTHENTICATED") redirect("/login");
@@ -70,9 +76,10 @@ export async function approveOrderAction(
   if ("result" in auth) return auth.result;
   const parsed = approveSchema.safeParse(input);
   if (!parsed.success) return invalid();
-  const { session } = auth;
+  const { session, sector } = auth;
   return run(() =>
     approveOrder(getDb(), {
+      sector,
       orderId: parsed.data.orderId,
       userId: session.user.id,
       stationId: session.stationId,
@@ -88,9 +95,9 @@ export async function rejectOrderAction(
   if ("result" in auth) return auth.result;
   const parsed = rejectSchema.safeParse(input);
   if (!parsed.success) return invalid();
-  const { session } = auth;
+  const { session, sector } = auth;
   return run(() =>
-    rejectOrder(getDb(), { orderId: parsed.data.orderId, userId: session.user.id, reason: parsed.data.reason }),
+    rejectOrder(getDb(), { sector, orderId: parsed.data.orderId, userId: session.user.id, reason: parsed.data.reason }),
   );
 }
 
@@ -101,9 +108,10 @@ export async function reprintOrderAction(
   if ("result" in auth) return auth.result;
   const parsed = reprintSchema.safeParse(input);
   if (!parsed.success) return invalid();
-  const { session } = auth;
+  const { session, sector } = auth;
   return run(() =>
     reprintOrder(getDb(), {
+      sector,
       orderId: parsed.data.orderId,
       userId: session.user.id,
       stationId: session.stationId,

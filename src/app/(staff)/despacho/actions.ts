@@ -17,6 +17,7 @@ import {
   type DispatchOrderData,
 } from "@/lib/orders/dispatch";
 import { MAX_ASSIGN_ORDERS } from "@/lib/orders/dispatch-schemas";
+import { actorSectorFor, type Sector } from "@/lib/orders/sector";
 
 /**
  * Dispatch Server Actions: thin wrappers. They are PUBLIC endpoints, so each one:
@@ -34,7 +35,7 @@ import { MAX_ASSIGN_ORDERS } from "@/lib/orders/dispatch-schemas";
 
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
-  | { ok: false; code: DispatchFailure["code"] | "FORBIDDEN"; message: string; details?: DispatchFailure["details"] };
+  | { ok: false; code: DispatchFailure["code"] | "FORBIDDEN" | "STATION_REQUIRED"; message: string; details?: DispatchFailure["details"] };
 
 const GENERIC_ERROR = "No se pudo completar la acción. Probá de nuevo.";
 const FORBIDDEN_MESSAGE = "No tenés permisos para realizar esta acción.";
@@ -52,12 +53,17 @@ const assignSchema = z.object({
   cadetId: orderId,
 });
 
-type Authorized = { session: AuthSession } | { result: ActionResult<never> };
+type Authorized = { session: AuthSession; sector: Sector | null } | { result: ActionResult<never> };
+
+const STATION_REQUIRED_RESULT: ActionResult<never> = { ok: false, code: "STATION_REQUIRED", message: "Elegí tu estación para trabajar" };
 
 /** UNAUTHENTICATED -> /login; FORBIDDEN -> generic error result. */
 async function authorize(roles: Role[]): Promise<Authorized> {
   try {
-    return { session: await requireRole(...roles) };
+    const session = await requireRole(...roles);
+    // Sector rule, server side: staff only act on orders of their station kind (admin exempt).
+    const actor = actorSectorFor(session.user.role, session.stationKind);
+    return actor.ok ? { session, sector: actor.sector } : { result: STATION_REQUIRED_RESULT };
   } catch (e) {
     if (e instanceof AuthError) {
       if (e.code === "UNAUTHENTICATED") redirect("/login");
@@ -88,8 +94,8 @@ export async function markReadyAction(input: unknown): Promise<ActionResult<Disp
   if ("result" in auth) return auth.result;
   const parsed = orderSchema.safeParse(input);
   if (!parsed.success) return invalid();
-  const { session } = auth;
-  return run(() => markReady(getDb(), { orderId: parsed.data.orderId, userId: session.user.id }));
+  const { session, sector } = auth;
+  return run(() => markReady(getDb(), { sector, orderId: parsed.data.orderId, userId: session.user.id }));
 }
 
 export async function markPickupAction(input: unknown): Promise<ActionResult<DispatchOrderData>> {
@@ -97,8 +103,8 @@ export async function markPickupAction(input: unknown): Promise<ActionResult<Dis
   if ("result" in auth) return auth.result;
   const parsed = orderSchema.safeParse(input);
   if (!parsed.success) return invalid();
-  const { session } = auth;
-  return run(() => markPickup(getDb(), { orderId: parsed.data.orderId, userId: session.user.id }));
+  const { session, sector } = auth;
+  return run(() => markPickup(getDb(), { sector, orderId: parsed.data.orderId, userId: session.user.id }));
 }
 
 export async function markDeliveredAction(input: unknown): Promise<ActionResult<DispatchOrderData>> {
@@ -106,9 +112,9 @@ export async function markDeliveredAction(input: unknown): Promise<ActionResult<
   if ("result" in auth) return auth.result;
   const parsed = deliveredSchema.safeParse(input);
   if (!parsed.success) return invalid();
-  const { session } = auth;
+  const { session, sector } = auth;
   return run(() =>
-    markDelivered(getDb(), { orderId: parsed.data.orderId, userId: session.user.id, collected: parsed.data.collected }),
+    markDelivered(getDb(), { sector, orderId: parsed.data.orderId, userId: session.user.id, collected: parsed.data.collected }),
   );
 }
 
@@ -117,9 +123,9 @@ export async function returnToDispatchAction(input: unknown): Promise<ActionResu
   if ("result" in auth) return auth.result;
   const parsed = returnSchema.safeParse(input);
   if (!parsed.success) return invalid();
-  const { session } = auth;
+  const { session, sector } = auth;
   return run(() =>
-    returnToDispatch(getDb(), { orderId: parsed.data.orderId, userId: session.user.id, reason: parsed.data.reason }),
+    returnToDispatch(getDb(), { sector, orderId: parsed.data.orderId, userId: session.user.id, reason: parsed.data.reason }),
   );
 }
 
@@ -128,8 +134,8 @@ export async function assignCadetAction(input: unknown): Promise<ActionResult<As
   if ("result" in auth) return auth.result;
   const parsed = assignSchema.safeParse(input);
   if (!parsed.success) return invalid();
-  const { session } = auth;
+  const { session, sector } = auth;
   return run(() =>
-    assignCadet(getDb(), { orderIds: parsed.data.orderIds, cadetId: parsed.data.cadetId, userId: session.user.id }),
+    assignCadet(getDb(), { sector, orderIds: parsed.data.orderIds, cadetId: parsed.data.cadetId, userId: session.user.id }),
   );
 }

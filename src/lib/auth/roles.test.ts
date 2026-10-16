@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AuthError, assertRole, type AuthSession, type Role } from "@/lib/auth/roles";
 
 function session(role: Role): AuthSession {
-  return { user: { id: 1, name: "N", username: "n", role }, stationId: null, sessionId: "s" };
+  return { user: { id: 1, name: "N", username: "n", role }, stationId: null, stationKind: null, sessionId: "s" };
 }
 
 function codeOf(fn: () => unknown): string | undefined {

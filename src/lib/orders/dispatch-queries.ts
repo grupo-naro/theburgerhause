@@ -1,8 +1,8 @@
-import { asc, inArray, sql } from "drizzle-orm";
+import { and, asc, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import type { Fulfillment, OrderStatus } from "@/domain/order-status";
-import { hydrate, orderColumns, type PrintState } from "./caja-queries";
+import { hydrate, orderColumns, sectorScopeSql, type PrintState, type SectorScope } from "./caja-queries";
 import type { TrackingGroup } from "./tracking-groups";
 
 /**
@@ -78,7 +78,7 @@ export type DispatchBoard = {
   cadets: DispatchCadet[];
 };
 
-export type DispatchQueryContext = { now?: Date };
+export type DispatchQueryContext = { now?: Date } & SectorScope;
 
 const BOARD_STATUSES: OrderStatus[] = ["en_preparacion", "listo_despacho", "para_retirar", "en_camino"];
 
@@ -96,7 +96,7 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
   const rows = await db
     .select({ ...orderColumns, cadetId: s.orders.cadetId, statusSince })
     .from(s.orders)
-    .where(inArray(s.orders.status, BOARD_STATUSES))
+    .where(and(inArray(s.orders.status, BOARD_STATUSES), sectorScopeSql(ctx)))
     .orderBy(asc(s.orders.createdAt), asc(s.orders.id));
   const hydrated = await hydrate(db, rows, now);
   const meta = new Map(rows.map((r) => [r.id, { cadetId: r.cadetId, since: new Date(r.statusSince).getTime() }]));
@@ -123,11 +123,17 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
     printState: o.printState,
   });
 
-  const cadetRows = await db
-    .select({ id: s.cadets.id, name: s.cadets.name, phone: s.cadets.phone, active: s.cadets.active })
-    .from(s.cadets)
-    .orderBy(asc(s.cadets.name), asc(s.cadets.id));
-  const owedRows = await db
+  // Cadets only matter to the delivery side: the counter (mostrador) sector never loads them.
+  const noCadets = ctx.sector === "mostrador";
+  const cadetRows = noCadets
+    ? []
+    : await db
+        .select({ id: s.cadets.id, name: s.cadets.name, phone: s.cadets.phone, active: s.cadets.active })
+        .from(s.cadets)
+        .orderBy(asc(s.cadets.name), asc(s.cadets.id));
+  const owedRows = noCadets
+    ? []
+    : await db
     .select({ cadetId: s.orders.cadetId, owed: sql<number>`coalesce(sum(${s.orders.total}), 0)::int` })
     .from(s.orders)
     .where(sql`${s.orders.status} = 'entregado' and ${s.orders.paymentMethod} = 'cash' and ${s.orders.paymentStatus} = 'pending' and ${s.orders.cadetId} is not null`)

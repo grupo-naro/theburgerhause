@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { pgErrorCode } from "./create-order";
+import { decideSector, type Sector } from "./sector";
 import { enqueuePrintJobs, loadPrintableOrder } from "./print-jobs";
 import { failure, isId, transitionOrder, UNEXPECTED_MESSAGE, type OrderResult } from "./transition";
 
@@ -18,7 +19,14 @@ const inputSchema = z.object({ orderId: id, userId: id, paymentVerified: z.boole
 export const STATION_REQUIRED_MESSAGE = "Elegí tu estación para imprimir";
 export const PAYMENT_NOT_VERIFIED_MESSAGE = "Confirmá que verificaste la acreditación del pago";
 
-export type ApproveOrderInput = { orderId: number; userId: number; stationId: number | null; paymentVerified: boolean };
+export type ApproveOrderInput = {
+  orderId: number;
+  userId: number;
+  stationId: number | null;
+  paymentVerified: boolean;
+  /** Sector of the approving station (null/undefined = admin, exempt). */
+  sector?: Sector | null;
+};
 export type ApproveOrderData = {
   orderId: number;
   number: number;
@@ -41,10 +49,15 @@ export async function approveOrder(db: Db, raw: ApproveOrderInput): Promise<Orde
 
       // Lock first: the payment rule depends on the method, and a double approve queues here.
       const [locked] = await tx
-        .select({ status: s.orders.status, paymentMethod: s.orders.paymentMethod })
+        .select({ status: s.orders.status, paymentMethod: s.orders.paymentMethod, fulfillment: s.orders.fulfillment })
         .from(s.orders)
         .where(eq(s.orders.id, orderId))
         .for("update");
+      // Sector first: the wrong station must not even learn about (or be nagged for) the payment rule.
+      if (locked) {
+        const sectorOk = decideSector(raw.sector, locked.fulfillment);
+        if (!sectorOk.ok) return failure("WRONG_SECTOR", sectorOk.message);
+      }
       const isTransfer = locked?.paymentMethod === "transfer";
       if (locked?.status === "pendiente_aprobacion" && isTransfer && !paymentVerified) {
         return failure("VALIDATION", PAYMENT_NOT_VERIFIED_MESSAGE);

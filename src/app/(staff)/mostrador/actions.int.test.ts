@@ -32,6 +32,7 @@ let fx: Fx;
 const session = (role: Role, stationId: number | null, userId = fx.userId): AuthSession => ({
   user: { id: userId, name: "U", username: "u", role },
   stationId,
+  stationKind: stationId === fx.stationId ? "mostrador" : stationId === fx.otherStationId ? "delivery" : null,
   sessionId: "x",
 });
 const as = (role: Role, stationId: number | null = fx.stationId, userId?: number) =>

@@ -27,6 +27,7 @@ import { createStationAction, renameStationAction, rotateStationTokenAction } fr
 const session = (role: "admin" | "cajera"): AuthSession => ({
   user: { id: 1, name: "U", username: "u", role },
   stationId: null,
+  stationKind: null,
   sessionId: "x",
 });
 const asAdmin = () => vi.mocked(requireRole).mockResolvedValue(session("admin"));

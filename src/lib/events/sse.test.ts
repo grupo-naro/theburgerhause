@@ -8,7 +8,7 @@ import { listenerCount, publish, resetBus } from "./bus";
 import { ORDERS_CHANNEL, PRINT_CHANNEL } from "./channels";
 import { connectionStats, createEventsHandler, resetConnectionStats } from "./sse";
 
-const session = (id = 1, role = "cajera") => ({ user: { id, role, name: "x", username: "x" }, stationId: null, sessionId: "s" });
+const session = (id = 1, role = "cajera") => ({ user: { id, role, name: "x", username: "x" }, stationId: null, stationKind: null, sessionId: "s" });
 const ev = { orderId: 12, status: "pendiente_aprobacion", event: "created" } as const;
 
 type Conn = { cancel: () => Promise<void>; res: Response; ac: AbortController; read: (until: string, ms?: number) => Promise<string>; text: () => string };

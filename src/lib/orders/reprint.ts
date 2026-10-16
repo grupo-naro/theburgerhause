@@ -6,6 +6,7 @@ import { ORDERS_CHANNEL } from "@/lib/events/channels";
 import { notifyInTx } from "@/lib/events/notify";
 import { STATION_REQUIRED_MESSAGE } from "./approve-order";
 import { pgErrorCode } from "./create-order";
+import { decideSector, type Sector } from "./sector";
 import { enqueuePrintJobs, loadPrintableOrder } from "./print-jobs";
 import { currentStateMessage, failure, isId, UNEXPECTED_MESSAGE, type OrderResult } from "./transition";
 
@@ -22,6 +23,8 @@ export type ReprintOrderInput = {
   userId: number;
   stationId: number | null;
   which: "kitchen" | "ticket" | "both";
+  /** Sector of the acting station (null/undefined = admin, exempt). */
+  sector?: Sector | null;
 };
 export type ReprintOrderData = { orderId: number; printJobIds: number[] };
 
@@ -38,11 +41,13 @@ export async function reprintOrder(db: Db, raw: ReprintOrderInput): Promise<Orde
       if (!station) return failure("STATION_REQUIRED", STATION_REQUIRED_MESSAGE);
 
       const [order] = await tx
-        .select({ status: s.orders.status })
+        .select({ status: s.orders.status, fulfillment: s.orders.fulfillment })
         .from(s.orders)
         .where(eq(s.orders.id, orderId))
         .for("update");
       if (!order) return failure("NOT_FOUND", "El pedido no existe");
+      const sectorOk = decideSector(raw.sector, order.fulfillment);
+      if (!sectorOk.ok) return failure("WRONG_SECTOR", sectorOk.message);
       if (order.status === "pendiente_aprobacion" || order.status === "cancelado") {
         return failure(
           "INVALID_TRANSITION",

@@ -72,7 +72,7 @@ export async function seedFixtures() {
     ])
     .returning({ id: s.stations.id });
   const id = (u: string) => users.find((x) => x.username === u)!.id;
-  return { cora: id("cora"), admin: id("admin"), enca: id("enca"), station: stations[0].id };
+  return { cora: id("cora"), admin: id("admin"), enca: id("enca"), station: stations[0].id, deliveryStation: stations[1].id };
 }
 
 /** `connection()` only works inside a request scope; in tests it is a no-op. */
