@@ -31,7 +31,8 @@ Además, el ZIP del instalador: `burgerhause-print-agent-<versión>.zip` (y su a
 1. Conectá la impresora por USB y prendela. Cargá el papel.
 2. Instalá su driver (el que trae el CD o la web del fabricante). Si no tenés driver, sirve el driver
    **Generic / Text Only**. No hace falta Zadig ni cambiar el driver.
-3. Abrí **Inicio → Configuración → Dispositivos → Impresoras y escáneres**, hacé clic en la impresora →
+3. Abrí **Inicio → Configuración → Dispositivos → Impresoras y escáneres** (en Windows 11:
+   **Inicio → Configuración → Bluetooth y dispositivos → Impresoras y escáneres**), hacé clic en la impresora →
    **Administrar** → **Imprimir página de prueba**.
 4. Tiene que **salir papel** con la página de prueba de Windows. Si no sale, no sigas: primero hay que arreglar
    la impresora (cable, papel, driver).
@@ -168,6 +169,10 @@ Si querés **ver qué haría sin cambiar nada**, agregá `-DryRun` al final del 
 4. **Prueba de reinicio**: reiniciá la PC (Inicio → Reiniciar). **No inicies sesión ni abras nada.** Esperá 2 minutos,
    y desde otra PC mirá en `Admin → Estaciones` que la estación aparezca **Conectada**, o entrá a la Caja de esa
    PC y comprobá "Impresora lista". Tiene que volver sola.
+5. **Prueba de "agente caído"**: con la PC ya andando, abrí el **Administrador de tareas** (Ctrl+Shift+Esc), buscá
+   **Node.js JavaScript Runtime** (`node.exe`), clic derecho → **Finalizar tarea**. (O, en PowerShell como
+   Administrador: `taskkill /F /IM node.exe`.) Esperá **hasta 6 minutos**: el agente tiene que volver solo y la Caja
+   tiene que mostrar de nuevo "Impresora lista" (indicador verde). Si no vuelve, avisar al soporte.
 
 Si pasó todo, completá la fila de esta PC en la lista de la sección 12.
 
@@ -203,6 +208,17 @@ Administradores: por eso hay que usar PowerShell como Administrador para leer el
 
    Los trabajos que quedaron pendientes se imprimen al reconectar, una sola vez cada uno.
 
+   **Ruta manual** (sin reinstalar): en PowerShell como Administrador abrí el archivo, cambiá solo el valor de
+   `STATION_TOKEN` por el token nuevo, guardá y reiniciá la tarea:
+
+   ```powershell
+   notepad C:\BurgerHouseAgent\config.json
+   Stop-ScheduledTask BurgerHouseAgent; Start-ScheduledTask BurgerHouseAgent
+   ```
+
+   Después comprobá con `status.ps1` (debe decir "Servidor: OK"). Guardar el archivo con codificación UTF-8 (la opción
+   por defecto del Bloc de notas) y sin tocar las comillas ni las comas.
+
 ## 10. Opciones del instalador (referencia)
 
 | Parámetro | Para qué | Por defecto |
@@ -225,8 +241,13 @@ Códigos de salida (`$LASTEXITCODE`): 0 listo · 1 error inesperado · 2 datos i
 4 ya instalado (usar `-Force`) · 5 Node.js ausente o menor a 20 · 6 falló la verificación (token/servidor/impresora) ·
 7 la tarea no se pudo iniciar o no se conectó en 30 s · 8 no hay instalación (status/update).
 
-La tarea programada: se llama `BurgerHouseAgent`, usuario SYSTEM, arranca 30 s después de prender Windows, se
-reinicia sola cada 1 minuto si se cae (hasta 999 veces), sin límite de tiempo, no se ve ninguna ventana.
+La tarea programada: se llama `BurgerHouseAgent`, usuario SYSTEM, sin límite de tiempo, no se ve ninguna ventana. Tiene
+**dos disparadores**: (1) al iniciar Windows (+30 s), y (2) un **vigilante** que se dispara **cada 5 minutos para
+siempre**. Si el agente está corriendo, el vigilante no hace nada (la tarea no permite dos copias a la vez); si el agente
+se cerró por cualquier motivo (se cayó, lo cerraron, se colgó y se mató, o se agotaron los reintentos automáticos de
+1 minuto, 999 veces), el vigilante lo vuelve a arrancar en **menos de 5 minutos**. Por eso, tras cerrar el agente a
+propósito hay que esperar hasta ~6 minutos para verlo volver. Un agente colgado (vivo pero sin hacer nada) NO lo
+reinicia el vigilante: terminar el proceso `node.exe` y esperar.
 
 ## 11. Problemas frecuentes
 
@@ -247,6 +268,10 @@ reinicia sola cada 1 minuto si se cae (hasta 999 veces), sin límite de tiempo, 
 | Log: "Otro agente se conectó para esta estación…" (`replaced`) | Hay **otra PC o proceso con el mismo token** | Dejar un solo agente por estación; en la PC equivocada correr `uninstall.ps1`, y rotar el token de la estación |
 | La Caja dice "Sin agente" | El agente no está conectado | `status.ps1`; si la tarea no corre: `Start-ScheduledTask BurgerHouseAgent`; mirar el log; comprobar internet |
 | Dice "impreso" pero no sale papel | El driver no informa el estado de la impresora (algunos genéricos) | Anotar modelo y driver en la planilla y avisar al soporte: no se puede detectar desde el software |
+| "Ya hay una instalación de 'BurgerHouseAgent' en 'C:\BurgerHouseAgent'…" (código 4) | Ya se había instalado en esta PC | Para cambiar datos o el token, repetir el comando agregando `-Force`; para solo actualizar el programa, `update.ps1` |
+| "La verificación falló (arriba está el motivo). No se instaló nada…" (código 6) | Token/URL mal, sin internet o impresora no encontrada (el motivo está en las líneas de arriba) | Corregir el dato que indica y volver a correr el comando; no quedó nada instalado |
+| "…no se vio 'Agente conectado' en 30 s…" (código 7) | La tarea se creó pero el agente no llegó a conectarse (internet lenta, firewall) | `status.ps1`, mirar el log; si el chequeo da OK, esperar unos minutos: el vigilante lo reintenta |
+| "La tarea … quedó registrada … pero un paso posterior falló" (código 7) | Falló algo después de crear la tarea | La instalación NO se deshizo: `status.ps1`, o repetir con `-Force` |
 | Se instaló pero la PC reiniciada no imprime | La tarea no arrancó | `status.ps1` y revisar "Último resultado" de la tarea y el log |
 
 Si ninguna fila ayuda: sacar una foto de la ventana de PowerShell con el mensaje rojo, copiar las últimas 30 líneas
@@ -294,7 +319,23 @@ Completar una fila por PC al terminar. "Token rotado" es la fecha en que se gene
 5. Si el problema es de internet y dura más de unos minutos, avisar al proveedor; si el sistema web está caído con
    internet funcionando, avisar al soporte.
 
-## 14. Lo que falta confirmar con la impresora real (a cargo de la persona dueña del local)
+## 14. Antes de instalar en las 9 PCs: prueba previa en UNA PC (con permisos de Administrador)
+
+El instalador se probó con simulaciones y sin permisos de Administrador; el registro real de la tarea programada, el
+arranque con Windows y el reinicio automático hay que **verlos funcionando una vez** antes de repetirlo en las demás PCs:
+
+1. En una PC, PowerShell como Administrador, ensayo con una tarea de prueba que **no imprime** (guarda archivos):
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -ServerUrl https://<tu-servidor> -TaskName BurgerHouseAgentTest -InstallDir C:\BHPrueba -Backend file -OutputDir C:\BHPrueba\salida -NoPrompt
+   ```
+
+   (con el token de una estación de prueba). Aprobar un pedido en la Caja de esa estación y comprobar que aparecen
+   archivos en `C:\BHPrueba\salida`. Después `.\uninstall.ps1 -TaskName BurgerHouseAgentTest -InstallDir C:\BHPrueba -RemoveData`.
+2. Instalar de verdad (sección 7) y hacer la **prueba de agente caído** (sección 8, paso 5) y la **prueba de reinicio** (paso 4).
+3. Recién entonces seguir con las otras PCs.
+
+## 15. Lo que falta confirmar con la impresora real (a cargo de la persona dueña del local)
 
 El software se probó con una impresora simulada y con la cola de Windows, **no con la impresora definitiva**. Falta
 confirmar en el local, con el modelo real (anotar resultado en la planilla):

@@ -174,7 +174,8 @@ Si salen símbolos raros en lugar de letras, la impresora no entiende `ESC t n`:
 ## Servicio de Windows
 
 Se instala como **tarea programada** (sin binarios externos) con `install/install.ps1`: disparador al iniciar Windows
-(+30 s), cuenta SYSTEM, sin límite de tiempo, reinicio cada 1 min (hasta 999 veces), instancia única. Ver la guía de
+(+30 s) más un vigilante cada 5 min (repetición infinita; no hace nada si el agente corre), cuenta SYSTEM, sin límite
+de tiempo, reinicio cada 1 min (hasta 999 veces), instancia única. Ver la guía de
 instalación. Al recibir `SIGINT`/`SIGTERM` (Ctrl+C) el agente termina el trabajo en curso y guarda el estado.
 
 ## Uso como biblioteca
