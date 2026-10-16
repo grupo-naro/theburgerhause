@@ -9,9 +9,9 @@ Description=The Burger Hause (Next.js, single instance)
 Documentation=file:///opt/burgerhause/current/docs/ops/runbook.md
 After=network-online.target postgresql.service
 Wants=network-online.target postgresql.service
-# Do not give up restarting during a short Postgres outage: allow 10 starts per minute.
-StartLimitIntervalSec=60
-StartLimitBurst=10
+# Never give up restarting: with no start-rate limit a long Postgres outage cannot leave the unit
+# permanently "failed" (RestartSec=3 below already paces the retries).
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple

@@ -160,7 +160,9 @@ burst() { # burst <path> <n> -> "200xN 429xM"
   docker exec "$NAME" curl -ks -w '%{http_code}\n' -H "$H" "${urls[@]}" | sort | uniq -c | tr '\n' ' '
 }
 r="$(burst /login 20)"
-check "/login: 5 r/m burst 10 -> first 11 pass, rest 429 ($r)" bash -c '[[ "$1" == *"11 200"* && "$1" == *"9 429"* ]]' _ "$r"
+check "/login: 20 quick requests from ONE IP (9 PCs + GET/POST each) all pass ($r)" bash -c '[[ "$1" == *"20 200"* && "$1" != *429* ]]' _ "$r"
+r="$(burst /login 80)"
+check "/login: 80 quick requests trip the volume cap (429) ($r)" bash -c '[[ "$1" == *429* && "$1" == *200* ]]' _ "$r"
 r="$(burst /api/agent/heartbeat 60)"
 check "/api/agent/: 9 PCs on one IP are not throttled by 60 rapid requests ($r)" bash -c '[[ "$1" == *"60 200"* && "$1" != *429* ]]' _ "$r"
 r="$(burst /api/pedido/abc 80)"
@@ -168,6 +170,17 @@ check "/api/pedido/: 10 r/s burst 20 throttles a flood ($r)" bash -c '[[ "$1" ==
 r="$(burst /api/uploads 20)"
 check "/api/uploads: 2 r/s burst 10 throttles a flood ($r)" bash -c '[[ "$1" == *429* && "$1" == *200* ]]' _ "$r"
 check "limit_conn for SSE is >= 40 (60)" bash -c '[[ "$1" == *"limit_conn bh_sse 60"* ]]' _ "$conf"
+
+# -- hardening round: TLS catch-all, x-middleware-subrequest, /pedido without trailing slash ---------------------
+set +e
+docker exec "$NAME" curl -ks -o /dev/null --resolve evil.test:443:127.0.0.1 https://evil.test/ ; ec=$?
+set -e
+check "unknown Host over TLS: connection dropped (curl exit $ec, expected 52, 56 or 92 = dropped)" bash -c '[[ "$1" == 52 || "$1" == 56 || "$1" == 92 ]]' _ "$ec"
+check "real Host over TLS still proxies" bash -c '[[ "$1" == *"host=burgerhause.example.com"* ]]' _ "$(cx https://127.0.0.1/ok)"
+b="$(cx -H 'x-middleware-subrequest: middleware' https://127.0.0.1/x)"
+check "x-middleware-subrequest from the client is blanked" bash -c '[[ "$1" == *"mw=|"* ]]' _ "$b"
+r="$(burst /pedido 80)"
+check "/pedido WITHOUT trailing slash is rate limited too ($r)" bash -c '[[ "$1" == *429* ]] && grep -qE "[0-9] (200|301)" <<<"$1"' _ "$r"
 
 echo
 if [ "$FAILS" -ne 0 ]; then echo "nginx behavior tests: $FAILS FAILED"; exit 1; fi
