@@ -34,7 +34,7 @@ docker compose up -d          # PostgreSQL 16 en localhost:15435 (usuario/clave/
 cp .env.example .env          # y cambiá SESSION_SECRET (mínimo 32 caracteres)
 pnpm install
 pnpm db:migrate               # aplica las migraciones
-pnpm db:seed                  # carga el menú, categorías, modificadores y estaciones
+pnpm db:seed                  # SOLO desarrollo: carga menú, categorías, modificadores y estaciones de DEMO
 pnpm db:seed-admin            # crea el usuario admin (usuario "admin"; si no definís ADMIN_PASSWORD imprime una clave generada)
 pnpm dev                      # http://localhost:3000
 ```
@@ -87,6 +87,7 @@ token de estación).
 pnpm lint            # ESLint
 pnpm test            # unitarios (Vitest): src/ y packages/ (incluye el Print Agent)
 pnpm test:int        # integración contra PostgreSQL real (base burgerhause_test)
+pnpm test:deploy     # artefactos de producción (deploy/): scripts, rollback, Nginx y backup/restore, en Docker
 pnpm e2e             # Playwright: compila la app, la levanta en :3100 y corre todo
 pnpm e2e:ui          # runner interactivo
 pnpm verify:fast     # lint + unitarios + typecheck del agente + build
@@ -126,6 +127,25 @@ muestra una alerta con botón de reimpresión.
 - Protocolo servidor-agente: `docs/ops/print-agent-protocol.md`.
 - Paquete, build y release: `packages/print-agent/README.md`.
 
+## Operación
+
+Producción: una VPS Ubuntu con Nginx (TLS) → un solo proceso Next.js bajo systemd → PostgreSQL local. Todo está en
+`deploy/` y la guía para quien administra el servidor es **`docs/ops/runbook.md`** (alta de la VPS desde cero,
+deploy y rollback, backups y restauración, monitoreo, rotación de secretos, problemas comunes y contingencia).
+
+```bash
+pnpm db:init-prod                      # producción: solo los ajustes por defecto (local cerrado a pedidos); NUNCA db:seed
+sudo ./deploy/scripts/deploy.sh        # en la VPS: migra → compila → reinicia → chequea /api/health → rollback automático
+```
+
+- `GET /api/health`: `200 {status:"ok",db:"ok",realtime,...}` o `503` si la base no responde (sin filtrar detalles).
+- `pnpm db:seed` se niega a correr con `NODE_ENV=production` (salvo `ALLOW_DEMO_SEED=1`, solo para pruebas).
+- La compilación pre-renderiza el menú: la base tiene que estar alcanzable **y migrada** al hacer `pnpm build`.
+- Una sola instancia: el bus de eventos y los límites de intentos viven en memoria (no usar PM2 en cluster).
+- `pnpm test:deploy` verifica en Docker lo que se puede sin la VPS real (sintaxis y comportamiento de Nginx, deploy con
+  rollback, backup → restauración con conteo de filas). Lo que solo se prueba en la VPS está listado al principio de la
+  sección 2 del runbook.
+
 ## Estructura
 
 ```
@@ -138,9 +158,10 @@ src/
   test-support/   utilidades de test
 packages/
   print-agent/    el agente de impresión (paquete @burgerhause/print-agent)
+deploy/           producción: nginx/, systemd/, scripts/ (deploy, backup, restore), env/, postgres/, tests/
 e2e/              Playwright: specs, journeys y helpers
 docs/
-  ops/            realtime, protocolo e instalación del agente
+  ops/            runbook de producción, realtime, protocolo e instalación del agente
   superpowers/    specs y plan del MVP
 ```
 

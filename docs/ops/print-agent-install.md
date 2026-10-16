@@ -10,7 +10,8 @@ protegido para que solo lo lean Administradores), comprueba que el servidor y el
 No hace falta iniciar sesión ni dejar nada abierto. Solo hace conexiones hacia afuera (no abre puertos).
 
 Documentos relacionados: protocolo del lado servidor `docs/ops/print-agent-protocol.md`, README del paquete
-`packages/print-agent/README.md`.
+`packages/print-agent/README.md`. Para quien administra el **servidor** (VPS, Nginx, backups, qué mirar si "no imprime"
+desde el lado del servidor): `docs/ops/runbook.md`.
 
 ## 0. Antes de empezar: qué necesitás tener
 
