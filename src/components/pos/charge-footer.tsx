@@ -63,7 +63,7 @@ export function ChargeFooter({ total, charge, change, busy, onCharge }: Props) {
         disabled={!charge.canCharge}
         onClick={onCharge}
         aria-keyshortcuts="Control+Enter"
-        className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-full px-5 font-display text-lg leading-tight font-extrabold transition-colors ${
+        className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-full px-3 font-display text-base leading-tight font-extrabold transition-colors @[22rem]/ticket:px-5 @[22rem]/ticket:text-lg ${
           charge.canCharge
             ? "bg-cheddar-400 text-ink shadow-md ring-2 ring-cheddar-600/40 hover:bg-cheddar-600 active:bg-cheddar-600"
             : "border-2 border-dashed border-line bg-bg text-ink-muted"
@@ -71,7 +71,7 @@ export function ChargeFooter({ total, charge, change, busy, onCharge }: Props) {
       >
         {charge.canCharge ? (
           <>
-            <PrinterIcon className="size-6 shrink-0" />
+            <PrinterIcon className="hidden size-6 shrink-0 @[22rem]/ticket:block" />
             <span>Cobrar e imprimir · {price}</span>
           </>
         ) : (
