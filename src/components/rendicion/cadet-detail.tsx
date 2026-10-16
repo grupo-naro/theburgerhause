@@ -116,8 +116,9 @@ export function CadetDetail({ detail, serverNow, settledByName, historyAll, hist
       </Link>
 
       <header className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <h1 data-testid="cadet-name" className="font-display text-4xl leading-tight font-extrabold">
-          {detail.cadet.name}
+        <h1 className="font-display text-4xl leading-tight font-extrabold">
+          <span className="block text-base font-bold text-ink-muted">Rendición de</span>
+          <span data-testid="cadet-name">{detail.cadet.name}</span>
         </h1>
         {!detail.cadet.active && <span data-testid="inactive-tag" className="rounded-full bg-slate-200 px-3 py-1 text-sm font-bold text-slate-700">Inactivo</span>}
         {detail.cadet.phone && (
