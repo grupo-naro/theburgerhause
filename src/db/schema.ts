@@ -289,9 +289,16 @@ export const settlements = pgTable(
       .references(() => cadets.id, { onDelete: "restrict" }),
     amount: integer("amount").notNull(),
     settledBy: integer("settled_by").references(() => users.id, { onDelete: "set null" }),
+    /** Free text from the manager (e.g. a cash shortage); never changes the settled amount. */
+    note: text("note"),
     createdAt: createdAt(),
   },
-  (t) => [index("settlements_cadet_idx").on(t.cadetId), index("settlements_settled_by_idx").on(t.settledBy)],
+  (t) => [
+    index("settlements_cadet_idx").on(t.cadetId),
+    index("settlements_settled_by_idx").on(t.settledBy),
+    check("settlements_amount_positive", sql`${t.amount} > 0`),
+    check("settlements_note_len", sql`char_length(${t.note}) <= 200`),
+  ],
 );
 
 export const settlementOrders = pgTable(
@@ -307,7 +314,9 @@ export const settlementOrders = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.settlementId, t.orderId] }),
-    index("settlement_orders_order_idx").on(t.orderId),
+    // An order is settled AT MOST once (also serves as the lookup index by order).
+    uniqueIndex("settlement_orders_order_uniq").on(t.orderId),
+    check("settlement_orders_amount_nonneg", sql`${t.amount} >= 0`),
   ],
 );
 
