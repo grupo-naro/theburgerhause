@@ -219,6 +219,8 @@ export const orders = pgTable(
     uniqueIndex("orders_active_counter_pager_unique")
       .on(t.pagerNumber)
       .where(sql`${t.channel} = 'counter' AND ${t.status} IN ('en_preparacion','listo_despacho','para_retirar')`),
+    /** Only counter sales may omit the customer name (web orders always carry one). */
+    check("orders_web_requires_name", sql`${t.channel} = 'counter' OR ${t.customerName} IS NOT NULL`),
     check("orders_total_nonneg", sql`${t.total} >= 0`),
   ],
 );

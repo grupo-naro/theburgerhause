@@ -86,6 +86,21 @@ describe("orders constraints", () => {
     ).resolves.toBeDefined();
   });
 
+  it("rejects a web order without customer_name (23514), accepts a counter order without one", async () => {
+    for (const channel of ["web"] as const) {
+      const code = await pgCode(
+        db().insert(s.orders).values(orderValues({ channel, customerName: null })),
+      );
+      expect(code, channel).toBe(CHECK_VIOLATION);
+    }
+    await expect(
+      db().insert(s.orders).values(orderValues({ channel: "counter", pagerNumber: 7, customerName: null })),
+    ).resolves.toBeDefined();
+    await expect(
+      db().insert(s.orders).values(orderValues({ channel: "web", customerName: "Ana" })),
+    ).resolves.toBeDefined();
+  });
+
   it("rejects a duplicate (business_date, number)", async () => {
     await db().insert(s.orders).values(orderValues({ number: 1 }));
     const code = await pgCode(db().insert(s.orders).values(orderValues({ number: 1 })));

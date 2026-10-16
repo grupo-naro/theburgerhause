@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD CONSTRAINT "orders_web_requires_name" CHECK ("orders"."channel" = 'counter' OR "orders"."customer_name" IS NOT NULL);

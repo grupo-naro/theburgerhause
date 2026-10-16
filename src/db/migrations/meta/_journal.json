@@ -15,6 +15,13 @@
       "when": 1792109497634,
       "tag": "0001_counter_pager",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792110660726,
+      "tag": "0002_orders_web_requires_name",
+      "breakpoints": true
     }
   ]
 }
