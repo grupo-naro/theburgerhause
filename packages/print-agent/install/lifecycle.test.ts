@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -29,7 +29,7 @@ function ps(script: string, args: string[], env: Record<string, string> = { BH_T
 }
 
 const cjs = (marker: string, exit: number) =>
-  `const a=process.argv[2]; if(a==="--version"){console.log("0.0.0")} else {console.log(${JSON.stringify(marker)}); process.exit(${exit});}\n`;
+  `const a=process.argv[2]; if(a===undefined){setInterval(()=>{},1000)} else if(a==="--version"){console.log("0.0.0")} else {console.log(${JSON.stringify(marker)}); process.exit(${exit});}\n`;
 
 /** A fake installation: print-agent.cjs prints `marker` for `check` and exits with `checkExit`. */
 function fakeInstall(name: string, marker: string, checkExit: number) {
@@ -152,5 +152,61 @@ describe.skipIf(!win)("update.ps1", () => {
     expect(r.code, r.out).toBe(0);
     expect(r.out).toContain("SIMULACIÓN");
     expect(fs.readFileSync(path.join(d, "print-agent.cjs"), "utf8")).toContain("OLD-BUILD");
+  });
+  it("leaves no .bak/.new behind after success or rollback", () => {
+    const ok = fakeInstall("up-clean", "old", 0);
+    ps("update.ps1", ["-InstallDir", ok, "-TaskName", TASK, "-ReleaseDir", release("rel-clean", "NEW", 0), "-NodeExe", process.execPath]);
+    expect(fs.readdirSync(ok).filter((f) => /\.(bak|new)$/.test(f))).toEqual([]);
+    const bad = fakeInstall("up-clean-bad", "old", 0);
+    ps("update.ps1", ["-InstallDir", bad, "-TaskName", TASK, "-ReleaseDir", release("rel-clean-bad", "NEW", 1), "-NodeExe", process.execPath]);
+    expect(fs.readdirSync(bad).filter((f) => /\.(bak|new)$/.test(f))).toEqual([]);
+  });
+});
+
+/** A running fake agent whose command line has a DIFFERENTLY-CASED path (Windows paths are case-insensitive). */
+function startFakeAgent(installDir: string) {
+  const cased = path.join(installDir, "print-agent.cjs").toUpperCase();
+  const child = spawn(process.execPath, [cased], { stdio: "ignore", windowsHide: true });
+  return child;
+}
+const alive = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+describe.skipIf(!win)("stopping a running agent (case-insensitive match, waits for exit)", () => {
+  it("update.ps1 finds, stops and replaces a differently-cased running agent", async () => {
+    const d = fakeInstall("proc-up", "old", 0);
+    const child = startFakeAgent(d);
+    try {
+      await new Promise((r) => setTimeout(r, 600));
+      expect(alive(child.pid!)).toBe(true);
+      const rel = path.join(tmp, "rel-proc");
+      fs.mkdirSync(rel, { recursive: true });
+      fs.writeFileSync(path.join(rel, "print-agent.cjs"), cjs("NEW-PROC", 0));
+      const r = ps("update.ps1", ["-InstallDir", d, "-TaskName", TASK, "-ReleaseDir", rel, "-NodeExe", process.execPath]);
+      expect(r.code, r.out).toBe(0);
+      expect(alive(child.pid!)).toBe(false);
+      expect(fs.readFileSync(path.join(d, "print-agent.cjs"), "utf8")).toContain("NEW-PROC");
+    } finally {
+      child.kill();
+    }
+  });
+  it("uninstall.ps1 -RemoveData stops a running agent and deletes the folder", async () => {
+    const d = fakeInstall("proc-un", "old", 0);
+    const child = startFakeAgent(d);
+    try {
+      await new Promise((r) => setTimeout(r, 600));
+      const r = ps("uninstall.ps1", ["-TaskName", TASK, "-InstallDir", d, "-RemoveData", "-Yes"]);
+      expect(r.code, r.out).toBe(0);
+      expect(alive(child.pid!)).toBe(false);
+      expect(fs.existsSync(d)).toBe(false);
+    } finally {
+      child.kill();
+    }
   });
 });

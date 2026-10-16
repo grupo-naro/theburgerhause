@@ -14,7 +14,7 @@ const releaseDir = path.join(pkgDir, "release");
 const folder = path.join(releaseDir, name);
 const zipPath = path.join(releaseDir, `${name}.zip`);
 
-const EXPECTED = ["print-agent.cjs", "install.ps1", "uninstall.ps1", "status.ps1", "update.ps1", "common.ps1", "config.example.json", "LEEME.txt"].sort();
+const EXPECTED = ["print-agent.cjs", "install.ps1", "uninstall.ps1", "status.ps1", "update.ps1", "common.ps1", "config.example.json", "LEEME.txt", "GUIA-INSTALACION.md"].sort();
 
 type ZipEntry = { name: string; size: number; crc: number; data: Buffer };
 
@@ -98,7 +98,8 @@ describe("release packaging", () => {
 
   it("LEEME.txt points to the guide", () => {
     const t = fs.readFileSync(path.join(folder, "LEEME.txt"), "utf8");
-    expect(t).toContain("print-agent-install.md");
+    expect(t).toContain("GUIA-INSTALACION.md");
+    expect(t).not.toContain("docs/ops");
     expect(t).toContain("install.ps1");
   });
 });

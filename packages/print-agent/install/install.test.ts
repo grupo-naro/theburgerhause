@@ -64,6 +64,12 @@ describe.skipIf(!win)("install.ps1", () => {
     expect(r.out).toContain("<UserId>S-1-5-18</UserId>");
     expect(r.out).toContain("<RunLevel>HighestAvailable</RunLevel>");
     expect(r.out).toContain("<Count>999</Count>");
+    // watchdog: a second trigger repeating every 5 minutes, forever (no <Duration>), harmless thanks to IgnoreNew
+    expect(r.out).toContain("<TimeTrigger>");
+    expect(r.out).toMatch(/<Repetition>\s*<Interval>PT5M<\/Interval>\s*<StopAtDurationEnd>false<\/StopAtDurationEnd>/);
+    expect(r.out).not.toContain("<Duration>");
+    expect(r.out).not.toContain("<EndBoundary>");
+    expect((r.out.match(/<(BootTrigger|TimeTrigger)>/g) ?? []).length).toBe(2);
     expect(r.out).toContain("<Interval>PT1M</Interval>");
     expect(r.out).toContain("<MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>");
     expect(r.out).toContain("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>");
