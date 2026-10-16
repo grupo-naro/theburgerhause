@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2010  # ls|grep on our own timestamp-named dirs is fine in tests
 # shellcheck disable=SC2034  # `out` of some scenarios is intentionally unused
 # deploy.sh scenarios: dry run, success, slow start (503 then 200), automatic rollback, failures before the swap,
 # manual rollback, retention, lock, env validation. Runs INSIDE a Linux container (symlinks, GNU tools, nginx
@@ -153,13 +154,17 @@ expect "no release was created by any of them" eq "$(nreleases)" "$before"
 expect "no secret value printed" bash -c '! grep -q "0123456789abcdef" <<<"$1"' _ "$OUT"
 
 # ------------------------------------------------------------------------------------------------
-echo "== 8. lock: a live deploy blocks a second one"
-mkdir -p "$APP_ROOT/.deploy.lock"; sleep 30 & SLEEPER=$!; echo "$SLEEPER" >"$APP_ROOT/.deploy.lock/pid"
+echo "== 8. concurrency: two simultaneous deploys, one runs and the other refuses"
+BUILD_CMD='sleep 4; touch BUILT' SOURCE_DIR="$(mksrc ok)" bash "$DEPLOY_SH" >"$STUB_DIR/a.out" 2>&1 &
+APID=$!
+sleep 1.5
 run_deploy ok
 expect "second deploy refused: exit 2 (got $RC)" eq "$RC" 2
-kill "$SLEEPER" 2>/dev/null; wait "$SLEEPER" 2>/dev/null
+expect "refusal message is clear" bash -c 'grep -q "another deploy is running" <<<"$1"' _ "$OUT"
+wait "$APID"; arc=$?
+expect "first deploy completed: exit 0 (got $arc)" eq "$arc" 0
 run_deploy ok
-expect "stale lock (dead pid) is cleared: exit 0 (got $RC)" eq "$RC" 0
+expect "after it finished a new deploy works: exit 0 (got $RC)" eq "$RC" 0
 R4="$(cur)"
 
 # ------------------------------------------------------------------------------------------------
@@ -190,6 +195,116 @@ for _ in 1 2 3 4 5 6 7; do run_deploy ok; done
 expect "last deploy exit 0" eq "$RC" 0
 expect "5 releases kept (got $(nreleases))" eq "$(nreleases)" 5
 expect "current is the newest" eq "$(cur)" "$(ls -1 "$APP_ROOT/releases" | sort | tail -1)"
+
+# ------------------------------------------------------------------------------------------------
+echo "== 12. rollback never lands on a failed release (fail, then succeed, then rollback -> R1, not R2)"
+reset_world
+run_deploy ok; R1="$(cur)"
+HEALTH_TIMEOUT=3 run_deploy bad
+expect "R2 fails and is rolled back: exit 3 (got $RC)" eq "$RC" 3
+expect "failed release renamed *.failed (outside the release glob)" bash -c 'ls "$1/releases" | grep -q "\.failed$"' _ "$APP_ROOT"
+run_deploy ok; R3="$(cur)"
+expect "R3 live (marker .deployed-ok present)" test -f "$APP_ROOT/releases/$R3/.deployed-ok"
+out="$(bash "$DEPLOY_SH" rollback 2>&1)"; rc=$?
+expect "manual rollback exit 0 (got $rc)" eq "$rc" 0
+expect "rollback landed on R1 ($R1), not on the failed release" eq "$(cur)" "$R1"
+out="$(bash "$DEPLOY_SH" rollback "$(ls "$APP_ROOT/releases" | grep '\.failed$' | head -1)" 2>&1)"; rc=$?
+expect "naming a failed release explicitly is refused (got $rc)" bash -c '[ "$1" != 0 ]' _ "$rc"
+
+echo "== 13. killed deploy leaves a half-built dir: next deploy cleans it, rollback ignores it"
+reset_world
+run_deploy ok; R1="$(cur)"
+BUILD_CMD='sleep 60' SOURCE_DIR="$(mksrc ok)" bash "$DEPLOY_SH" >"$STUB_DIR/k.out" 2>&1 &
+KPID=$!
+for _ in $(seq 1 40); do [ "$(nreleases)" = 2 ] && break; sleep 0.25; done
+kill -9 "$KPID" 2>/dev/null; wait "$KPID" 2>/dev/null
+expect "half-built release dir left behind by the SIGKILL ($(nreleases) dirs)" eq "$(nreleases)" 2
+expect "it has no OK marker" bash -c 'n=0; for d in "$1"/releases/*/; do [ -f "$d/.deployed-ok" ] || n=$((n+1)); done; [ "$n" = 1 ]' _ "$APP_ROOT"
+run_deploy ok; R3="$(cur)"
+expect "next deploy exit 0 (got $RC)" eq "$RC" 0
+expect "stale half-built dir was removed (only $R1 and $R3 remain)" eq "$(ls "$APP_ROOT/releases" | tr '\n' ' ')" "$R1 $R3 "
+out="$(bash "$DEPLOY_SH" rollback 2>&1)"; rc=$?
+expect "rollback -> $R1 (exit $rc)" bash -c '[ "$1" = 0 ] && [ "$2" = "$3" ]' _ "$rc" "$(cur)" "$R1"
+
+echo "== 14. SIGTERM mid-build removes the half-built release and leaves current alone"
+reset_world
+run_deploy ok; R1="$(cur)"
+BUILD_CMD='sleep 60' SOURCE_DIR="$(mksrc ok)" bash "$DEPLOY_SH" >"$STUB_DIR/t.out" 2>&1 &
+TPID=$!
+for _ in $(seq 1 40); do [ "$(nreleases)" = 2 ] && break; sleep 0.25; done
+kill -TERM "$TPID"; wait "$TPID"; trc=$?
+expect "terminated (exit $trc, not 0)" bash -c '[ "$1" != 0 ]' _ "$trc"
+expect "half-built dir removed, current untouched" bash -c '[ "$(ls "$1/releases" | wc -l)" = 1 ] && [ "$2" = "$3" ]' _ "$APP_ROOT" "$(cur)" "$R1"
+
+echo "== 15. SIGHUP (ssh drop) does not abort a deploy during the health check"
+reset_world
+run_deploy ok; R1="$(cur)"
+: >"$STUB_DIR/steps.log"
+HEALTH_TIMEOUT=12 SOURCE_DIR="$(mksrc slow:4)" bash "$DEPLOY_SH" >"$STUB_DIR/h.out" 2>&1 &
+HPID=$!
+for _ in $(seq 1 60); do grep -q '^restart' "$STUB_DIR/steps.log" && break; sleep 0.25; done
+kill -HUP "$HPID"; wait "$HPID"; hrc=$?
+expect "deploy still completed after SIGHUP: exit 0 (got $hrc)" eq "$hrc" 0
+expect "new release is live" bash -c '[ "$1" != "$2" ]' _ "$(cur)" "$R1"
+: >"$STUB_DIR/steps.log"
+HEALTH_TIMEOUT=5 SOURCE_DIR="$(mksrc bad)" bash "$DEPLOY_SH" >"$STUB_DIR/h2.out" 2>&1 &
+HPID=$!
+for _ in $(seq 1 60); do grep -q '^restart' "$STUB_DIR/steps.log" && break; sleep 0.25; done
+kill -HUP "$HPID"; wait "$HPID"; hrc=$?
+expect "unhealthy deploy + SIGHUP still reaches the rollback decision: exit 3 (got $hrc)" eq "$hrc" 3
+
+echo "== 16. SIGTERM after the swap prints a recovery note"
+reset_world
+run_deploy ok
+: >"$STUB_DIR/steps.log"
+HEALTH_TIMEOUT=30 SOURCE_DIR="$(mksrc bad)" bash "$DEPLOY_SH" >"$STUB_DIR/r.out" 2>&1 &
+RPID=$!
+for _ in $(seq 1 60); do grep -q '^restart' "$STUB_DIR/steps.log" && break; sleep 0.25; done
+kill -TERM "$RPID"; wait "$RPID"; rrc=$?
+expect "exit non-zero (got $rrc)" bash -c '[ "$1" != 0 ]' _ "$rrc"
+expect "output tells the operator to run status / rollback" bash -c 'grep -q "RECOVERY" "$1" && grep -q "deploy.sh rollback" "$1"' _ "$STUB_DIR/r.out"
+
+echo "== 17. REPO_URL / REF validation"
+reset_world
+for ref in '--upload-pack=touch /tmp/pwn' 'a b' '-x' 'a;b' '$(id)'; do
+  OUT="$(REPO_URL=file:///nonexistent REF="$ref" bash "$DEPLOY_SH" 2>&1)"; RC=$?
+  expect "REF '$ref' rejected (exit $RC)" eq "$RC" 2
+done
+OUT="$(REPO_URL='--upload-pack=touch /tmp/pwn' bash "$DEPLOY_SH" 2>&1)"; RC=$?
+expect "REPO_URL starting with '-' rejected (exit $RC)" eq "$RC" 2
+OUT="$(REPO_URL=file:///nonexistent REF=release/v1.2-rc.1 bash "$DEPLOY_SH" 2>&1)"; RC=$?
+expect "a valid branch/tag name passes validation and fails only at the clone: exit 1 (got $RC)" eq "$RC" 1
+expect "nothing created by the failed clone" eq "$(nreleases)" 0
+
+echo "== 18. destructive migrations need ALLOW_DESTRUCTIVE_MIGRATION=1"
+reset_world
+mig() { # mig <mode> <file:content>...  -> source dir with src/db/migrations
+  local d f; d="$(mksrc "$1")"; shift; mkdir -p "$d/src/db/migrations"
+  for f in "$@"; do printf '%s\n' "${f#*:}" >"$d/src/db/migrations/${f%%:*}"; done
+  printf '%s' "$d"
+}
+M0='0000_init.sql:CREATE TABLE t (id int, c text);'
+M1='0001_add.sql:ALTER TABLE t ADD COLUMN d text;'
+OUT="$(SOURCE_DIR="$(mig ok "$M0")" bash "$DEPLOY_SH" 2>&1)"; RC=$?
+expect "first deploy (no previous release) skips the check: exit 0 (got $RC)" eq "$RC" 0
+OUT="$(SOURCE_DIR="$(mig ok "$M0" "$M1")" bash "$DEPLOY_SH" 2>&1)"; RC=$?
+expect "additive migration passes: exit 0 (got $RC)" eq "$RC" 0
+R_PREV="$(cur)"
+for bad in 'ALTER TABLE t DROP COLUMN c;' 'ALTER TABLE t RENAME COLUMN c TO e;' 'ALTER TABLE t ALTER COLUMN c SET NOT NULL;'; do
+  OUT="$(SOURCE_DIR="$(mig ok "$M0" "$M1" "0002_x.sql:$bad")" bash "$DEPLOY_SH" 2>&1)"; RC=$?
+  expect "'$bad' refused: exit 1 (got $RC)" eq "$RC" 1
+  expect "  loud warning about unsafe rollback" bash -c 'grep -q "ALLOW_DESTRUCTIVE_MIGRATION" <<<"$1" && grep -qi "rollback" <<<"$1"' _ "$OUT"
+  expect "  live release untouched" eq "$(cur)" "$R_PREV"
+done
+OUT="$(ALLOW_DESTRUCTIVE_MIGRATION=1 SOURCE_DIR="$(mig ok "$M0" "$M1" '0002_x.sql:ALTER TABLE t DROP COLUMN c;')" bash "$DEPLOY_SH" 2>&1)"; RC=$?
+expect "with ALLOW_DESTRUCTIVE_MIGRATION=1 it proceeds: exit 0 (got $RC)" eq "$RC" 0
+
+echo "== 19. retention with KEEP_RELEASES=2 keeps current and the previous OK release"
+reset_world
+for _ in 1 2 3 4; do KEEP_RELEASES=2 run_deploy ok; done
+expect "2 releases kept (got $(nreleases))" eq "$(nreleases)" 2
+out="$(bash "$DEPLOY_SH" rollback 2>&1)"; rc=$?
+expect "rollback still possible (exit $rc)" eq "$rc" 0
 
 echo
 if [ "$FAILS" -ne 0 ]; then echo "deploy scenarios: $FAILS FAILED"; exit 1; fi

@@ -56,4 +56,4 @@ http {
   }
 }
 CONF
-nginx -c "$STUB_DIR/nginx.conf"
+nginx -c "$STUB_DIR/nginx.conf" 9>&-   # do not leak the deploy lock fd into the daemon
