@@ -169,11 +169,11 @@ test.describe("cashier", () => {
 test.describe("delivery manager", () => {
   test.use({ storageState: authFile("encargada") });
 
-  test("can open /caja; nav shows Despacho and Caja only; the placeholder keeps one stream", async ({ page, context }) => {
+  test("can open /caja; nav shows Despacho, Rendición and Caja only; the placeholder keeps one stream", async ({ page, context }) => {
     await page.goto("/caja");
     await expect(page.getByTestId("station-name")).toHaveText("Estación: Delivery 1");
     const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Despacho", "Caja"]);
+    await expect(nav.getByRole("link")).toHaveText(["Despacho", "Rendición", "Caja"]);
     await expect(page.getByRole("heading", { name: "Caja", exact: true })).toBeAttached();
 
     const streams = countEventSources(context);
@@ -191,6 +191,6 @@ test.describe("admin", () => {
   test("sees every staff link plus Administración", async ({ page }) => {
     await page.goto("/caja");
     const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Caja", "Mostrador", "Despacho", "Administración"]);
+    await expect(nav.getByRole("link")).toHaveText(["Caja", "Mostrador", "Despacho", "Rendición", "Administración"]);
   });
 });
