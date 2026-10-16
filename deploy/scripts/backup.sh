@@ -119,7 +119,7 @@ else
     log "WARNING: rsync not found; using cp -a (copies everything every time)"
     cp -a "$UPLOAD_DIR/." "$UP_DIR/" || FAIL=3
   fi
-  [ "$FAIL" = 3 ] && log "uploads copy FAILED" || log "uploads copy ok"
+  if [ "$FAIL" = 3 ]; then log "uploads copy FAILED"; else log "uploads copy ok"; fi
 fi
 
 # ---- 4. optional remote copy --------------------------------------------------------------------------------
