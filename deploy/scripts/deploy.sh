@@ -22,7 +22,8 @@
 #
 # Environment (defaults suit the production layout):
 #   APP_ROOT=/opt/burgerhause   ENV_FILE=/etc/burgerhause/burgerhause.env   SERVICE_NAME=burgerhause
-#   REPO_URL=<git url>  REF=main        source from git (shallow clone of branch/tag REF)
+#   REPO_URL=<git url>  REF=main        source from git (shallow clone of branch/tag REF); both may also be set
+#                                       in the env file ($ENV_FILE) so the command line stays short
 #   SOURCE_DIR=<dir>                    OR copy an already prepared tree (rsync/scp'd artifact); wins over REPO_URL
 #   APP_USER=burgerhause                steps install/migrate/build/backup run as this user when started as root
 #   APP_HOME=/var/lib/burgerhause       HOME for those steps (pnpm store, corepack cache)
@@ -56,7 +57,8 @@ RELEASES="$APP_ROOT/releases"
 CURRENT="$APP_ROOT/current"
 ENV_FILE="${ENV_FILE:-/etc/burgerhause/burgerhause.env}"
 SERVICE_NAME="${SERVICE_NAME:-burgerhause}"
-REPO_URL="${REPO_URL:-}"
+REPO_URL="${REPO_URL:-$(env_file_value "$ENV_FILE" REPO_URL)}"
+REF="${REF:-$(env_file_value "$ENV_FILE" REF)}"
 REF="${REF:-main}"
 SOURCE_DIR="${SOURCE_DIR:-}"
 if [ -z "${APP_USER+x}" ]; then
@@ -121,21 +123,9 @@ health_wait() { # health_wait <expected-commit-or-empty>: 0 when /api/health rep
   done
 }
 
-load_env() { # export KEY=VALUE lines of the env file WITHOUT sourcing it (values may contain & ? # $)
-  local line key val
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in '' | '#'*) continue ;; esac
-    key="${line%%=*}"
-    val="${line#*=}"
-    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
-    case "$val" in \"*\") val="${val#\"}"; val="${val%\"}" ;; \'*\') val="${val#\'}"; val="${val%\'}" ;; esac
-    export "$key=$val"
-  done <"$ENV_FILE"
-}
-
 check_env() { # validate the production env file; never prints values
   [ -r "$ENV_FILE" ] || die "env file $ENV_FILE does not exist or is not readable" 2
-  load_env
+  load_env_file "$ENV_FILE"
   local missing=() k
   for k in DATABASE_URL SESSION_SECRET UPLOAD_DIR; do
     [ -n "${!k:-}" ] || missing+=("$k")

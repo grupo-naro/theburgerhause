@@ -56,3 +56,20 @@ db_name_of() {
 redact() {
   printf '%s' "$1" | sed -E 's#(postgres(ql)?://[^:/@]+):[^@]*@#\1:***@#g'
 }
+
+# load_env_file <file>: export KEY=VALUE lines of a systemd-style env file WITHOUT sourcing it
+# (values may contain & ? # $). Surrounding single/double quotes are stripped like systemd does.
+load_env_file() {
+  local file="$1" line key val sq="'"
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in '' | '#'*) continue ;; esac
+    key="${line%%=*}"
+    val="${line#*=}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    case "$val" in
+      \"*\") val="${val#\"}"; val="${val%\"}" ;;
+      "$sq"*"$sq") val="${val#"$sq"}"; val="${val%"$sq"}" ;;
+    esac
+    export "$key=$val"
+  done <"$file"
+}

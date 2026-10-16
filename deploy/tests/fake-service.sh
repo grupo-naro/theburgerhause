@@ -18,8 +18,10 @@ echo "restart $release" >>"$STUB_DIR/steps.log"
 # stop a pending "become healthy" timer from a previous restart
 if [ -f "$STUB_DIR/timer.pid" ]; then kill "$(cat "$STUB_DIR/timer.pid")" 2>/dev/null || true; rm -f "$STUB_DIR/timer.pid"; fi
 
-ok_conf() { printf "return 200 '{\"status\":\"ok\",\"db\":\"ok\",\"commit\":\"%s\"}';\n" "$1" >"$STUB_DIR/mode.conf"; }
-bad_conf() { printf "return 503 '{\"status\":\"degraded\",\"db\":\"down\"}';\n" >"$STUB_DIR/mode.conf"; }
+# Atomic replace (write + rename): a reload must never read a half-written file.
+put_conf() { printf '%s\n' "$1" >"$STUB_DIR/mode.conf.tmp.$$" && mv -f "$STUB_DIR/mode.conf.tmp.$$" "$STUB_DIR/mode.conf"; }
+ok_conf() { put_conf "return 200 '{\"status\":\"ok\",\"db\":\"ok\",\"commit\":\"$1\"}';"; }
+bad_conf() { put_conf "return 503 '{\"status\":\"degraded\",\"db\":\"down\"}';"; }
 reload() { nginx -c "$STUB_DIR/nginx.conf" -s reload 2>/dev/null; }
 
 case "$mode" in
@@ -35,8 +37,13 @@ case "$mode" in
   *) echo "unknown HEALTH_MODE $mode" >&2; exit 1 ;;
 esac
 
-if [ ! -f "$STUB_DIR/nginx.pid" ] || ! kill -0 "$(cat "$STUB_DIR/nginx.pid")" 2>/dev/null; then
-  cat >"$STUB_DIR/nginx.conf" <<CONF
+# A real `systemctl restart` is stop THEN start: the old process is gone before the new one answers.
+# Mimic that (a mere reload would let the old configuration keep answering for a moment).
+if [ -f "$STUB_DIR/nginx.pid" ] && kill -0 "$(cat "$STUB_DIR/nginx.pid")" 2>/dev/null; then
+  kill -TERM "$(cat "$STUB_DIR/nginx.pid")"
+  for _ in $(seq 1 50); do kill -0 "$(cat "$STUB_DIR/nginx.pid")" 2>/dev/null || break; sleep 0.1; done
+fi
+cat >"$STUB_DIR/nginx.conf" <<CONF
 pid $STUB_DIR/nginx.pid;
 error_log $STUB_DIR/error.log;
 events {}
@@ -49,7 +56,4 @@ http {
   }
 }
 CONF
-  nginx -c "$STUB_DIR/nginx.conf"
-else
-  reload
-fi
+nginx -c "$STUB_DIR/nginx.conf"
