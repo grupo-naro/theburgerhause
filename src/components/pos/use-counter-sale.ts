@@ -61,6 +61,8 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
   const [unitMessages, setUnitMessages] = useState<string[] | null>(null);
   const [stationMissing, setStationMissing] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** Signature of a sale whose answer was LOST: its own order may already hold the pager, so a retry is allowed. */
+  const [retrySig, setRetrySig] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [, startTransition] = useTransition();
   /** Synchronous guard: a double click / double Ctrl+Enter in the same tick must reach the server once. */
@@ -68,7 +70,12 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
   const keyHolder = useRef<ReturnType<typeof createKeyHolder> | null>(null);
 
   const pager = pagerValue(pagerText);
-  const holder = holderOf(pagers, pager);
+  const sig = useMemo(
+    () => posSignature({ units: toOrderUnits(cart.lines), payment, pager, name }),
+    [cart.lines, payment, pager, name],
+  );
+  // The server dedups by key BEFORE it looks at pagers, so an unchanged retry of a lost answer is safe.
+  const holder = retrySig !== null && retrySig === sig ? null : holderOf(pagers, pager);
   const conflict = holder && pager !== null ? conflictMessage(pager, holder) : pagerError;
   const totals = useMemo(() => ticketTotals(cart.lines, index), [cart.lines, index]);
   const received = parsePesosInput(receivedText);
@@ -107,6 +114,7 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
 
   /** Per-sale inputs back to blank (payment has no default on purpose). */
   function resetInputs() {
+    setRetrySig(null);
     setPayment(null);
     setPagerText("");
     setName("");
@@ -114,6 +122,7 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
     setPagerError(null);
     setMessage(null);
     setUnitMessages(null);
+    setRetrySig(null);
   }
 
   function submit() {
@@ -128,7 +137,8 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
     const sentLines = cur.cart.lines;
     const units = toOrderUnits(sentLines);
     keyHolder.current ??= createKeyHolder(sessionStore(), undefined, `${KEY_STORAGE_PREFIX}${stationId ?? "none"}`);
-    const key = keyHolder.current.get(posSignature({ units, payment: cur.payment, pager: cur.pager, name: cur.name }));
+    const saleSig = posSignature({ units, payment: cur.payment, pager: cur.pager, name: cur.name });
+    const key = keyHolder.current.get(saleSig);
     const sent = { payment: cur.payment, pager: cur.pager };
 
     startTransition(async () => {
@@ -185,6 +195,7 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
       } catch {
         inFlight.current = false;
         setBusy(false);
+        setRetrySig(saleSig);
         setMessage(NETWORK_MESSAGE);
       }
     });
