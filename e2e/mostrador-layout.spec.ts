@@ -64,6 +64,7 @@ for (const size of SIZES) {
         await expect(page.getByTestId("ticket-aside")).toBeHidden();
         await expect(page.getByTestId("ticket-bar")).toBeVisible();
       }
+      if (!slideOver) await expect(page.getByTestId("shortcuts-hint")).toContainText("Ctrl+Enter cobrar");
       await shot(page, `pos-empty-${size.name}`);
 
       // Tiles: >= 120px, 3-5 columns on a wide grid, 48px targets.

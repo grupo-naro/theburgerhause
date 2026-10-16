@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { CloseIcon, SearchIcon } from "@/components/menu/icons";
 import { useMenu } from "@/components/menu/menu-provider";
 import { nextTileIndex, type ArrowKey } from "@/lib/pos/grid-nav";
@@ -15,6 +15,10 @@ type Props = {
   onAdd: (product: PublicProduct) => void;
   onCustomize: (product: PublicProduct, opener: HTMLElement) => void;
 };
+
+function Kbd({ children }: { children: ReactNode }) {
+  return <kbd className="rounded border border-line bg-surface px-1.5 font-mono text-[0.8rem] text-ink">{children}</kbd>;
+}
 
 const ALL = "all";
 const ARROWS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
@@ -162,6 +166,20 @@ export function CatalogPanel({ searchRef, pulses, onAdd, onCustomize }: Props) {
           ))
         )}
       </div>
+      <p data-testid="shortcuts-hint" className="hidden shrink-0 items-center gap-x-4 gap-y-1 pt-2 text-sm text-ink-muted lg:flex lg:flex-wrap">
+        <span>
+          <Kbd>/</Kbd> buscar
+        </span>
+        <span>
+          <Kbd>Ctrl</Kbd>+<Kbd>Enter</Kbd> cobrar
+        </span>
+        <span>
+          <Kbd>Alt</Kbd>+<Kbd>L</Kbd> limpiar ticket
+        </span>
+        <span>
+          <Kbd>Esc</Kbd> cerrar
+        </span>
+      </p>
     </section>
   );
 }

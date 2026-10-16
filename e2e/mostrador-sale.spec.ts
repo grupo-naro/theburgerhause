@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { FakeAgent, freshStationToken, resetStationAgentState } from "./helpers/agent";
-import { countEventSources, openCaja, recentRow } from "./helpers/caja";
+import { countEventSources, failPrintJob, openCaja, recentRow } from "./helpers/caja";
 import { findStation, findUser, setProductActiveInDb } from "./helpers/db";
 import {
   chargeButton,
@@ -336,3 +336,43 @@ test("exactly one EventSource, and a sale from another terminal does not open a 
   expect(streams.count()).toBe(before);
 });
 
+
+test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a failed job -> Reimprimir, each reprint queues 2 more jobs", async ({ page }) => {
+  test.setTimeout(90_000);
+  await releaseCounterState();
+  await page.clock.install();
+  await openPos(page);
+  await tileMain(page, "Ranchita simple").click();
+  await readySale(page, { pager: "14" });
+  await chargeButton(page).click();
+  await expect(overlay(page)).toBeVisible();
+  const order = await latestCounterOrder();
+  const status = page.getByTestId("print-status");
+  await expect(status).toHaveAttribute("data-status", "printing");
+  expect(await jobsOf(order.id)).toHaveLength(2);
+
+  // Nobody confirms: each 2 s tick keeps it "printing", the 30 s budget ends in "waiting".
+  await expect(async () => {
+    await page.clock.runFor(2000);
+    await expect(status).toHaveAttribute("data-status", "waiting", { timeout: 400 });
+  }).toPass({ timeout: 30_000 });
+  await expect(status).toContainText("Esperando la impresora");
+  const reprint = page.getByTestId("reprint");
+  await expect(reprint).toBeVisible();
+  await reprint.click();
+  await expect(status).toHaveAttribute("data-status", "printing");
+  await expect(async () => expect(await jobsOf(order.id)).toHaveLength(4)).toPass();
+
+  // The newest kitchen job fails for good: the status turns failed and the button reprints again.
+  const jobs = await jobsOf(order.id);
+  const lastKitchen = [...jobs].reverse().find((j) => j.type === "kitchen")!;
+  await failPrintJob(lastKitchen.id, "Sin papel");
+  await expect(async () => {
+    await page.clock.runFor(2000);
+    await expect(status).toHaveAttribute("data-status", "failed", { timeout: 400 });
+  }).toPass({ timeout: 30_000 });
+  await expect(status).toContainText("Falló la impresión");
+  await page.getByTestId("reprint").click();
+  await expect(status).toHaveAttribute("data-status", "printing");
+  await expect(async () => expect(await jobsOf(order.id)).toHaveLength(6)).toPass();
+});
