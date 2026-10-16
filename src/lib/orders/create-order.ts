@@ -1,5 +1,4 @@
-import { randomBytes } from "node:crypto";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { Db, DbTransaction } from "@/db/client";
 import { businessDateFor, nextOrderNumber } from "@/db/order-number";
 import * as s from "@/db/schema";
@@ -8,13 +7,8 @@ import { ORDERS_CHANNEL } from "@/lib/events/channels";
 import { notifyInTx } from "@/lib/events/notify";
 import { getAcceptingOrders, getSettings } from "@/lib/settings";
 import { createOrderSchema, fieldErrorsOf, type CreateOrderInput } from "./schemas";
-import {
-  resolveUnits,
-  type Catalog,
-  type CatalogModifier,
-  type CatalogProduct,
-  type UnitIssue,
-} from "./resolve-units";
+import { defaultToken, insertOrderItems, loadCatalog, pgError } from "./order-rows";
+import { resolveUnits, type UnitIssue } from "./resolve-units";
 
 /**
  * Customer checkout, server half. No next/* imports: the Server Action is the only
@@ -47,77 +41,15 @@ const fail = (code: CreateOrderFailure["code"], extra: Partial<CreateOrderFailur
   ...extra,
 });
 
-const defaultToken = () => randomBytes(16).toString("hex");
-
 function honeypotFilled(raw: unknown): boolean {
   if (typeof raw !== "object" || raw === null) return false;
   const w = (raw as { bh_ref?: unknown }).bh_ref;
   return typeof w === "string" && w.trim() !== "";
 }
 
-/** SQLSTATE + constraint of a (possibly drizzle-wrapped) driver error. */
-function pgError(err: unknown): { code?: string; constraint?: string } {
-  let e: unknown = err;
-  while (e) {
-    const code = (e as { code?: unknown }).code;
-    if (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) {
-      const constraint = (e as { constraint?: unknown }).constraint;
-      return { code, constraint: typeof constraint === "string" ? constraint : undefined };
-    }
-    e = (e as { cause?: unknown }).cause;
-  }
-  return {};
-}
-
 /** Just the SQLSTATE (safe to log) of a possibly drizzle-wrapped driver error. */
 export function pgErrorCode(err: unknown): string | undefined {
   return pgError(err).code;
-}
-
-/** ONE query: products + category flag + the modifiers of their LINKED groups. */
-async function loadCatalog(tx: DbTransaction, productIds: number[]): Promise<Catalog> {
-  const rows = await tx
-    .select({
-      pid: s.products.id,
-      pname: s.products.name,
-      price: s.products.price,
-      pactive: s.products.active,
-      cactive: s.categories.active,
-      mid: s.modifiers.id,
-      groupId: s.modifiers.groupId,
-      mname: s.modifiers.name,
-      kind: s.modifiers.kind,
-      priceDelta: s.modifiers.priceDelta,
-      kitchenLabel: s.modifiers.kitchenLabel,
-      mactive: s.modifiers.active,
-    })
-    .from(s.products)
-    .innerJoin(s.categories, eq(s.categories.id, s.products.categoryId))
-    .leftJoin(s.productModifierGroups, eq(s.productModifierGroups.productId, s.products.id))
-    .leftJoin(s.modifiers, eq(s.modifiers.groupId, s.productModifierGroups.groupId))
-    .where(inArray(s.products.id, productIds));
-
-  const catalog = new Map<number, CatalogProduct>();
-  for (const r of rows) {
-    let p = catalog.get(r.pid);
-    if (!p) {
-      p = { id: r.pid, name: r.pname, price: r.price, active: r.pactive, categoryActive: r.cactive, modifiers: [] };
-      catalog.set(r.pid, p);
-    }
-    if (r.mid !== null) {
-      const m: CatalogModifier = {
-        id: r.mid,
-        groupId: r.groupId!,
-        name: r.mname!,
-        kind: r.kind!,
-        priceDelta: r.priceDelta!,
-        kitchenLabel: r.kitchenLabel!,
-        active: r.mactive!,
-      };
-      p.modifiers.push(m);
-    }
-  }
-  return catalog;
 }
 
 async function findByKey(conn: Db | DbTransaction, key: string): Promise<CreateOrderData | null> {
@@ -191,33 +123,7 @@ async function place(
     })
     .returning({ id: s.orders.id });
 
-  // One row per UNIT; serial ids follow VALUES order, so sorting by id restores unit order.
-  const items = (
-    await tx
-      .insert(s.orderItems)
-      .values(
-        resolved.units.map((u) => ({
-          orderId: order.id,
-          productId: u.product.id,
-          nameSnapshot: u.product.name,
-          unitPriceSnapshot: u.product.price,
-          notes: u.note === "" ? null : u.note,
-        })),
-      )
-      .returning({ id: s.orderItems.id })
-  ).sort((a, b) => a.id - b.id);
-
-  const modifierRows = resolved.units.flatMap((u, i) =>
-    u.modifiers.map((m) => ({
-      orderItemId: items[i].id,
-      modifierId: m.id,
-      nameSnapshot: m.name,
-      kitchenLabel: m.kitchenLabel,
-      kind: m.kind,
-      priceDelta: m.priceDelta,
-    })),
-  );
-  if (modifierRows.length > 0) await tx.insert(s.orderItemModifiers).values(modifierRows);
+  await insertOrderItems(tx, order.id, resolved.units);
 
   await tx.insert(s.orderEvents).values({
     orderId: order.id,
