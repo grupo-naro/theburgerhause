@@ -146,6 +146,7 @@ test("shortage: note required (chip fills it), over-amount refused, DB records t
   await expect(page.getByTestId("confirm-reason")).toContainText("nota");
   await page.getByTestId("note-input").fill("ab");
   await expect(button).toBeDisabled();
+  await page.getByTestId("note-input").fill("");
   await page.getByRole("button", { name: "Gastó en nafta" }).click();
   await expect(page.getByTestId("note-input")).toHaveValue("Gastó en nafta");
   await expect(button).toBeEnabled();

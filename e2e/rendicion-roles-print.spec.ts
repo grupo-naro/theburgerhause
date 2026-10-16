@@ -53,7 +53,7 @@ test.describe("encargada", () => {
     const display = (testId: string) => page.getByTestId(testId).evaluate((el) => getComputedStyle(el).display);
     await expect(page.getByTestId("receipt")).toBeVisible();
     await expect(nav(page)).toBeHidden();
-    await expect(page.locator("header")).toBeHidden();
+    await expect(page.getByTestId("station-name")).toBeHidden();
     await expect(page.getByTestId("print-receipt")).toBeHidden();
     await expect(page.getByTestId("owed-table")).toHaveCount(0);
     await expect(page.getByTestId("history")).toBeHidden();
