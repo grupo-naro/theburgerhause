@@ -67,10 +67,18 @@ salen las impresiones.
 | `/checkout` | público | Delivery o retiro; efectivo o transferencia; crea el pedido. |
 | `/pedido/[token]` | público | Seguimiento del pedido (línea de tiempo, datos de pago, contacto). |
 | `/login`, `/estacion` | staff | Ingreso y elección de estación. |
-| `/caja` | cajera, encargada, admin | Pedidos nuevos en vivo: aprobar (con verificación de transferencia) o rechazar con motivo; recientes; alerta de impresión fallida y reimpresión. |
-| `/mostrador` | cajera, admin | Punto de venta de mostrador con llamador (pager), cobro e impresión. |
-| `/despacho` | cajera, encargada, admin | Tablero: en preparación, listo, para retirar, en camino; asignar pedidos a un cadete (asignar: encargada y admin). |
-| `/despacho/rendicion` | encargada, admin | Saldo de cada cadete y rendición del efectivo (con faltante y comprobante). |
+| `/mostrador` (**Venta**) | cajera, admin | Punto de venta de mostrador con llamador (pager), cobro e impresión. |
+| `/mostrador/pedidos` (**Mostrador**) | cajera, admin | Ventas de mostrador en curso: en cocina, listo → llamar, para retirar → entregado. |
+| `/retiro` (**Retiro en local**) | cajera, admin | Pedidos web **de retiro**: por aprobar (verificación de transferencia / rechazo con motivo), en preparación, listos, para retirar con cobro al entregar, recientes, alerta de impresión fallida y reimpresión. |
+| `/delivery` (**Gestión Delivery**) | encargada, admin | Pedidos web **de delivery** en pestañas: Por aprobar · En preparación · Listos / Despacho (asignar 1..N pedidos a un cadete) · En camino · Recientes. |
+| `/delivery/rendicion` (**Rendición**) | encargada, admin | Saldo de cada cadete y rendición del efectivo (con faltante y comprobante). `/despacho/rendicion` redirige acá. |
+| `/caja`, `/despacho` (**Vista general**, **Tablero general**) | admin | Vistas de solo lectura/gestión de todos los sectores. El resto del personal que entra por estas URLs viejas va a su espacio de trabajo. |
+
+**Un espacio de trabajo por sector.** Los pedidos web se reparten por tipo: los de *delivery* solo aparecen (y solo se
+pueden aprobar, rechazar, reimprimir, despachar y rendir) en estaciones **Delivery**; los de *retiro* y las ventas de
+mostrador, en estaciones **Mostrador**. Se hace cumplir en el servidor (filtro por sector en las consultas y error
+`WRONG_SECTOR` en las acciones, antes de escribir nada); el admin está exento. La cajera solo puede elegir estaciones
+de Mostrador y la encargada de Delivery. La aprobación imprime en la estación que aprueba.
 | `/admin` | admin | Panel. |
 | `/admin/menu`, `/admin/modificadores` | admin | Productos, categorías, grupos de modificadores. |
 | `/admin/usuarios`, `/admin/cadetes` | admin | Cuentas de staff y cadetes. |

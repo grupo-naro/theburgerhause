@@ -184,6 +184,13 @@ Selección rápida de productos y modificadores → método de cobro → pager o
 - **E2E (Playwright):** (1) pedido web → aprobación → job de impresión; (2) venta de mostrador; (3) asignar cadete y rendir.
 - TDD para dominio y acciones.
 
+## 11b. Addendum Task 10.1: espacios de trabajo por sector
+
+El tablero único de Despacho se divide por sector. **Mostrador** (cajera): *Venta* (`/mostrador`), *Mostrador* (`/mostrador/pedidos`) y *Retiro en local* (`/retiro`).
+**Delivery** (encargada): *Gestión Delivery* (`/delivery`, con pestañas) y *Rendición* (`/delivery/rendicion`). El admin ve todo, más las vistas generales `/caja` y `/despacho`.
+Los pedidos web se distribuyen por tipo (delivery solo en estaciones Delivery; retiro solo en estaciones Mostrador), con el filtro en las consultas y `WRONG_SECTOR` en las
+acciones (admin exento). La navegación depende del rol y del tipo de estación.
+
 ## 12. Preguntas abiertas
 
 1. **Costo de envío:** ¿se cobra en delivery y es fijo o varía por zona? Supuesto actual: valor fijo configurable en `settings.delivery_fee`, por defecto $0.

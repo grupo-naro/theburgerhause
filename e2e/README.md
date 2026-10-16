@@ -64,13 +64,28 @@ the final state.
 
 | Spec | Journey |
 | --- | --- |
-| `journey-delivery.spec.ts` (`@mobile`) | J1: customer on a phone builds a per-unit order (delivery + transfer) -> cashier sees it live, verifies, approves -> agent prints kitchen + ticket (ESC/POS bytes asserted) -> tracking page moves on by itself (Playwright clock) -> dispatch assigns it with two cash orders to ONE cadet -> deliveries -> exact settlement, balance $0, event chain and print jobs asserted. |
+| `journey-delivery.spec.ts` (`@mobile`) | J1: customer on a phone builds a per-unit order (delivery + transfer) -> the delivery manager sees it live in Gestión Delivery (the cashier never does), verifies, approves -> the Delivery station agent prints kitchen + ticket (ESC/POS bytes asserted) -> tracking page moves on by itself (Playwright clock) -> she assigns it with two cash orders to ONE cadet -> deliveries -> exact settlement, balance $0, event chain and print jobs asserted. |
 | `journey-counter.spec.ts` | J2: POS sale with a customized unit, change and pager 7 -> real printing (`LLAMADOR 7`, `Pago: Efectivo (pagado)`) -> pickup lane -> delivered -> pager 7 free again; reusing it before delivery is refused naming the order. |
 | `journey-takeaway.spec.ts` | J3: web takeaway paid in cash (collect dialog on delivery -> `paid`), a rejected order (reason, cancelled, no jobs), a cadet settlement with a shortage. |
 | `journey-print-agent.spec.ts` | J4: no agent (jobs pending, "Sin agente") -> agent starts and prints once; a crash after printing but before the ack -> stuck timeout -> redelivery that is NOT printed twice; three failed prints -> red alert -> Reimprimir. |
 
 Time is never slept: the 30 s stuck timeout is simulated by moving `claimed_at` in the DB, tracking polls run on
 `page.clock`, and agent output is awaited by polling the temp dir / the DB.
+
+## Sector workspaces (Task 10.1)
+
+One workspace per sector; web orders are distributed by type (delivery -> Delivery station, takeaway and counter sales -> Mostrador station).
+The saved logins land on `/mostrador` (cajera, station Mostrador 1) and `/delivery` (encargada, station Delivery 1).
+
+| Spec | What it covers |
+| --- | --- |
+| `sector-workspaces.spec.ts` | Distribution by order type (live and after reload), print jobs on the approving station, old URLs and redirects, station picker per role, role/kind mismatch message, one EventSource per page, layout (no overflow, >= 48 px targets, screenshots `sector-*`) at 1280/1024/768. |
+| `delivery-workspace.spec.ts` | Gestión Delivery tabs: tablist semantics and arrow keys, `?tab=` deep links (survives live refresh), badges, selection kept across tabs, new-order alert while on another tab. |
+| `caja.spec.ts`, `caja-chrome.spec.ts` | The cashier approval flow runs on `/retiro` with takeaway orders (`placeRetiroOrder`); the delivery manager's visual checks on `/delivery` (`placeDeliveryOrder`). |
+| `despacho-flow/layout/safety.spec.ts` | The full dispatch board (every lane + counters) as **admin** on `/despacho`; `despacho-roles.spec.ts` covers cashier (`/mostrador/pedidos`), encargada (`/delivery`) and admin. |
+
+Helpers: `openRetiro`, `openDelivery(page, tab?)`, `openPedidos`, `openDespacho` (admin board), `openCaja` (admin general view). `placeApproved` approves
+delivery orders as the encargada at Delivery 1 and takeaway ones as the cajera at Mostrador 1.
 
 ## Commands
 

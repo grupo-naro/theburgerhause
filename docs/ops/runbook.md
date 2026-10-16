@@ -708,7 +708,8 @@ certificado vence; el disco se mira con `df -h` (sección 5.1) una vez por seman
 
 ### 5.3 "No imprime": qué mirar, en orden
 
-1. **En la Caja**: ¿hay un aviso rojo de impresión fallida? ¿La estación dice **"Sin agente"**? Eso ya dice si
+1. **En la pantalla de pedidos de esa estación** (**Retiro en local** en el mostrador, **Gestión Delivery** en delivery;
+   antes "la Caja"): ¿hay un aviso rojo de impresión fallida? ¿La estación dice **"Sin agente"**? Eso ya dice si
    el problema es el programa de impresión (agente) o la impresora. Con el aviso rojo, apretar **Reimprimir**.
 2. **En la PC de esa estación** (PowerShell como Administrador, ver `docs/ops/print-agent-install.md`, sección 9):
    - Estado: `powershell -NoProfile -ExecutionPolicy Bypass -File .\status.ps1` (debe decir "Servidor: OK").
@@ -837,8 +838,9 @@ administrador a `https://<TU_DOMINIO>/admin`:
    **modificadores** (Admin → Modificadores: quitar ingredientes, agregados, cambios) asociados a cada producto.
 7. **Instalar los agentes de impresión** en las 9 PCs (`docs/ops/print-agent-install.md`) y hacer un ticket de
    prueba en cada una.
-8. **Pedido de prueba completo**: hacer un pedido desde el celular, aprobarlo en la Caja, ver que imprime en la
-   estación correcta y cobrarlo. Después anularlo/borrarlo según el procedimiento del local.
+8. **Pedido de prueba completo**: hacer un pedido desde el celular, aprobarlo en la pantalla del sector (un pedido de
+   **delivery** se aprueba en **Gestión Delivery**; uno de **retiro** en **Retiro en local**), ver que imprime en la
+   estación que lo aprobó y cobrarlo. Comprobar también que el de delivery NO aparece en el mostrador y viceversa. Después anularlo/borrarlo según el procedimiento del local.
 9. **Práctica de restauración** (4.6) y **monitor externo** (5.2).
 10. **Abrir pedidos**: Admin → Ajustes → activar **aceptar pedidos**. Probar desde un celular fuera de la red
     del local que `https://<TU_DOMINIO>` carga el menú.
