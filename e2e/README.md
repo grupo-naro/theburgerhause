@@ -53,3 +53,33 @@ match the cached menu); it only checks the marker and logs the users in. If you 
 already running on :3100 after something wiped the DB (e.g. `pnpm test:int`, which shares
 `burgerhause_test`), global setup fails with an explicit message: stop that server so Playwright
 restarts it.
+
+## Journeys (`e2e/journey-*.spec.ts`)
+
+Cross-role, end-to-end tests of the whole business cycle. Each journey is ONE long test made of
+`test.step`s (a failure names the step), uses the real UI for every role-specific action and the REAL print
+agent (`packages/print-agent`, started in-process with the `file` backend and temp dirs, see
+`e2e/helpers/journey.ts`). DB helpers only set up extra orders/cadets, inject controlled timestamps and assert
+the final state.
+
+| Spec | Journey |
+| --- | --- |
+| `journey-delivery.spec.ts` (`@mobile`) | J1: customer on a phone builds a per-unit order (delivery + transfer) -> cashier sees it live, verifies, approves -> agent prints kitchen + ticket (ESC/POS bytes asserted) -> tracking page moves on by itself (Playwright clock) -> dispatch assigns it with two cash orders to ONE cadet -> deliveries -> exact settlement, balance $0, event chain and print jobs asserted. |
+| `journey-counter.spec.ts` | J2: POS sale with a customized unit, change and pager 7 -> real printing (`LLAMADOR 7`, `Pago: Efectivo (pagado)`) -> pickup lane -> delivered -> pager 7 free again; reusing it before delivery is refused naming the order. |
+| `journey-takeaway.spec.ts` | J3: web takeaway paid in cash (collect dialog on delivery -> `paid`), a rejected order (reason, cancelled, no jobs), a cadet settlement with a shortage. |
+| `journey-print-agent.spec.ts` | J4: no agent (jobs pending, "Sin agente") -> agent starts and prints once; a crash after printing but before the ack -> stuck timeout -> redelivery that is NOT printed twice; three failed prints -> red alert -> Reimprimir. |
+
+Time is never slept: the 30 s stuck timeout is simulated by moving `claimed_at` in the DB, tracking polls run on
+`page.clock`, and agent output is awaited by polling the temp dir / the DB.
+
+## Commands
+
+```
+pnpm e2e                                   # everything (builds first)
+pnpm e2e e2e/journey-                      # only the journeys
+pnpm e2e e2e/journey- --repeat-each=3      # flake hunt on the journeys
+pnpm verify                                # lint + unit + agent typecheck + int + build + e2e (whole-branch gate)
+pnpm verify:fast                           # lint + unit + agent typecheck + build
+```
+
+`pnpm e2e` and `pnpm test:int` share `burgerhause_test`: never run them at the same time.

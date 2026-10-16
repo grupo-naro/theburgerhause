@@ -1,36 +1,162 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# The Burger House 828
 
-## Getting Started
+Sistema de pedidos y despacho de The Burger House 828: tienda online para los clientes, caja y mostrador
+para aprobar y cobrar, impresión automática de comandas, despacho con cadetes y rendición de efectivo.
 
-First, run the development server:
+El ciclo completo que cubre (criterio de éxito del MVP): pedido del cliente → aprobación en caja → comanda
+impresa sola en la impresora USB de la PC correspondiente → despacho → cadete → rendición del efectivo.
+
+## Arquitectura
+
+Un monolito, sin servicios extra:
+
+- **Next.js 16 (App Router) + TypeScript**: tienda pública, pantallas de staff y API en el mismo proceso.
+  Esta versión de Next tiene cambios incompatibles con lo habitual: leé `node_modules/next/dist/docs/` antes de
+  tocar código de Next (ver `AGENTS.md`).
+- **PostgreSQL + Drizzle ORM**: única fuente de verdad (migraciones en `src/db/migrations`).
+- **Tiempo real por SSE**: las pantallas de staff se refrescan solas (Postgres `LISTEN/NOTIFY` → bus en memoria →
+  `GET /api/events`). El cliente final hace polling de `/api/pedido/[token]/status`. Detalle: `docs/ops/realtime.md`.
+- **Print Agent** (`packages/print-agent`): programa Node que corre en cada PC con impresora térmica. Se conecta hacia
+  afuera por SSE, imprime ESC/POS y confirma cada trabajo. Protocolo: `docs/ops/print-agent-protocol.md`.
+
+Diseño y plan (leer primero):
+
+- `docs/superpowers/specs/2026-10-14-the-burger-hause-mvp-design.md`: alcance, máquina de estados, flujos.
+- `docs/superpowers/specs/2026-10-14-the-burger-hause-ux-design.md`: diseño de la interfaz.
+- `docs/superpowers/plans/2026-10-14-mvp-roadmap.md`: plan por sprints.
+
+## Puesta en marcha local
+
+Requisitos: Node.js 20 o superior (se desarrolla con 24), pnpm 10 y Docker.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker compose up -d          # PostgreSQL 16 en localhost:15435 (usuario/clave/base: burgerhause)
+cp .env.example .env          # y cambiá SESSION_SECRET (mínimo 32 caracteres)
+pnpm install
+pnpm db:migrate               # aplica las migraciones
+pnpm db:seed                  # carga el menú, categorías, modificadores y estaciones
+pnpm db:seed-admin            # crea el usuario admin (usuario "admin"; si no definís ADMIN_PASSWORD imprime una clave generada)
+pnpm dev                      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+El Postgres de `docker-compose.yml` se publica en el puerto **15435** del host (no en el 5432), por eso el
+`DATABASE_URL` de `.env.example` apunta ahí. `pnpm db:seed-admin` acepta `ADMIN_USERNAME` y `ADMIN_PASSWORD`.
+Las demás cuentas (cajera, encargada) las crea el admin en `/admin/usuarios`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Variables de entorno
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Obligatoria | Para qué sirve |
+| --- | --- | --- |
+| `DATABASE_URL` | sí | Conexión a PostgreSQL (`postgres://...`). Los tests usan la base `burgerhause_test` del mismo servidor. |
+| `SESSION_SECRET` | sí | Firma de las sesiones. Mínimo 32 caracteres. |
+| `UPLOAD_DIR` | sí | Carpeta donde se guardan las fotos de productos subidas desde el admin. |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | no | Solo para `pnpm db:seed-admin`. |
 
-## Learn More
+Se validan al arrancar (`src/lib/env.ts`).
 
-To learn more about Next.js, take a look at the following resources:
+## Roles y pantallas
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Roles de staff: `admin`, `cajera`, `encargada_delivery`. El cliente final no tiene cuenta. El login es en `/login`;
+cajera y encargada eligen su **estación** (por ejemplo "Mostrador 1", "Delivery 1") en `/estacion`: de esa estación
+salen las impresiones.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Ruta | Quién | Qué hace |
+| --- | --- | --- |
+| `/` | público | Carta con búsqueda y categorías; hoja de producto con personalización por unidad. |
+| `/carrito` | público | Carrito (guardado en el navegador). |
+| `/checkout` | público | Delivery o retiro; efectivo o transferencia; crea el pedido. |
+| `/pedido/[token]` | público | Seguimiento del pedido (línea de tiempo, datos de pago, contacto). |
+| `/login`, `/estacion` | staff | Ingreso y elección de estación. |
+| `/caja` | cajera, encargada, admin | Pedidos nuevos en vivo: aprobar (con verificación de transferencia) o rechazar con motivo; recientes; alerta de impresión fallida y reimpresión. |
+| `/mostrador` | cajera, admin | Punto de venta de mostrador con llamador (pager), cobro e impresión. |
+| `/despacho` | cajera, encargada, admin | Tablero: en preparación, listo, para retirar, en camino; asignar pedidos a un cadete (asignar: encargada y admin). |
+| `/despacho/rendicion` | encargada, admin | Saldo de cada cadete y rendición del efectivo (con faltante y comprobante). |
+| `/admin` | admin | Panel. |
+| `/admin/menu`, `/admin/modificadores` | admin | Productos, categorías, grupos de modificadores. |
+| `/admin/usuarios`, `/admin/cadetes` | admin | Cuentas de staff y cadetes. |
+| `/admin/estaciones` | admin | Estaciones y tokens del Print Agent. |
+| `/admin/ajustes` | admin | Datos del local, costo de envío, datos bancarios, pedidos abiertos/cerrados. |
 
-## Deploy on Vercel
+API (no es para uso humano): `/api/events` (SSE del staff), `/api/pedido/[token]/status`, `/api/uploads`,
+`/uploads/...` (fotos) y `/api/agent/stream`, `/api/agent/heartbeat`, `/api/agent/jobs/[id]/ack` (Print Agent, con
+token de estación).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Tests
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm lint            # ESLint
+pnpm test            # unitarios (Vitest): src/ y packages/ (incluye el Print Agent)
+pnpm test:int        # integración contra PostgreSQL real (base burgerhause_test)
+pnpm e2e             # Playwright: compila la app, la levanta en :3100 y corre todo
+pnpm e2e:ui          # runner interactivo
+pnpm verify:fast     # lint + unitarios + typecheck del agente + build
+pnpm verify          # TODO: lint, unitarios, typecheck del agente, integración, build y e2e (ver abajo)
+```
+
+- `pnpm test:int` y `pnpm e2e` comparten la base `burgerhause_test` (se crea sola) y no pueden correr a la vez.
+  Necesitan Docker con Postgres levantado (`docker compose up -d`). Para e2e instalá Chromium una vez:
+  `pnpm exec playwright install chromium`.
+- **`pnpm verify`** es el comando de la rama completa: corre todo en orden y corta en el primer error (el código de
+  salida se propaga). Termina con `git status --porcelain`, que lista lo que quedó sin commitear. Tarda unos
+  **11 minutos** (unos 10,5 medidos, de los cuales ~6 son los e2e) en esta máquina.
+- Tests del agente: `pnpm --filter @burgerhause/print-agent test` (los corre también `pnpm test`) y
+  `pnpm --filter @burgerhause/print-agent typecheck`.
+
+### Convenciones de e2e
+
+Leé `e2e/README.md`. Lo esencial:
+
+- La carta pública se prerenderiza al compilar, así que la base de test se siembra **una sola vez, ANTES de
+  `next build`** (`e2e/prepare-db-cli.ts`); el setup global no resiembra.
+- Usuarios de prueba `admin`, `cajera`, `encargada` con sesión guardada (`storageState`); proyectos `desktop` y
+  `mobile` (solo tests con `@mobile` en el título); un solo worker; sin esperas fijas.
+- **Journeys** (`e2e/journey-*.spec.ts`): recorridos completos entre roles y con el Print Agent real en proceso:
+  J1 pedido web con delivery (cliente, caja, impresión, despacho, cadete, rendición), J2 venta de mostrador con
+  llamador, J3 retiro con efectivo + rechazo + rendición con faltante, J4 estación sin agente (caídas, reenvío sin
+  duplicar papel, alerta de impresión fallida y reimpresión).
+
+## Print Agent
+
+Corre en cada PC del local con impresora térmica USB. Una estación = un token (se genera y rota en
+`/admin/estaciones`). Garantías: nunca imprime dos veces el mismo trabajo (ni tras reiniciar) y no pierde
+confirmaciones. Sin agente conectado los trabajos quedan pendientes y salen cuando vuelve; tras 3 fallos la caja
+muestra una alerta con botón de reimpresión.
+
+- Guía de instalación paso a paso: `docs/ops/print-agent-install.md`.
+- Protocolo servidor-agente: `docs/ops/print-agent-protocol.md`.
+- Paquete, build y release: `packages/print-agent/README.md`.
+
+## Estructura
+
+```
+src/
+  app/            rutas: (public) tienda, (staff) caja/mostrador/despacho/login, (admin) panel, api/
+  components/     UI por área (menu, cart, checkout, tracking, caja, pos, despacho, rendicion, admin...)
+  domain/         reglas puras: dinero, precios, estados del pedido, saldo de cadetes, documentos de impresión
+  lib/            casos de uso y servicios (orders, print, events, auth, settlements, stations, uploads...)
+  db/             esquema Drizzle, migraciones, seed
+  test-support/   utilidades de test
+packages/
+  print-agent/    el agente de impresión (paquete @burgerhause/print-agent)
+e2e/              Playwright: specs, journeys y helpers
+docs/
+  ops/            realtime, protocolo e instalación del agente
+  superpowers/    specs y plan del MVP
+```
+
+## Decisiones clave
+
+- **Dinero en centavos enteros**: nunca hay decimales ni floats en precios, totales ni rendiciones
+  (`src/domain/money.ts`).
+- **Snapshots**: el pedido guarda nombre y precio de cada producto y modificador al momento de comprar; cambiar el
+  menú después no altera pedidos viejos.
+- **Una fila `order_items` por unidad**: dos hamburguesas son dos filas, cada una con sus modificaciones; así la
+  comanda y el ticket se leen unidad por unidad.
+- **Idempotencia**: crear pedido (web y mostrador) usa una clave de idempotencia; reintentar tras un error de red
+  no duplica el pedido.
+- **Advisory locks de Postgres** (`pg_advisory_xact_lock`) serializan la creación de pedidos con la misma clave y la
+  asignación de un llamador del mostrador, para que dos ventas no tomen el mismo número.
+- **SSE + LISTEN/NOTIFY**: los cambios de estado emiten `pg_notify` dentro de la misma transacción (solo sale si
+  hace commit) y llegan a las pantallas de staff sin recargar.
+- **Sin borrados duros de datos de negocio** (solo se borran sesiones): usuarios, cadetes, productos y estaciones se desactivan; los pedidos se cancelan y cada
+  cambio de estado queda en `order_events`.
