@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", async () => (await import("@/test-support/next-mocks")).nextNavigationMock);
@@ -5,6 +6,10 @@ vi.mock("@/lib/auth/require-role", () => ({ requireRole: vi.fn() }));
 vi.mock("@/lib/orders/create-counter-order", async (importOriginal) => {
   const m = await importOriginal<typeof import("@/lib/orders/create-counter-order")>();
   return { ...m, createCounterOrder: vi.fn(m.createCounterOrder) };
+});
+vi.mock("@/lib/orders/print-state", async (importOriginal) => {
+  const m = await importOriginal<typeof import("@/lib/orders/print-state")>();
+  return { ...m, getOrderPrintState: vi.fn(m.getOrderPrintState) };
 });
 vi.mock("@/lib/orders/pagers", async (importOriginal) => {
   const m = await importOriginal<typeof import("@/lib/orders/pagers")>();
@@ -18,9 +23,10 @@ import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession, type Role } from "@/lib/auth/roles";
 import { createCounterOrder } from "@/lib/orders/create-counter-order";
 import { listActivePagers } from "@/lib/orders/pagers";
+import { getOrderPrintState } from "@/lib/orders/print-state";
 import { redirectOf } from "@/test-support/next-mocks";
 import { seedMenuAndStaff, type Fx } from "@/test-support/orders";
-import { createCounterOrderAction, listActivePagersAction } from "./actions";
+import { createCounterOrderAction, getPrintStateAction, listActivePagersAction } from "./actions";
 
 let fx: Fx;
 const session = (role: Role, stationId: number | null, userId = fx.userId): AuthSession => ({
@@ -53,6 +59,7 @@ describe("authorization", () => {
   const calls: [string, () => Promise<unknown>][] = [
     ["createCounterOrderAction", () => createCounterOrderAction(body())],
     ["listActivePagersAction", () => listActivePagersAction()],
+    ["getPrintStateAction", () => getPrintStateAction({ orderId: 1 })],
   ];
 
   it.each(calls)("%s: anonymous is sent to /login and the core is not called", async (_n, run) => {
@@ -185,6 +192,66 @@ describe("listActivePagersAction", () => {
   });
 });
 
+describe("getPrintStateAction", () => {
+  const sell = async (over: Record<string, unknown> = {}) => {
+    const r = await createCounterOrderAction(body(over));
+    if (!r.ok) throw new Error("sale failed");
+    return r.data;
+  };
+
+  it("requires exactly cajera and admin", async () => {
+    as("cajera");
+    const a = await sell();
+    vi.mocked(requireRole).mockClear();
+    await getPrintStateAction({ orderId: a.orderId });
+    expect(vi.mocked(requireRole).mock.calls).toEqual([["cajera", "admin"]]);
+  });
+
+  it("returns the job counts of THAT order; other orders are unaffected", async () => {
+    as("cajera");
+    const a = await sell({ pagerNumber: 1 });
+    const b = await sell({ pagerNumber: 2 });
+    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 0, done: 0 } });
+    await testDb().update(s.printJobs).set({ status: "done" }).where(eq(s.printJobs.orderId, a.orderId));
+    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 0, failed: 0, done: 2 } });
+    expect(await getPrintStateAction({ orderId: b.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 0, done: 0 } });
+  });
+
+  it("counts printing as pending and an unhandled failure as failed", async () => {
+    as("cajera");
+    const a = await sell();
+    const [kitchen, ticket] = a.printJobIds;
+    await testDb().update(s.printJobs).set({ status: "printing" }).where(eq(s.printJobs.id, ticket));
+    await testDb().update(s.printJobs).set({ status: "failed", attempts: 3 }).where(eq(s.printJobs.id, kitchen));
+    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 1, failed: 1, done: 0 } });
+  });
+
+  it("a failure superseded by a later job (reprint) no longer counts", async () => {
+    as("cajera");
+    const a = await sell();
+    const [kitchen] = a.printJobIds;
+    await testDb().update(s.printJobs).set({ status: "failed", attempts: 3 }).where(eq(s.printJobs.id, kitchen));
+    await testDb().insert(s.printJobs).values({ orderId: a.orderId, stationId: fx.stationId, type: "kitchen", status: "pending", payload: {} } as never);
+    expect(await getPrintStateAction({ orderId: a.orderId })).toMatchObject({ ok: true, data: { failed: 0 } });
+  });
+
+  it("unknown id -> generic not-found result (no detail leaked); bad input -> VALIDATION", async () => {
+    as("cajera");
+    expect(await getPrintStateAction({ orderId: 999_999 })).toEqual({ ok: false, code: "NOT_FOUND", message: "El pedido no existe" });
+    expect(await getPrintStateAction({ orderId: "1" })).toMatchObject({ ok: false, code: "VALIDATION" });
+    expect(await getPrintStateAction(null)).toMatchObject({ ok: false, code: "VALIDATION" });
+  });
+
+  it("a throwing query becomes the generic message", async () => {
+    as("cajera");
+    const a = await sell();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(getOrderPrintState).mockRejectedValueOnce(Object.assign(new Error("secret SELECT"), { code: "XX000" }));
+    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: false, code: "UNEXPECTED", message: GENERIC });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("secret");
+  });
+});
+
 describe("module shape", () => {
   it("exports only async functions at runtime", async () => {
     const mod = await import("./actions");
@@ -192,6 +259,6 @@ describe("module shape", () => {
       expect(typeof value, name).toBe("function");
       expect(value.constructor.name, name).toBe("AsyncFunction");
     }
-    expect(Object.keys(mod).sort()).toEqual(["createCounterOrderAction", "listActivePagersAction"]);
+    expect(Object.keys(mod).sort()).toEqual(["createCounterOrderAction", "getPrintStateAction", "listActivePagersAction"]);
   });
 });

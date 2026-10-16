@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { getDb } from "@/db/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession } from "@/lib/auth/roles";
@@ -11,7 +12,9 @@ import {
   type CreateCounterOrderFailure,
 } from "@/lib/orders/create-counter-order";
 import { pgErrorCode } from "@/lib/orders/create-order";
+import type { PrintState } from "@/lib/orders/caja-queries";
 import { listActivePagers, type ActivePager } from "@/lib/orders/pagers";
+import { getOrderPrintState } from "@/lib/orders/print-state";
 import { fieldErrorsOf } from "@/lib/orders/schemas";
 
 /**
@@ -29,7 +32,7 @@ import { fieldErrorsOf } from "@/lib/orders/schemas";
 
 export type CounterActionFailure = {
   ok: false;
-  code: CreateCounterOrderFailure["code"] | "FORBIDDEN";
+  code: CreateCounterOrderFailure["code"] | "FORBIDDEN" | "NOT_FOUND";
   message: string;
   fieldErrors?: Record<string, string>;
   unitIssues?: CreateCounterOrderFailure["unitIssues"];
@@ -85,6 +88,25 @@ export async function listActivePagersAction(): Promise<CounterActionResult<Acti
   if ("result" in auth) return auth.result;
   try {
     return { ok: true, data: await listActivePagers(getDb()) };
+  } catch (e) {
+    return unexpected(e);
+  }
+}
+
+const printStateSchema = z.object({ orderId: z.number().int().positive().max(2_147_483_647) });
+
+/**
+ * Print status of ONE order (job counts), polled by the confirmation overlay of the POS.
+ * Same roles as the sale. Unknown ids answer a generic not-found result.
+ */
+export async function getPrintStateAction(input: unknown): Promise<CounterActionResult<PrintState>> {
+  const auth = await authorize();
+  if ("result" in auth) return auth.result;
+  const parsed = printStateSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, code: "VALIDATION", message: "Solicitud inválida" };
+  try {
+    const state = await getOrderPrintState(getDb(), parsed.data.orderId);
+    return state ? { ok: true, data: state } : { ok: false, code: "NOT_FOUND", message: "El pedido no existe" };
   } catch (e) {
     return unexpected(e);
   }

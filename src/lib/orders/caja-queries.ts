@@ -55,7 +55,7 @@ const FAILED_LIMIT = 100;
  * A failed job is "handled" once a LATER job of the same type for the same station was queued
  * (pending/printing) or printed (done): a reprint superseded it. Only unhandled failures alert.
  */
-const UNHANDLED_FAILED = `"print_jobs"."status" = 'failed' and not exists (select 1 from "print_jobs" "later" where "later"."order_id" = "print_jobs"."order_id" and "later"."station_id" = "print_jobs"."station_id" and "later"."type" = "print_jobs"."type" and "later"."id" > "print_jobs"."id" and "later"."status" in ('pending','printing','done'))`;
+export const UNHANDLED_FAILED = `"print_jobs"."status" = 'failed' and not exists (select 1 from "print_jobs" "later" where "later"."order_id" = "print_jobs"."order_id" and "later"."station_id" = "print_jobs"."station_id" and "later"."type" = "print_jobs"."type" and "later"."id" > "print_jobs"."id" and "later"."status" in ('pending','printing','done'))`;
 
 const jobCount = (filter: string) =>
   sql<number>`(select count(*)::int from "print_jobs" where "print_jobs"."order_id" = "orders"."id" and ${sql.raw(filter)})`;
