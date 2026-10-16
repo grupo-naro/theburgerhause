@@ -1,9 +1,9 @@
 "use client";
 
-import { BackspaceIcon } from "./pos-icons";
 import { CheckIcon } from "@/components/menu/icons";
 import type { ActivePager } from "@/lib/orders/pagers";
 import type { PagerKey } from "@/lib/pos/pager-keypad";
+import { BackspaceIcon } from "./pos-icons";
 
 type Props = {
   text: string;
@@ -25,7 +25,11 @@ const KEYS: { key: PagerKey; label: string }[] = [
   { key: "back", label: "⌫" },
 ];
 
-/** Pager number: on-screen keypad (also typeable), live conflict feedback, "Siguiente libre" and the numbers in use. */
+/**
+ * Pager number: on-screen keypad (also typeable), live conflict feedback, "Siguiente libre" and the
+ * numbers in use. In a wide ticket the keypad sits beside the value; in a narrow one everything
+ * stacks as value, status, keypad, Siguiente libre, so the value stays right above the keys.
+ */
 export function PagerSection({ text, value, conflict, active, nextFree, onKey, onText, onNextFree }: Props) {
   const typed = value !== null;
   return (
@@ -33,8 +37,44 @@ export function PagerSection({ text, value, conflict, active, nextFree, onKey, o
       <h3 id="pos-pager-h" className="mb-2 font-display text-base font-extrabold tracking-wide text-ink-muted uppercase">
         Llamador <span className="font-sans text-sm font-semibold tracking-normal normal-case">(obligatorio)</span>
       </h3>
-      <div className="grid grid-cols-1 gap-3 @[22rem]/ticket:grid-cols-[auto_1fr]">
-        <div role="group" aria-label="Teclado del llamador" className="grid w-full grid-cols-3 gap-2 @[22rem]/ticket:col-start-1 @[22rem]/ticket:row-start-1 @[22rem]/ticket:w-[11.5rem]">
+      <div className="grid grid-cols-1 gap-x-3 gap-y-2 @[22rem]/ticket:grid-cols-[11.5rem_1fr] @[22rem]/ticket:grid-rows-[auto_auto_1fr]">
+        <input
+          inputMode="numeric"
+          autoComplete="off"
+          aria-label="Número de llamador"
+          aria-invalid={conflict ? true : undefined}
+          value={text}
+          placeholder="—"
+          maxLength={3}
+          onChange={(e) => onText(e.target.value)}
+          data-testid="pager-input"
+          className={`h-16 w-full rounded-2xl border-2 bg-surface text-center font-display text-5xl leading-none font-extrabold tabular-nums @[22rem]/ticket:col-start-2 @[22rem]/ticket:row-start-1 ${
+            conflict ? "border-state-error text-state-error" : typed ? "border-state-ready text-ink" : "border-line text-ink"
+          }`}
+        />
+        <p
+          role={conflict ? "alert" : undefined}
+          data-testid="pager-status"
+          className={`min-h-6 text-sm leading-tight font-bold @[22rem]/ticket:col-start-2 @[22rem]/ticket:row-start-2 ${
+            conflict ? "text-state-error" : typed ? "text-ink" : "text-ink-muted"
+          }`}
+        >
+          {conflict ? (
+            conflict
+          ) : typed ? (
+            <span className="inline-flex items-center gap-1">
+              <CheckIcon className="size-4 text-state-ready" strokeWidth={3} />
+              Llamador {value} libre
+            </span>
+          ) : (
+            "Tocá los números o escribilo"
+          )}
+        </p>
+        <div
+          role="group"
+          aria-label="Teclado del llamador"
+          className="grid w-full grid-cols-3 gap-2 @[22rem]/ticket:col-start-1 @[22rem]/ticket:row-span-3 @[22rem]/ticket:row-start-1"
+        >
           {KEYS.map(({ key, label }) => (
             <button
               key={key}
@@ -52,48 +92,18 @@ export function PagerSection({ text, value, conflict, active, nextFree, onKey, o
             </button>
           ))}
         </div>
-        <div className="order-first flex min-w-0 flex-col gap-2 @[22rem]/ticket:order-none @[22rem]/ticket:col-start-2 @[22rem]/ticket:row-start-1">
-          <input
-            inputMode="numeric"
-            autoComplete="off"
-            aria-label="Número de llamador"
-            aria-invalid={conflict ? true : undefined}
-            value={text}
-            placeholder="—"
-            maxLength={3}
-            onChange={(e) => onText(e.target.value)}
-            data-testid="pager-input"
-            className={`h-16 w-full rounded-2xl border-2 bg-surface text-center font-display text-5xl leading-none font-extrabold tabular-nums ${
-              conflict ? "border-state-error text-state-error" : typed ? "border-state-ready text-ink" : "border-line text-ink"
-            }`}
-          />
-          <p
-            role={conflict ? "alert" : undefined}
-            data-testid="pager-status"
-            className={`min-h-10 text-sm leading-tight font-bold ${conflict ? "text-state-error" : typed ? "text-ink" : "text-ink-muted"}`}
-          >
-            {conflict ? (
-              conflict
-            ) : typed ? (
-              <span className="inline-flex items-center gap-1">
-                <CheckIcon className="size-4 text-state-ready" strokeWidth={3} />
-                Llamador {value} libre
-              </span>
-            ) : (
-              "Tocá los números o escribilo"
-            )}
-          </p>
-          <button
-            type="button"
-            data-testid="pager-next-free"
-            disabled={nextFree === null}
-            onClick={onNextFree}
-            className="min-h-12 rounded-xl border-2 border-brand-600 bg-brand-50 px-2 font-display text-base font-bold text-brand-700 transition-colors hover:bg-brand-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Siguiente libre
-            {nextFree !== null && <span className="block text-lg leading-tight font-extrabold tabular-nums">N° {nextFree}</span>}
-          </button>
-        </div>
+        <button
+          type="button"
+          data-testid="pager-next-free"
+          disabled={nextFree === null}
+          onClick={onNextFree}
+          className="min-h-12 rounded-xl border-2 border-brand-600 bg-brand-50 px-2 font-display text-base leading-tight font-bold text-brand-700 transition-colors hover:bg-brand-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 @[22rem]/ticket:col-start-2 @[22rem]/ticket:row-start-3 @[22rem]/ticket:self-start"
+        >
+          Siguiente libre
+          {nextFree !== null && (
+            <span className="ml-1.5 text-lg font-extrabold tabular-nums @[22rem]/ticket:ml-0 @[22rem]/ticket:block">N° {nextFree}</span>
+          )}
+        </button>
       </div>
 
       <div className="mt-3" data-testid="pagers-in-use">

@@ -169,7 +169,7 @@ export function TicketPanel({ sale, pagers, flash, onQuantity, onEdit, onRemove,
         </div>
       </div>
 
-      <ChargeFooter total={sale.totals.total} lineCount={cart.count} charge={sale.charge} change={sale.change} busy={sale.busy} onCharge={sale.submit} />
+      <ChargeFooter total={sale.totals.total} charge={sale.charge} change={sale.change} busy={sale.busy} onCharge={sale.submit} />
     </div>
   );
 }

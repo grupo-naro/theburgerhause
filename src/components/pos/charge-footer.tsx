@@ -7,7 +7,6 @@ import { LockIcon, PrinterIcon } from "./pos-icons";
 
 type Props = {
   total: number;
-  lineCount: number;
   charge: ChargeState;
   /** Cash only (`none` otherwise): shown here so it is NEVER scrolled out of sight. */
   change: Change;
@@ -20,13 +19,13 @@ type Props = {
  * button. Enabled = cheddar with the amount; disabled = a quiet dashed button that SAYS what is
  * missing ("Elegí el método de pago").
  */
-export function ChargeFooter({ total, lineCount, charge, change, busy, onCharge }: Props) {
+export function ChargeFooter({ total, charge, change, busy, onCharge }: Props) {
   const price = formatARS(total);
   return (
     <footer className="shrink-0 border-t border-line bg-surface px-4 pt-3 pb-4 shadow-[0_-8px_18px_rgba(11,31,58,0.06)]">
       <div className="mb-2.5 flex items-end justify-between gap-2">
         <span className="font-display text-lg font-extrabold tracking-wide text-ink-muted uppercase">
-          Total{lineCount > 0 && <span className="ml-2 text-base font-bold tracking-normal normal-case">· {lineCount} u.</span>}
+          Total
         </span>
         <span data-testid="ticket-total" className="font-display text-5xl leading-none font-extrabold tabular-nums text-ink">
           {price}
