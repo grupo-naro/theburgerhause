@@ -4,10 +4,11 @@ import { navLinksForRole } from "./nav";
 const links = (r: Parameters<typeof navLinksForRole>[0]) => navLinksForRole(r).map((l) => [l.href, l.label]);
 
 describe("navLinksForRole", () => {
-  it("cajera: Caja, Mostrador", () => {
+  it("cajera: Caja, Mostrador, Despacho", () => {
     expect(links("cajera")).toEqual([
       ["/caja", "Caja"],
       ["/mostrador", "Mostrador"],
+      ["/despacho", "Despacho"],
     ]);
   });
   it("encargada de delivery: Despacho, Caja", () => {

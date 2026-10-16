@@ -8,7 +8,7 @@ const DESPACHO: NavLink = { href: "/despacho", label: "Despacho" };
 const ADMIN: NavLink = { href: "/admin", label: "Administración" };
 
 const BY_ROLE: Record<Role, readonly NavLink[]> = {
-  cajera: [CAJA, MOSTRADOR],
+  cajera: [CAJA, MOSTRADOR, DESPACHO],
   encargada_delivery: [DESPACHO, CAJA],
   admin: [CAJA, MOSTRADOR, DESPACHO, ADMIN],
 };
