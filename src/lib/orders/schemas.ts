@@ -25,13 +25,13 @@ const INT4_MAX = 2_147_483_647;
 const BAD_TEXT = "Dato inválido";
 const BAD_ID = "Producto inválido";
 
-const text = (min: number, max: number) =>
+export const text = (min: number, max: number) =>
   z
     .string({ error: BAD_TEXT })
     .transform(cleanText)
     .pipe(z.string().min(min, min > 0 ? "Es demasiado corto" : undefined).max(max, "Es demasiado largo"));
 
-const unitSchema = z.object({
+export const unitSchema = z.object({
   productId: z.number({ error: BAD_ID }).int(BAD_ID).positive(BAD_ID).max(INT4_MAX, BAD_ID),
   modifierIds: z
     .array(z.number({ error: BAD_ID }).int(BAD_ID).positive(BAD_ID).max(INT4_MAX, BAD_ID), { error: BAD_ID })
@@ -60,11 +60,13 @@ const deliverySchema = z.object({
   notes: text(0, 300).default(""),
 });
 
+export const idempotencyKeySchema = z
+  .string({ error: "Clave inválida" })
+  .regex(UUID_V4, "Clave inválida")
+  .transform((k) => k.toLowerCase());
+
 const baseFields = {
-  idempotencyKey: z
-    .string({ error: "Clave inválida" })
-    .regex(UUID_V4, "Clave inválida")
-    .transform((k) => k.toLowerCase()),
+  idempotencyKey: idempotencyKeySchema,
   units: z.array(unitSchema, { error: "El pedido está vacío" }).min(1, "El pedido está vacío").max(100, "El pedido es demasiado grande"),
   customer: customerSchema,
   paymentMethod: z.enum(["cash", "transfer"], { error: "Elegí un medio de pago" }),
