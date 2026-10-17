@@ -3,7 +3,7 @@ import { expect, test, type BrowserContext, type Locator } from "@playwright/tes
 import { eq } from "drizzle-orm";
 import * as s from "../src/db/schema";
 import { noHorizontalOverflow } from "./helpers/checkout";
-import { countEventSources, openDelivery, openRetiro, orderById, orderCard, parkPendingOrders, placeDeliveryOrder, placeRetiroOrder, printJobsOf } from "./helpers/caja";
+import { audioContexts, beeps, countEventSources, openDelivery, openRetiro, orderById, orderCard, parkPendingOrders, placeDeliveryOrder, placeRetiroOrder, printJobsOf, stubAudio } from "./helpers/caja";
 import { db, findStation } from "./helpers/db";
 import { cleanBoard, dcard, lane, openPedidos, placeApproved, populateBoard, runCleanups, tag } from "./helpers/despacho";
 import { staffContext } from "./helpers/journey";
@@ -348,6 +348,62 @@ test.describe("layout of each workspace", () => {
     } finally {
       await ctx.close();
       await retireCadets([data.cadet.id]);
+    }
+  });
+});
+
+test.describe("new web orders outside the workspace page", () => {
+  test("cashier on Venta: the Retiro badge, announcement and beep arrive live; on /retiro there is exactly one alert", async ({ page }) => {
+    await stubAudio(page);
+    await page.addInitScript(() => {
+      window.localStorage.setItem("caja:sound", "on");
+      document.hasFocus = () => false;
+    });
+    await page.goto("/mostrador");
+    await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
+    await page.mouse.click(5, 5); // a gesture unlocks the audio
+    await expect.poll(() => audioContexts(page)).toBe(1);
+    const retiro = page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Retiro en local" });
+    await expect(retiro.getByTestId("nav-badge")).toHaveCount(0);
+    const before = await beeps(page);
+
+    const t = await placeRetiroOrder({ paymentMethod: "cash" });
+    await placeDeliveryOrder({ paymentMethod: "cash" }); // another sector: no badge, no beep
+    await expect(retiro.getByTestId("nav-badge")).toHaveAttribute("data-count", "1"); // live, no reload
+    await expect(page.getByTestId("shell-announcer")).toHaveText(`Nuevo pedido #${t.number}`);
+    await expect(page).toHaveTitle(/^\(1\) /);
+    await expect.poll(() => beeps(page)).toBe(before + 1);
+
+    // The counter orders page has the same alert; the workspace page owns its own (never two).
+    await page.goto("/mostrador/pedidos");
+    await expect(page.getByTestId("shell-announcer")).toHaveCount(1);
+    await page.goto("/retiro");
+    await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
+    await expect(page.getByTestId("shell-announcer")).toHaveCount(0);
+    await expect(page.getByTestId("caja-announcer")).toHaveCount(1);
+    await page.mouse.click(5, 5);
+    await expect.poll(() => audioContexts(page)).toBe(1);
+    const base = await beeps(page);
+    const t2 = await placeRetiroOrder({ paymentMethod: "cash" });
+    await expect(orderCard(page, t2.number)).toBeVisible();
+    await expect.poll(() => beeps(page)).toBe(base + 1);
+    await page.waitForTimeout(500);
+    expect(await beeps(page)).toBe(base + 1); // exactly one beep: no second alert on the page
+  });
+
+  test("delivery manager on Rendición: the Gestión Delivery badge shows delivery orders only", async ({ browser, baseURL }) => {
+    const ctx = await staffContext(browser, baseURL, "encargada");
+    const page = await ctx.newPage();
+    try {
+      await page.goto("/delivery/rendicion");
+      await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
+      const link = page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Gestión Delivery" });
+      await placeRetiroOrder({ paymentMethod: "cash" });
+      const d = await placeDeliveryOrder({ paymentMethod: "cash" });
+      await expect(link.getByTestId("nav-badge")).toHaveAttribute("data-count", "1");
+      await expect(page.getByTestId("shell-announcer")).toHaveText(`Nuevo pedido #${d.number}`);
+    } finally {
+      await ctx.close();
     }
   });
 });

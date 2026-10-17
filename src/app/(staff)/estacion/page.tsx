@@ -22,6 +22,11 @@ async function StationPicker({ searchParams }: { searchParams: PageProps<"/estac
           Esa pantalla es de otro sector. Elegí una estación {own} para trabajar ahí.
         </p>
       )}
+      {stations.length === 0 && (
+        <p role="alert" data-testid="no-stations" className="rounded-xl border-2 border-line bg-surface px-4 py-3 text-base font-semibold text-ink">
+          No hay estaciones {own}. Pedile al admin que cree una.
+        </p>
+      )}
       <form action={selectStation} className="flex w-full flex-col gap-3">
         <input type="hidden" name="next" value={nextPath} />
         {stations.map((s) => (

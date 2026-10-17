@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession } from "@/lib/auth/roles";
-import { actorSectorFor, type Sector } from "@/lib/orders/sector";
+import { actorRefusal, actorSectorFor, type Sector } from "@/lib/orders/sector";
 import { approveOrder, type ApproveOrderData } from "@/lib/orders/approve-order";
 import { pgErrorCode } from "@/lib/orders/create-order";
 import { rejectOrder, type RejectOrderData } from "@/lib/orders/reject-order";
@@ -36,7 +36,6 @@ const reprintSchema = z.object({ orderId, which: z.enum(["kitchen", "ticket", "b
 
 type Authorized = { session: AuthSession; sector: Sector | null } | { result: ActionResult<never> };
 
-const STATION_REQUIRED_RESULT: ActionResult<never> = { ok: false, code: "STATION_REQUIRED", message: "Elegí tu estación para trabajar" };
 
 /** UNAUTHENTICATED -> /login; FORBIDDEN -> generic error result. */
 async function authorize(): Promise<Authorized> {
@@ -44,7 +43,7 @@ async function authorize(): Promise<Authorized> {
     const session = await requireRole("cajera", "encargada_delivery", "admin");
     // Sector rule, server side: staff only act on orders of their station kind (admin exempt).
     const actor = actorSectorFor(session.user.role, session.stationKind);
-    return actor.ok ? { session, sector: actor.sector } : { result: STATION_REQUIRED_RESULT };
+    return actor.ok ? { session, sector: actor.sector } : { result: actorRefusal(actor.code) };
   } catch (e) {
     if (e instanceof AuthError) {
       if (e.code === "UNAUTHENTICATED") redirect("/login");

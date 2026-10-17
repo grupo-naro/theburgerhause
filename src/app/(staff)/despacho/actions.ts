@@ -17,7 +17,7 @@ import {
   type DispatchOrderData,
 } from "@/lib/orders/dispatch";
 import { MAX_ASSIGN_ORDERS } from "@/lib/orders/dispatch-schemas";
-import { actorSectorFor, type Sector } from "@/lib/orders/sector";
+import { actorRefusal, actorSectorFor, type Sector } from "@/lib/orders/sector";
 
 /**
  * Dispatch Server Actions: thin wrappers. They are PUBLIC endpoints, so each one:
@@ -55,7 +55,6 @@ const assignSchema = z.object({
 
 type Authorized = { session: AuthSession; sector: Sector | null } | { result: ActionResult<never> };
 
-const STATION_REQUIRED_RESULT: ActionResult<never> = { ok: false, code: "STATION_REQUIRED", message: "Elegí tu estación para trabajar" };
 
 /** UNAUTHENTICATED -> /login; FORBIDDEN -> generic error result. */
 async function authorize(roles: Role[]): Promise<Authorized> {
@@ -63,7 +62,7 @@ async function authorize(roles: Role[]): Promise<Authorized> {
     const session = await requireRole(...roles);
     // Sector rule, server side: staff only act on orders of their station kind (admin exempt).
     const actor = actorSectorFor(session.user.role, session.stationKind);
-    return actor.ok ? { session, sector: actor.sector } : { result: STATION_REQUIRED_RESULT };
+    return actor.ok ? { session, sector: actor.sector } : { result: actorRefusal(actor.code) };
   } catch (e) {
     if (e instanceof AuthError) {
       if (e.code === "UNAUTHENTICATED") redirect("/login");

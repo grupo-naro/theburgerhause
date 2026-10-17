@@ -31,6 +31,10 @@ describe("actorSectorFor", () => {
     expect(actorSectorFor("cajera", "mostrador")).toEqual({ ok: true, sector: "mostrador" });
     expect(actorSectorFor("encargada_delivery", "delivery")).toEqual({ ok: true, sector: "delivery" });
   });
+  it("staff at a station of the other kind (unsupported combination) cannot act", () => {
+    expect(actorSectorFor("cajera", "delivery")).toEqual({ ok: false, code: "WRONG_SECTOR" });
+    expect(actorSectorFor("encargada_delivery", "mostrador")).toEqual({ ok: false, code: "WRONG_SECTOR" });
+  });
   it("staff without a station cannot act", () => {
     expect(actorSectorFor("cajera", null)).toEqual({ ok: false, code: "STATION_REQUIRED" });
     expect(actorSectorFor("encargada_delivery", null)).toEqual({ ok: false, code: "STATION_REQUIRED" });

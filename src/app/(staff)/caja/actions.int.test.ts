@@ -276,3 +276,18 @@ describe("sector rule (server side)", () => {
     expect(reprintOrder).not.toHaveBeenCalled();
   });
 });
+
+describe("role/station-kind mismatch is refused before any write", () => {
+  it.each([
+    ["cajera at a Delivery station", "cajera", "delivery"],
+    ["encargada at a Mostrador station", "encargada_delivery", "takeaway"],
+  ] as const)("%s cannot approve even an order of the station's own kind", async (_n, role, orderKind) => {
+    const o = await place({ fulfillment: orderKind === "delivery" ? "delivery" : "takeaway" });
+    as(role, role === "cajera" ? fx.otherStationId : fx.stationId);
+    expect(await approveOrderAction({ orderId: o.id, paymentVerified: true })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(await rejectOrderAction({ orderId: o.id, reason: "motivo" })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(approveOrder).not.toHaveBeenCalled();
+    expect((await status(o.id)).status).toBe("pendiente_aprobacion");
+    expect(await jobs()).toHaveLength(0);
+  });
+});

@@ -22,13 +22,19 @@ export function sectorOfOrder(order: { fulfillment: Fulfillment; channel?: "web"
   return sectorOfFulfillment(order.fulfillment);
 }
 
-export type ActorSector = { ok: true; sector: Sector | null } | { ok: false; code: "STATION_REQUIRED" };
+export type ActorSector = { ok: true; sector: Sector | null } | { ok: false; code: "STATION_REQUIRED" | "WRONG_SECTOR" };
 
 /** The sector a user acts in: admin is exempt (null); staff act in their station's kind; no station -> cannot act. */
 export function actorSectorFor(role: Role, stationKind: StationKindName | null): ActorSector {
   if (role === "admin") return { ok: true, sector: null };
   if (stationKind === null) return { ok: false, code: "STATION_REQUIRED" };
+  if (!stationAllowedForRole(role, stationKind)) return { ok: false, code: "WRONG_SECTOR" };
   return { ok: true, sector: stationKind };
+}
+
+/** The Spanish refusal an action returns for a failed `actorSectorFor`. */
+export function actorRefusal(code: "STATION_REQUIRED" | "WRONG_SECTOR"): { ok: false; code: typeof code; message: string } {
+  return { ok: false, code, message: code === "WRONG_SECTOR" ? WRONG_SECTOR_MESSAGE : "Elegí tu estación para trabajar" };
 }
 
 /** `actor` null/undefined = unrestricted (admin). */

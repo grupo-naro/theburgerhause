@@ -5,7 +5,7 @@ import { getDb } from "@/db/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type Role } from "@/lib/auth/roles";
 import { pgErrorCode } from "@/lib/orders/create-order";
-import { actorSectorFor, WRONG_SECTOR_MESSAGE } from "@/lib/orders/sector";
+import { actorRefusal, actorSectorFor, WRONG_SECTOR_MESSAGE } from "@/lib/orders/sector";
 import { settleCadetPayloadSchema } from "@/lib/settlements/schemas";
 import { settleCadet, type SettleData, type SettleFailure } from "@/lib/settlements/settle-cadet";
 
@@ -39,7 +39,7 @@ export async function settleCadetAction(input: unknown): Promise<SettleActionRes
     userId = session.user.id;
     // Sector rule, server side: cadet cash belongs to the delivery sector (admin exempt).
     const actor = actorSectorFor(session.user.role, session.stationKind);
-    if (!actor.ok) return { ok: false, code: "STATION_REQUIRED", message: "Elegí tu estación para trabajar" };
+    if (!actor.ok) return actorRefusal(actor.code);
     if (actor.sector !== null && actor.sector !== "delivery") return { ok: false, code: "WRONG_SECTOR", message: WRONG_SECTOR_MESSAGE };
   } catch (e) {
     if (e instanceof AuthError) {

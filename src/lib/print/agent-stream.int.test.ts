@@ -417,6 +417,10 @@ describe("cleanup", () => {
     ac.abort();
     await reader.waitEnd();
     release();
+    // The job is ALSO "pending" before the held claim resumes, so polling for "pending" alone passes instantly and the
+    // assertion raced the claim + hand-back (it flaked as status "printing", attempts 1). Give the resumed claim time to
+    // run and be handed back (a few ms of queries) before polling for the settled state.
+    await sleep(400);
     await eventually(async () => (await job(a.id)).status === "pending");
     expect(await job(a.id)).toMatchObject({ status: "pending", attempts: 0, claimedAt: null });
   });
