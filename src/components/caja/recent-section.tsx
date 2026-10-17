@@ -7,6 +7,7 @@ import { elapsedMs, formatElapsed } from "@/lib/caja/elapsed";
 import { canReprint, formatOrderTime, printChips } from "@/lib/caja/labels";
 import type { CajaOrder } from "@/lib/orders/caja-queries";
 import { PaymentChip, PrintChip, ServiceChip, StatusChip } from "./chips";
+import { hasDeliveryTicket } from "@/lib/orders/print-kinds";
 import { ReprintMenu } from "./reprint-menu";
 
 function paymentLine(o: CajaOrder): string {
@@ -24,7 +25,7 @@ function RecentRow({ order, now }: { order: CajaOrder; now: number }) {
           <StatusChip status={order.status} />
           <span className="truncate font-semibold text-ink">{order.customerName ?? "Mostrador"}</span>
         </div>
-        {canReprint(order.status) && <ReprintMenu orderId={order.id} orderNumber={order.number} />}
+        {canReprint(order.status) && <ReprintMenu orderId={order.id} orderNumber={order.number} hasDeliveryTicket={hasDeliveryTicket(order)} />}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-ink-muted">
         <span className="tabular-nums">

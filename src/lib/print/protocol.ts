@@ -35,7 +35,7 @@ const textBlock = z.object({
 });
 export const printDocumentSchema = z.object({
   blocks: z
-    .array(z.discriminatedUnion("type", [textBlock, z.object({ type: z.literal("divider") }), z.object({ type: z.literal("cut") })]))
+    .array(z.discriminatedUnion("type", [textBlock, z.object({ type: z.literal("divider") }), z.object({ type: z.literal("logo") }), z.object({ type: z.literal("cut") })]))
     .max(500),
 });
 

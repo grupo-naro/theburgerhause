@@ -10,6 +10,7 @@ import { STATION_REQUIRED_MESSAGE } from "./approve-order";
 import { defaultToken, insertOrderItems, loadCatalog, pgError } from "./order-rows";
 import { ACTIVE_PAGER_STATUSES } from "./pagers";
 import { enqueuePrintJobs, loadPrintableOrder } from "./print-jobs";
+import { defaultPrintKinds } from "./print-kinds";
 import { resolveUnits, type UnitIssue } from "./resolve-units";
 import { fieldErrorsOf } from "./schemas";
 
@@ -174,7 +175,7 @@ async function place(
   // Tickets are rendered from the SNAPSHOT rows just written (never from the live catalog).
   const printable = await loadPrintableOrder(tx, order.id);
   if (!printable) throw new Error("order vanished inside transaction");
-  const printJobIds = await enqueuePrintJobs(tx, { orderId: order.id, stationId, which: "both", printable });
+  const printJobIds = await enqueuePrintJobs(tx, { orderId: order.id, stationId, kinds: defaultPrintKinds("mostrador", printable), printable });
 
   // Delivered only if the transaction commits.
   await notifyInTx(tx, ORDERS_CHANNEL, { orderId: order.id, status: "en_preparacion", event: "created" });

@@ -1,14 +1,13 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
-import { renderCustomerTicket, renderKitchenTicket, type PrintableOrder } from "@/domain/print-document";
+import { renderCustomerTicket, renderDeliveryTicket, type PrintableOrder } from "@/domain/print-document";
 import { PRINT_CHANNEL } from "@/lib/events/channels";
 import { notifyInTx } from "@/lib/events/notify";
+import type { PrintKind } from "./print-kinds";
 import { orderToPrintable } from "./printable";
 
 /** Shared by approve and reprint. No next/*; always called inside the caller's transaction. */
-
-export type PrintWhich = "kitchen" | "ticket" | "both";
 
 /** Reads the order SNAPSHOT rows (3 queries) and maps them with the pure mapper. */
 export async function loadPrintableOrder(tx: DbTransaction, orderId: number): Promise<PrintableOrder | null> {
@@ -25,15 +24,17 @@ export async function loadPrintableOrder(tx: DbTransaction, orderId: number): Pr
   return orderToPrintable(order, items, modifiers);
 }
 
-/** Inserts the requested jobs for `stationId` (pending, attempts 0) and notifies once per job. */
+/** Inserts the requested ticket kinds for `stationId` (pending, attempts 0) and notifies once per job. */
 export async function enqueuePrintJobs(
   tx: DbTransaction,
-  args: { orderId: number; stationId: number; which: PrintWhich; printable: PrintableOrder },
+  args: { orderId: number; stationId: number; kinds: PrintKind[]; printable: PrintableOrder },
 ): Promise<number[]> {
-  const { orderId, stationId, which, printable } = args;
-  const rows: { type: "kitchen" | "ticket"; payload: unknown }[] = [];
-  if (which === "kitchen" || which === "both") rows.push({ type: "kitchen", payload: renderKitchenTicket(printable) });
-  if (which === "ticket" || which === "both") rows.push({ type: "ticket", payload: renderCustomerTicket(printable) });
+  const { orderId, stationId, kinds, printable } = args;
+  // Fixed order (delivery ticket first) whatever order the caller listed them in.
+  const rows: { type: PrintKind; payload: unknown }[] = [];
+  if (kinds.includes("delivery")) rows.push({ type: "delivery", payload: renderDeliveryTicket(printable) });
+  if (kinds.includes("customer")) rows.push({ type: "customer", payload: renderCustomerTicket(printable) });
+  if (rows.length === 0) return [];
 
   const inserted = await tx
     .insert(s.printJobs)

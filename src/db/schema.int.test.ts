@@ -252,3 +252,20 @@ describe("seed", () => {
     expect(accepting[0].value).toBe(true);
   });
 });
+
+describe("print_job_type enum (migration 0005)", () => {
+  it("keeps the history values and adds delivery + customer, in that order", async () => {
+    const r = await db().execute(sql`SELECT unnest(enum_range(NULL::print_job_type))::text AS v`);
+    expect((r.rows as { v: string }[]).map((x) => x.v)).toEqual(["kitchen", "ticket", "delivery", "customer"]);
+  });
+
+  it("rows of every kind are legal (old kitchen/ticket history, new delivery/customer)", async () => {
+    const [st] = await db().insert(s.stations).values({ name: "Enum test", kind: "mostrador" }).returning();
+    const [o] = await db().insert(s.orders).values(orderValues()).returning();
+    for (const type of ["kitchen", "ticket", "delivery", "customer"] as const) {
+      await db().insert(s.printJobs).values({ orderId: o.id, stationId: st.id, type, payload: { blocks: [] } });
+    }
+    const got = await db().select().from(s.printJobs).where(eq(s.printJobs.orderId, o.id)).orderBy(s.printJobs.id);
+    expect(got.map((j) => j.type)).toEqual(["kitchen", "ticket", "delivery", "customer"]);
+  });
+});

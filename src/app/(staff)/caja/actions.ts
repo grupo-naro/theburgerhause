@@ -32,7 +32,7 @@ const INVALID_REQUEST = "Solicitud inválida";
 const orderId = z.number().int().positive().max(2_147_483_647);
 const approveSchema = z.object({ orderId, paymentVerified: z.boolean() });
 const rejectSchema = z.object({ orderId, reason: z.string() });
-const reprintSchema = z.object({ orderId, which: z.enum(["kitchen", "ticket", "both"]) });
+const reprintSchema = z.object({ orderId, which: z.enum(["customer", "delivery", "both"]) });
 
 type Authorized = { session: AuthSession; sector: Sector | null } | { result: ActionResult<never> };
 

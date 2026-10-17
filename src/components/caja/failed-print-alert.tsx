@@ -7,7 +7,12 @@ import type { FailedPrintJob } from "@/lib/orders/caja-queries";
 import { groupFailedByOrder, type FailedRowModel } from "@/lib/caja/failed-rows";
 import { useGuardedAction } from "./use-guarded-action";
 
-const TYPE_LABEL = { kitchen: "Cocina", ticket: "Ticket" } as const;
+const TYPE_LABEL = {
+  delivery: "Ticket delivery",
+  customer: "Ticket cliente",
+  ticket: "Ticket cliente", // legacy rows (before the ticket redesign)
+  kitchen: "Cocina", // legacy rows
+} as const;
 
 function FailedRow({ row }: { row: FailedRowModel }) {
   const router = useRouter();

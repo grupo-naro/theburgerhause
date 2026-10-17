@@ -36,7 +36,7 @@ export function ConfirmationOverlay({ sale, onNewSale }: Props) {
     setReprinting(true);
     setReprintError(null);
     try {
-      const r = await reprintOrderAction({ orderId: sale.orderId, which: "both" });
+      const r = await reprintOrderAction({ orderId: sale.orderId, which: "customer" });
       if (r.ok) restart();
       else setReprintError(r.message);
     } catch {

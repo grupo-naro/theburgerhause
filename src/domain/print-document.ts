@@ -3,6 +3,8 @@ import { formatARS } from "@/domain/money";
 export type PrintBlock =
   | { type: "text"; text: string; bold?: boolean; size?: 1 | 2; align?: "left" | "center" }
   | { type: "divider" }
+  /** The brand logo, centered. The AGENT owns the bitmap (it knows the paper width); it falls back to text. */
+  | { type: "logo" }
   | { type: "cut" };
 export type PrintDocument = { blocks: PrintBlock[] };
 
@@ -53,6 +55,10 @@ const dateFormat = new Intl.DateTimeFormat("es-AR", {
 
 const DIVIDER: PrintBlock = { type: "divider" };
 const CUT: PrintBlock = { type: "cut" };
+const LOGO: PrintBlock = { type: "logo" };
+
+export const BRAND_NAME = "THE BURGER HOUSE 828";
+export const THANKS_LINE = "GRACIAS POR TU COMPRA";
 
 function text(
   value: string,
@@ -72,6 +78,9 @@ function serviceType(order: PrintableOrder): string {
   return order.fulfillment === "delivery" ? "DELIVERY" : "RETIRO";
 }
 
+/**
+ * Kitchen comanda. NOT enqueued since Task 10.2 (the KDS screen replaces it); kept so Phase 2 can reuse it.
+ */
 export function renderKitchenTicket(order: PrintableOrder): PrintDocument {
   const items = order.items.flatMap((item, i): PrintBlock[] => [
     text(`${i + 1}) ${item.name.toUpperCase()}`, { bold: true, size: 1, align: "left" }),
@@ -128,18 +137,53 @@ function customerBlocks(order: PrintableOrder): PrintBlock[] {
   ];
 }
 
-export function renderCustomerTicket(order: PrintableOrder): PrintDocument {
-  const items = order.items.flatMap((item): PrintBlock[] => [
+function priceItems(order: PrintableOrder): PrintBlock[] {
+  return order.items.flatMap((item): PrintBlock[] => [
     text(`${item.name}  ${formatARS(item.unitPrice)}`, { align: "left" }),
     ...item.modifiers.map((m) =>
       text(`   ${m.name}${m.priceDelta !== 0 ? `  (${signedARS(m.priceDelta)})` : ""}`),
     ),
     ...(item.note ? [text(`   Nota: ${item.note}`)] : []),
   ]);
+}
 
+function totalsBlocks(order: PrintableOrder): PrintBlock[] {
+  return [
+    text(`Subtotal: ${formatARS(order.subtotal)}`),
+    ...(order.deliveryFee > 0 ? [text(`Envío: ${formatARS(order.deliveryFee)}`)] : []),
+    text(`TOTAL: ${formatARS(order.total)}`, { bold: true, size: 2 }),
+  ];
+}
+
+/**
+ * Delivery (dispatch) ticket: the one that travels with the order. Address, phone, payment, items; no
+ * logo, no thanks. Cash still to collect is spelled out as "Efectivo: cobrar $X" for the cadet.
+ */
+export function renderDeliveryTicket(order: PrintableOrder): PrintDocument {
+  const collect = order.paymentMethod === "cash" && order.paymentStatus === "pending";
   return {
     blocks: [
-      big("THE BURGER HOUSE 828"),
+      big(`PEDIDO #${order.number}`),
+      big(serviceType(order)),
+      ...pagerBlocks(order),
+      text(timeFormat.format(order.createdAt), { size: 1, align: "center" }),
+      DIVIDER,
+      ...customerBlocks(order),
+      DIVIDER,
+      ...priceItems(order),
+      DIVIDER,
+      ...totalsBlocks(order),
+      collect ? text(`Efectivo: cobrar ${formatARS(order.total)}`, { bold: true }) : text(paymentLine(order)),
+      CUT,
+    ],
+  };
+}
+
+export function renderCustomerTicket(order: PrintableOrder): PrintDocument {
+  return {
+    blocks: [
+      LOGO,
+      text(BRAND_NAME, { bold: true, align: "center" }),
       text(`PEDIDO #${order.number}`, { bold: true, align: "center" }),
       text(`${dateFormat.format(order.createdAt)} ${timeFormat.format(order.createdAt)}`, {
         align: "center",
@@ -147,13 +191,12 @@ export function renderCustomerTicket(order: PrintableOrder): PrintDocument {
       DIVIDER,
       ...customerBlocks(order),
       DIVIDER,
-      ...items,
+      ...priceItems(order),
       DIVIDER,
-      text(`Subtotal: ${formatARS(order.subtotal)}`),
-      ...(order.deliveryFee > 0 ? [text(`Envío: ${formatARS(order.deliveryFee)}`)] : []),
-      text(`TOTAL: ${formatARS(order.total)}`, { bold: true, size: 2 }),
+      ...totalsBlocks(order),
       text(paymentLine(order)),
-      text("¡Gracias por tu compra!", { align: "center" }),
+      DIVIDER,
+      text(THANKS_LINE, { bold: true, align: "center" }),
       CUT,
     ],
   };

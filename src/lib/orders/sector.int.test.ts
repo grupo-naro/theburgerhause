@@ -109,10 +109,10 @@ describe("queries filter by sector", () => {
     await approve(d.id);
     await approve(t.id);
     await db().update(s.printJobs).set({ status: "failed", error: "sin papel" });
-    expect((await listFailedPrintJobs(db(), fx.stationId, { sector: "delivery" })).map((j) => j.orderId)).toEqual([d.id, d.id]);
-    expect((await listFailedPrintJobs(db(), fx.stationId, { sector: "mostrador" })).map((j) => j.orderId)).toEqual([t.id, t.id]);
-    expect(await listFailedPrintJobs(db(), fx.stationId)).toHaveLength(4);
-    expect(await listFailedPrintJobs(db(), undefined, { sector: "delivery" })).toHaveLength(2);
+    expect((await listFailedPrintJobs(db(), fx.stationId, { sector: "delivery" })).map((j) => j.orderId)).toEqual([d.id]);
+    expect((await listFailedPrintJobs(db(), fx.stationId, { sector: "mostrador" })).map((j) => j.orderId)).toEqual([t.id]);
+    expect(await listFailedPrintJobs(db(), fx.stationId)).toHaveLength(2);
+    expect(await listFailedPrintJobs(db(), undefined, { sector: "delivery" })).toHaveLength(1);
   });
 });
 
@@ -220,7 +220,7 @@ describe("station header failed-print count is scoped like the workspace list", 
     await db().update(s.printJobs).set({ status: "failed", error: "sin papel" });
     const own = await getStationHeader(db(), fx.stationId, "mostrador");
     expect(own?.failedCount).toBe((await listFailedPrintJobs(db(), fx.stationId, { sector: "mostrador" })).length);
-    expect(own?.failedCount).toBe(2); // only the takeaway order's two jobs
-    expect((await getStationHeader(db(), fx.stationId, null))?.failedCount).toBe(4); // admin: the station's own jobs, all of them
+    expect(own?.failedCount).toBe(1); // only the takeaway order's customer ticket
+    expect((await getStationHeader(db(), fx.stationId, null))?.failedCount).toBe(2); // admin: the station's own jobs, all of them (one customer ticket per order)
   });
 });

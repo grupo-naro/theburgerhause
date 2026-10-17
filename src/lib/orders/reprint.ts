@@ -8,6 +8,7 @@ import { STATION_REQUIRED_MESSAGE } from "./approve-order";
 import { pgErrorCode } from "./create-order";
 import { decideSector, type Sector } from "./sector";
 import { enqueuePrintJobs, loadPrintableOrder } from "./print-jobs";
+import { resolvePrintKinds, type PrintWhich } from "./print-kinds";
 import { currentStateMessage, failure, isId, UNEXPECTED_MESSAGE, type OrderResult } from "./transition";
 
 /**
@@ -16,13 +17,15 @@ import { currentStateMessage, failure, isId, UNEXPECTED_MESSAGE, type OrderResul
  */
 
 const id = z.number().int().positive().max(2_147_483_647);
-const inputSchema = z.object({ orderId: id, userId: id, which: z.enum(["kitchen", "ticket", "both"]) });
+const inputSchema = z.object({ orderId: id, userId: id, which: z.enum(["customer", "delivery", "both"]) });
+
+export const NO_DELIVERY_TICKET_MESSAGE = "Este pedido no es un delivery: no tiene ticket de delivery";
 
 export type ReprintOrderInput = {
   orderId: number;
   userId: number;
   stationId: number | null;
-  which: "kitchen" | "ticket" | "both";
+  which: PrintWhich;
   /** Sector of the acting station (null/undefined = admin, exempt). */
   sector: Sector | null;
 };
@@ -37,11 +40,11 @@ export async function reprintOrder(db: Db, raw: ReprintOrderInput): Promise<Orde
 
   try {
     return await db.transaction(async (tx): Promise<OrderResult<ReprintOrderData>> => {
-      const [station] = await tx.select({ id: s.stations.id }).from(s.stations).where(eq(s.stations.id, stationId));
+      const [station] = await tx.select({ id: s.stations.id, kind: s.stations.kind }).from(s.stations).where(eq(s.stations.id, stationId));
       if (!station) return failure("STATION_REQUIRED", STATION_REQUIRED_MESSAGE);
 
       const [order] = await tx
-        .select({ status: s.orders.status, fulfillment: s.orders.fulfillment })
+        .select({ status: s.orders.status, fulfillment: s.orders.fulfillment, channel: s.orders.channel })
         .from(s.orders)
         .where(eq(s.orders.id, orderId))
         .for("update");
@@ -55,9 +58,12 @@ export async function reprintOrder(db: Db, raw: ReprintOrderInput): Promise<Orde
         );
       }
 
+      const kinds = resolvePrintKinds(which, station.kind, order);
+      if (!kinds) return failure("VALIDATION", NO_DELIVERY_TICKET_MESSAGE);
+
       const printable = await loadPrintableOrder(tx, orderId);
       if (!printable) throw new Error("order vanished inside transaction");
-      const printJobIds = await enqueuePrintJobs(tx, { orderId, stationId, which, printable });
+      const printJobIds = await enqueuePrintJobs(tx, { orderId, stationId, kinds, printable });
 
       await tx.insert(s.orderEvents).values({
         orderId,

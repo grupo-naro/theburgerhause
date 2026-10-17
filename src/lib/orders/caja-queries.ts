@@ -41,7 +41,8 @@ export type FailedPrintJob = {
   orderId: number;
   orderNumber: number;
   stationId: number;
-  type: "kitchen" | "ticket";
+  /** `kitchen`/`ticket` only exist in history (pre Task 10.2); new jobs are `delivery`/`customer`. */
+  type: "kitchen" | "ticket" | "delivery" | "customer";
   error: string | null;
   attempts: number;
   createdAt: string;

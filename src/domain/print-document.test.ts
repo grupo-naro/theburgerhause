@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatARS } from "@/domain/money";
 import {
   renderCustomerTicket,
+  renderDeliveryTicket,
   renderKitchenTicket,
   type PrintBlock,
   type PrintDocument,
@@ -146,13 +147,13 @@ describe("renderCustomerTicket", () => {
     expect(texts).toContain("Aclaraciones: Timbre roto");
   });
 
-  it("renders header with date and time", () => {
+  it("renders the logo first, then the brand, with date and time", () => {
     const doc = renderCustomerTicket(makeOrder());
-    expect(doc.blocks[0]).toEqual({
+    expect(doc.blocks[0]).toEqual({ type: "logo" });
+    expect(doc.blocks[1]).toEqual({
       type: "text",
       text: "THE BURGER HOUSE 828",
       bold: true,
-      size: 2,
       align: "center",
     });
     expect(textsOf(doc)).toContain("PEDIDO #42");
@@ -239,13 +240,78 @@ describe("renderCustomerTicket", () => {
     expect(texts).toContain(line);
   });
 
-  it("closes with thanks and a cut", () => {
+  it("closes with a bold centered GRACIAS POR TU COMPRA right before the cut", () => {
     const doc = renderCustomerTicket(makeOrder());
     expect(doc.blocks.at(-2)).toEqual({
       type: "text",
-      text: "¡Gracias por tu compra!",
+      text: "GRACIAS POR TU COMPRA",
+      bold: true,
       align: "center",
     });
+    expect(doc.blocks.at(-1)).toEqual({ type: "cut" });
+    expect(textsOf(doc)).not.toContain("¡Gracias por tu compra!");
+  });
+
+  it("has exactly one logo and the pager number for counter sales", () => {
+    const doc = renderCustomerTicket(makeOrder({ channel: "counter", fulfillment: "takeaway", pagerNumber: 7 }));
+    expect(doc.blocks.filter((b) => b.type === "logo")).toHaveLength(1);
+    expect(textsOf(doc)).toContain("LLAMADOR 7");
+  });
+});
+
+describe("renderDeliveryTicket", () => {
+  const doc = renderDeliveryTicket(makeOrder());
+  const texts = textsOf(doc);
+
+  it("has NO logo and NO thanks line (it is the dispatch ticket)", () => {
+    expect(doc.blocks.some((b) => b.type === "logo")).toBe(false);
+    expect(texts.join(" | ")).not.toMatch(/GRACIAS/i);
+  });
+
+  it("leads with the order number and DELIVERY, large and centered", () => {
+    expect(doc.blocks[0]).toEqual({ type: "text", text: "PEDIDO #42", bold: true, size: 2, align: "center" });
+    expect(doc.blocks[1]).toEqual({ type: "text", text: "DELIVERY", bold: true, size: 2, align: "center" });
+    expect(texts).toContain("20:05");
+  });
+
+  it("has the customer, phone, full address and references", () => {
+    expect(texts).toContain("Cliente: Juan Pérez");
+    expect(texts).toContain("WhatsApp: +5491122334455");
+    expect(texts).toContain("Dirección: Calle Falsa 123");
+    expect(texts).toContain("Entre calles: Entre A y B");
+    expect(texts).toContain("Aclaraciones: Timbre roto");
+  });
+
+  it("lists every unit with its price and modifiers", () => {
+    expect(texts).toContain(`Burger Clásica  ${formatARS(250000)}`);
+    expect(texts).toContain("   Sin cebolla");
+    expect(texts).toContain(`   Extra queso  (+${formatARS(20000)})`);
+    expect(texts).toContain(`Papas  ${formatARS(250000)}`);
+  });
+
+  it("shows the unit note", () => {
+    const d = renderDeliveryTicket(makeOrder({ items: [{ name: "Papas", unitPrice: 100, note: "bien cocida", modifiers: [] }] }));
+    expect(textsOf(d)).toContain("   Nota: bien cocida");
+  });
+
+  it("shows the total and the charge to collect for pending cash", () => {
+    expect(texts).toContain(`Subtotal: ${formatARS(500000)}`);
+    expect(texts).toContain(`Envío: ${formatARS(50000)}`);
+    expect(textBlock(doc, `TOTAL: ${formatARS(550000)}`)).toMatchObject({ bold: true, size: 2 });
+    expect(textBlock(doc, `Efectivo: cobrar ${formatARS(550000)}`)).toMatchObject({ bold: true });
+  });
+
+  it.each([
+    ["transfer", "paid", "Pago: Transferencia (pagado)"],
+    ["transfer", "pending", "Pago: Transferencia (pendiente de verificación)"],
+    ["cash", "paid", "Pago: Efectivo (pagado)"],
+  ] as const)("payment line for %s/%s", (paymentMethod, paymentStatus, line) => {
+    const t = textsOf(renderDeliveryTicket(makeOrder({ paymentMethod, paymentStatus })));
+    expect(t).toContain(line);
+    expect(t.some((x) => x.startsWith("Efectivo: cobrar"))).toBe(false);
+  });
+
+  it("ends with a cut", () => {
     expect(doc.blocks.at(-1)).toEqual({ type: "cut" });
   });
 });
@@ -256,6 +322,7 @@ describe("purity", () => {
     const snapshot = structuredClone(order);
     expect(renderKitchenTicket(order)).toEqual(renderKitchenTicket(order));
     expect(renderCustomerTicket(order)).toEqual(renderCustomerTicket(order));
+    expect(renderDeliveryTicket(order)).toEqual(renderDeliveryTicket(order));
     expect(order).toEqual(snapshot);
   });
 });

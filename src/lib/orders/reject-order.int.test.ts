@@ -90,7 +90,7 @@ describe("rejectOrder", () => {
       const js = await jobs();
       if (a.ok) {
         expect(row.status).toBe("en_preparacion");
-        expect(js).toHaveLength(2);
+        expect(js).toHaveLength(1); // approved at the Mostrador station: just the customer ticket
         expect(r).toMatchObject({ ok: false, code: "INVALID_TRANSITION" });
       } else {
         expect(row.status).toBe("cancelado");

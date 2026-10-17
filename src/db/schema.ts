@@ -42,7 +42,8 @@ export const printJobStatus = pgEnum("print_job_status", [
   "done",
   "failed",
 ]);
-export const printJobType = pgEnum("print_job_type", ["kitchen", "ticket"]);
+/** `kitchen` and `ticket` are legacy/future: history rows (ticket = the old customer ticket) and the KDS phase. Task 10.2 enqueues only `delivery` and `customer`. */
+export const printJobType = pgEnum("print_job_type", ["kitchen", "ticket", "delivery", "customer"]);
 export const modifierKind = pgEnum("modifier_kind", ["remove", "add", "swap"]);
 export const stationKind = pgEnum("station_kind", ["mostrador", "delivery"]);
 

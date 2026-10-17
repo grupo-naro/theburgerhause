@@ -5,7 +5,7 @@ import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { formatARS } from "@/domain/money";
-import { renderCustomerTicket, renderKitchenTicket } from "@/domain/print-document";
+import { renderCustomerTicket, renderDeliveryTicket } from "@/domain/print-document";
 import { getEnv } from "@/lib/env";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
 import { approveOrder } from "./approve-order";
@@ -15,7 +15,7 @@ const db = () => testDb();
 let fx: Fx;
 
 const approve = (orderId: number, over: Partial<Parameters<typeof approveOrder>[1]> = {}) =>
-  approveOrder(db(), { orderId, userId: fx.userId, stationId: fx.stationId, paymentVerified: false, sector: null, ...over });
+  approveOrder(db(), { orderId, userId: fx.userId, stationId: fx.otherStationId /* Delivery station: the default order is a delivery */, paymentVerified: false, sector: null, ...over });
 const order = async (id: number) => (await db().select().from(s.orders).where(eq(s.orders.id, id)))[0];
 const jobs = (orderId?: number) =>
   orderId
@@ -52,7 +52,7 @@ describe("approveOrder: payment rules and state", () => {
       status: "en_preparacion",
       paymentStatus: "pending",
       approvedBy: fx.userId,
-      stationId: fx.stationId,
+      stationId: fx.otherStationId,
     });
     expect(row.approvedAt).toBeInstanceOf(Date);
   });
@@ -94,36 +94,54 @@ describe("approveOrder: payment rules and state", () => {
 });
 
 describe("approveOrder: print jobs", () => {
-  for (const [fulfillment, paymentMethod] of [
-    ["delivery", "cash"],
-    ["delivery", "transfer"],
-    ["takeaway", "cash"],
-    ["takeaway", "transfer"],
+  // fx.stationId = Mostrador station, fx.otherStationId = Delivery station.
+  for (const [fulfillment, paymentMethod, station, expected] of [
+    ["delivery", "cash", "otherStationId", ["delivery", "customer"]],
+    ["delivery", "transfer", "otherStationId", ["delivery", "customer"]],
+    ["takeaway", "cash", "stationId", ["customer"]],
+    ["takeaway", "transfer", "stationId", ["customer"]],
+    ["delivery", "cash", "stationId", ["customer"]], // admin approving a delivery order at a Mostrador station: station kind rules
+    ["takeaway", "cash", "otherStationId", ["customer"]], // a takeaway order has no dispatch ticket even at a Delivery station
   ] as const) {
-    it(`${fulfillment}/${paymentMethod}: exactly 2 pending jobs for the approving station, payload = domain renderers`, async () => {
+    it(`${fulfillment}/${paymentMethod} approved at a ${station === "stationId" ? "Mostrador" : "Delivery"} station: ${expected.join(" + ")}`, async () => {
       const o = await placeWebOrder(fx, { fulfillment, paymentMethod });
-      const r = await approve(o.id, { paymentVerified: true });
+      const r = await approve(o.id, { paymentVerified: true, stationId: fx[station] });
       if (!r.ok) throw new Error(r.message);
       const js = await jobs(o.id);
-      expect(js.map((j) => j.type)).toEqual(["kitchen", "ticket"]);
+      expect(js.map((j) => j.type)).toEqual(expected);
       expect(js.map((j) => j.id)).toEqual(r.data.printJobIds);
-      for (const j of js) expect(j).toMatchObject({ stationId: fx.stationId, status: "pending", attempts: 0 });
+      for (const j of js) expect(j).toMatchObject({ stationId: fx[station], status: "pending", attempts: 0 });
 
       const row = await order(o.id);
       const items = await db().select().from(s.orderItems).where(eq(s.orderItems.orderId, o.id));
       const mods = await db().select().from(s.orderItemModifiers);
       const printable = orderToPrintable(row, items, mods);
-      expect(js[0].payload).toEqual(JSON.parse(JSON.stringify(renderKitchenTicket(printable))));
-      expect(js[1].payload).toEqual(JSON.parse(JSON.stringify(renderCustomerTicket(printable))));
+      const byType = Object.fromEntries(js.map((j) => [j.type, j.payload]));
+      if (expected.length === 2) expect(byType.delivery).toEqual(JSON.parse(JSON.stringify(renderDeliveryTicket(printable))));
+      expect(byType.customer).toEqual(JSON.parse(JSON.stringify(renderCustomerTicket(printable))));
 
-      const kitchen = JSON.stringify(js[0].payload);
-      expect(kitchen).toContain("SIN CHEDDAR");
-      expect(kitchen).toContain("+ DIPS");
-      expect(kitchen).toContain("NOTA: BIEN COCIDA");
-      const ticket = JSON.stringify(js[1].payload);
+      // No kitchen comanda anywhere (its uppercase labels / NOTA lines never reach the paper).
+      const all = JSON.stringify(js.map((j) => j.payload));
+      expect(all).not.toContain("SIN CHEDDAR");
+      expect(all).not.toContain("NOTA: BIEN COCIDA");
+      expect(js.some((j) => j.type === "kitchen" || j.type === "ticket")).toBe(false);
+
+      const ticket = JSON.stringify(byType.customer);
+      expect(ticket).toContain('{"type":"logo"}');
+      expect(ticket).toContain("GRACIAS POR TU COMPRA");
       expect(ticket).toContain(
         paymentMethod === "transfer" ? "Pago: Transferencia (pagado)" : "Pago: Efectivo (pendiente de cobro)",
       );
+      if (expected.length === 2) {
+        const d = JSON.stringify(byType.delivery);
+        expect(d).toContain("Av. Siempreviva 742");
+        expect(d).toContain(row.whatsapp!);
+        expect(d).toContain(paymentMethod === "transfer" ? "Pago: Transferencia (pagado)" : "Efectivo: cobrar");
+        expect(d).not.toContain('"logo"');
+        expect(d).not.toContain("GRACIAS");
+        expect(d).toContain("Sin cheddar"); // modifications of the unit, in customer-facing wording
+        expect(d).toContain("Nota: bien cocida");
+      }
     });
   }
 
@@ -145,9 +163,9 @@ describe("approveOrder: print jobs", () => {
 
   it("uses the station of the approver, not any other", async () => {
     const o = await placeWebOrder(fx);
-    await approve(o.id, { stationId: fx.otherStationId });
-    expect((await jobs(o.id)).every((j) => j.stationId === fx.otherStationId)).toBe(true);
-    expect((await order(o.id)).stationId).toBe(fx.otherStationId);
+    await approve(o.id, { stationId: fx.stationId });
+    expect((await jobs(o.id)).every((j) => j.stationId === fx.stationId)).toBe(true);
+    expect((await order(o.id)).stationId).toBe(fx.stationId);
   });
 });
 
@@ -235,7 +253,7 @@ describe("approveOrder: notifications", () => {
         { channel: "orders_changed", payload: { orderId: o.id, status: "en_preparacion", event: "status" } },
       ]);
       const prints = received.filter((x) => x.channel === "print_job_created").map((x) => x.payload);
-      expect(prints).toEqual(r.data.printJobIds.map((jobId) => ({ jobId, stationId: fx.stationId })));
+      expect(prints).toEqual(r.data.printJobIds.map((jobId) => ({ jobId, stationId: fx.otherStationId })));
     } finally {
       await client.end();
     }

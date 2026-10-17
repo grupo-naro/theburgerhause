@@ -5,11 +5,12 @@ import * as s from "@/db/schema";
 import { pgErrorCode } from "./create-order";
 import { decideSector, type Sector } from "./sector";
 import { enqueuePrintJobs, loadPrintableOrder } from "./print-jobs";
+import { defaultPrintKinds } from "./print-kinds";
 import { failure, isId, transitionOrder, UNEXPECTED_MESSAGE, type OrderResult } from "./transition";
 
 /**
  * Cashier approval: pendiente_aprobacion -> en_preparacion, payment rule, and the two print
- * jobs (kitchen + customer ticket) for the approving station, all in ONE transaction.
+ * jobs for the approving station (Delivery kind: delivery + customer ticket; Mostrador kind: customer ticket only), all in ONE transaction.
  * No next/* imports.
  */
 
@@ -44,7 +45,7 @@ export async function approveOrder(db: Db, raw: ApproveOrderInput): Promise<Orde
 
   try {
     return await db.transaction(async (tx): Promise<OrderResult<ApproveOrderData>> => {
-      const [station] = await tx.select({ id: s.stations.id }).from(s.stations).where(eq(s.stations.id, stationId));
+      const [station] = await tx.select({ id: s.stations.id, kind: s.stations.kind }).from(s.stations).where(eq(s.stations.id, stationId));
       if (!station) return failure("STATION_REQUIRED", STATION_REQUIRED_MESSAGE);
 
       // Lock first: the payment rule depends on the method, and a double approve queues here.
@@ -80,7 +81,7 @@ export async function approveOrder(db: Db, raw: ApproveOrderInput): Promise<Orde
       // Snapshot rows read AFTER the update so the ticket shows the final payment state.
       const printable = await loadPrintableOrder(tx, orderId);
       if (!printable) throw new Error("order vanished inside transaction");
-      const printJobIds = await enqueuePrintJobs(tx, { orderId, stationId, which: "both", printable });
+      const printJobIds = await enqueuePrintJobs(tx, { orderId, stationId, kinds: defaultPrintKinds(station.kind, printable), printable });
 
       return {
         ok: true,
