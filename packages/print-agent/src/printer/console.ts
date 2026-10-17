@@ -9,7 +9,13 @@ export function previewEscPos(bytes: Buffer): string {
       i += bytes[i + 1] === 0x40 ? 1 : 2; // ESC @ | ESC t/a/E/d/... n
     } else if (b === 0x1d) {
       const cmd = bytes[i + 1];
-      if (cmd === 0x56) {
+      if (cmd === 0x76 && bytes[i + 2] === 0x30) {
+        // GS v 0 m xL xH yL yH d...: raster image, the data must not leak into the text
+        const bytesPerRow = bytes[i + 4] + bytes[i + 5] * 256;
+        const rows = bytes[i + 6] + bytes[i + 7] * 256;
+        out += `[logo ${bytesPerRow * 8}x${rows}]\n`;
+        i += 7 + bytesPerRow * rows;
+      } else if (cmd === 0x56) {
         out += "[corte]\n";
         i += bytes[i + 2] === 65 || bytes[i + 2] === 66 ? 3 : 2; // GS V m [n]
       } else i += 2; // GS ! n and friends

@@ -53,6 +53,12 @@ describe("ConsoleBackend", () => {
     expect(text).not.toMatch(/[\u0000-\u0008\u001b\u001d]/);
   });
 
+  it("previewEscPos summarizes a GS v 0 raster as [logo WxH] and does not print its data as text", () => {
+    const data = Buffer.alloc(2 * 3, 0x41); // 16x3 dots, bytes that look like the letter A
+    const bytes = Buffer.concat([Buffer.from([0x1d, 0x76, 0x30, 0x00, 2, 0, 3, 0]), data, Buffer.from([0x42, 0x0a])]);
+    expect(previewEscPos(bytes)).toBe("[logo 16x3]\nB\n");
+  });
+
   it("previewEscPos strips commands and keeps text lines", () => {
     expect(previewEscPos(Buffer.from([0x1b, 0x40, 0x41, 0x0a, 0x1d, 0x56, 0x42, 0x03]))).toBe("A\n[corte]\n");
   });

@@ -99,7 +99,7 @@ describe("startAgent: the happy path", () => {
   it("an invalid document acks failed 'documento inválido' and prints nothing", async () => {
     boot();
     await connected();
-    server.stream.job(sampleJob(9, { document: { blocks: [{ type: "image" }] } }));
+    server.stream.job(sampleJob(9, { document: { blocks: [{ type: "text" }] } }));
     await server.waitForAcks(1);
     expect(server.acks).toEqual([{ jobId: 9, status: "failed", error: "documento inválido" }]);
     expect(backend.prints).toHaveLength(0);

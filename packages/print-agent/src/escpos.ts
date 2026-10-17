@@ -1,5 +1,6 @@
 import { CODEPAGE_ESC_T, encodeText, normalizeText, type Codepage } from "./codepages";
 import type { PrintBlock, PrintDocument } from "./document";
+import { LOGO_RASTERS, type LogoRaster } from "./logo-data";
 
 export type PaperWidth = 58 | 80;
 export type EscPosOptions = { paperWidth: PaperWidth; codepage: Codepage };
@@ -12,6 +13,26 @@ const INIT = Buffer.from([0x1b, 0x40]); // ESC @
 const FEED_AND_CUT = Buffer.from([0x1b, 0x64, 0x04, 0x1d, 0x56, 0x42, 0x03]); // ESC d 4, GS V 66 3 (partial cut)
 const LF = Buffer.from([0x0a]);
 const RESET_STYLE = Buffer.from([0x1b, 0x45, 0x00, 0x1d, 0x21, 0x00, 0x1b, 0x61, 0x00]); // bold off, size 1, align left
+
+/** Brand name printed instead of the logo when the raster is unusable (large, bold, centered). */
+export const LOGO_FALLBACK_TEXT = "THE BURGER HOUSE 828";
+
+/** Max raster width in dots per paper width (printable area of the head). */
+const MAX_LOGO_DOTS: Record<PaperWidth, number> = { 58: 384, 80: 512 };
+
+/** ESC a 1 + GS v 0 m=0 xL xH yL yH + data + ESC a 0 + LF; null when the raster is not a valid bitmap for this paper. */
+function logoRaster(paperWidth: PaperWidth, logos: Record<PaperWidth, LogoRaster> | null): Buffer | null {
+  const logo = logos?.[paperWidth];
+  if (!logo) return null;
+  const { width, height } = logo;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width % 8 !== 0) return null;
+  if (width > MAX_LOGO_DOTS[paperWidth] || height > 1_000) return null;
+  const data = Buffer.from(logo.data, "base64");
+  const bytesPerRow = width / 8;
+  if (data.length !== bytesPerRow * height) return null;
+  const head = Buffer.from([0x1b, 0x61, 0x01, 0x1d, 0x76, 0x30, 0x00, bytesPerRow & 0xff, bytesPerRow >> 8, height & 0xff, height >> 8]);
+  return Buffer.concat([head, data, Buffer.from([0x1b, 0x61, 0x00]), LF]);
+}
 
 /** Word-wraps to `width` columns: breaks on spaces, hard-breaks longer words, keeps "\n" and indentation. */
 export function wrapText(text: string, width: number): string[] {
@@ -51,11 +72,15 @@ function textBlock(block: Extract<PrintBlock, { type: "text" }>, opts: EscPosOpt
 function isBlock(b: unknown): b is PrintBlock {
   if (typeof b !== "object" || b === null) return false;
   const t = (b as { type?: unknown }).type;
-  return t === "divider" || t === "cut" || (t === "text" && typeof (b as { text?: unknown }).text === "string");
+  return t === "divider" || t === "cut" || t === "logo" || (t === "text" && typeof (b as { text?: unknown }).text === "string");
 }
 
 /** PrintDocument -> ESC/POS bytes (Epson-compatible). Pure; never throws; output <= 256 KB. */
-export function toEscPos(doc: PrintDocument, opts: EscPosOptions): Buffer {
+export function toEscPos(
+  doc: PrintDocument,
+  opts: EscPosOptions,
+  deps: { logos: Record<PaperWidth, LogoRaster> | null } = { logos: LOGO_RASTERS },
+): Buffer {
   const head = Buffer.concat([INIT, Buffer.from([0x1b, 0x74, CODEPAGE_ESC_T[opts.codepage] ?? 19])]);
   const blocks = Array.isArray((doc as { blocks?: unknown } | null)?.blocks) ? (doc.blocks as unknown[]).filter(isBlock) : [];
   const hasCut = blocks.some((b) => b.type === "cut");
@@ -69,7 +94,10 @@ export function toEscPos(doc: PrintDocument, opts: EscPosOptions): Buffer {
         ? FEED_AND_CUT
         : block.type === "divider"
           ? Buffer.concat([Buffer.from("-".repeat(CHARS_PER_LINE[opts.paperWidth])), LF])
-          : textBlock(block, opts);
+          : block.type === "logo"
+            ? (logoRaster(opts.paperWidth, deps.logos) ??
+              textBlock({ type: "text", text: LOGO_FALLBACK_TEXT, bold: true, size: 2, align: "center" }, opts))
+            : textBlock(block, opts);
     if (size + part.length > MAX_OUTPUT_BYTES - reserve) {
       truncated = true; // oversize: stop here, the tail below still cuts the paper
       break;

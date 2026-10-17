@@ -7,6 +7,7 @@ import { z } from "zod";
 export type PrintBlock =
   | { type: "text"; text: string; bold?: boolean; size?: 1 | 2; align?: "left" | "center" }
   | { type: "divider" }
+  | { type: "logo" }
   | { type: "cut" };
 export type PrintDocument = { blocks: PrintBlock[] };
 
@@ -21,8 +22,26 @@ const textBlock = z.object({
   align: z.enum(["left", "center"]).optional(),
 });
 
+const KNOWN_TYPES = ["text", "divider", "logo", "cut"];
+
+/**
+ * A block type this agent does not know (a newer server): accepted here and skipped by the ESC/POS translator,
+ * so a server update never makes an older agent fail a whole ticket. Malformed KNOWN blocks are still rejected.
+ */
+const unknownBlock = z.looseObject({ type: z.string().refine((t) => !KNOWN_TYPES.includes(t)) });
+
 export const printDocumentSchema = z.object({
   blocks: z
-    .array(z.discriminatedUnion("type", [textBlock, z.object({ type: z.literal("divider") }), z.object({ type: z.literal("cut") })]))
+    .array(
+      z.union([
+        z.discriminatedUnion("type", [
+          textBlock,
+          z.object({ type: z.literal("divider") }),
+          z.object({ type: z.literal("logo") }),
+          z.object({ type: z.literal("cut") }),
+        ]),
+        unknownBlock,
+      ]),
+    )
     .max(MAX_BLOCKS),
 });

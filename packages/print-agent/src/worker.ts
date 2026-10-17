@@ -1,7 +1,7 @@
 import type { AckSink } from "./ack";
 import type { Clock } from "./clock";
 import type { Codepage } from "./codepages";
-import { printDocumentSchema } from "./document";
+import { printDocumentSchema, type PrintDocument } from "./document";
 import { toEscPos, type PaperWidth } from "./escpos";
 import type { Logger } from "./logger";
 import { PrintError, type PrinterBackend } from "./printer/types";
@@ -72,7 +72,7 @@ export class JobWorker {
       acks.submit({ jobId: job.id, status: "failed", error: "documento inválido" });
       return;
     }
-    const bytes = toEscPos(parsed.data, { paperWidth: this.o.paperWidth, codepage: this.o.codepage });
+    const bytes = toEscPos(parsed.data as PrintDocument, { paperWidth: this.o.paperWidth, codepage: this.o.codepage });
     const started = this.o.clock.now();
     const result = await this.printWithTimeout(job.id, bytes);
     if (result.ok) {

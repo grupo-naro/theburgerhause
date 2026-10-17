@@ -12,7 +12,7 @@ const VERSION = "0.1.0";
 
 export const SAMPLE_TICKET: PrintDocument = {
   blocks: [
-    { type: "text", text: "THE BURGER HOUSE", bold: true, size: 2, align: "center" },
+    { type: "logo" },
     { type: "text", text: "Prueba de impresión", align: "center" },
     { type: "divider" },
     { type: "text", text: "Acentos: áéíóú ÁÉÍÓÚ ñ Ñ ü Ü" },
@@ -22,6 +22,8 @@ export const SAMPLE_TICKET: PrintDocument = {
     { type: "text", text: "Una línea larga para comprobar que se corta en el ancho del papel sin partir palabras a la mitad." },
     { type: "divider" },
     { type: "text", text: "Si ves esto completo y con acentos, la impresora está lista.", align: "center" },
+    { type: "divider" },
+    { type: "text", text: "GRACIAS POR TU COMPRA", bold: true, align: "center" },
     { type: "cut" },
   ],
 };
@@ -32,7 +34,7 @@ Uso: print-agent [comando]
 
 Comandos:
   run          (por defecto) conecta con el servidor e imprime los trabajos
-  test-print   imprime un ticket de prueba (acentos, negrita, tamaño 2, corte); no necesita servidor
+  test-print   imprime un ticket de prueba (logo, acentos, negrita, tamaño 2, corte); no necesita servidor
   check        valida la configuración, lista las impresoras de Windows y prueba la conexión
   --help       muestra esta ayuda
   --version    muestra la versión
@@ -88,7 +90,7 @@ async function testPrint(io: CliIo): Promise<number> {
     io.stderr(`No se pudo imprimir: ${err instanceof Error ? err.message : "error desconocido"}\n`);
     return 1;
   }
-  io.stdout("Ticket de prueba enviado. Revisá el papel: acentos (áéíóú ñ ¿ ¡), negrita, tamaño doble y corte.\n");
+  io.stdout("Ticket de prueba enviado. Revisá el papel: logo arriba, acentos (áéíóú ñ ¿ ¡), negrita, tamaño doble, la frase final y el corte.\n");
   return 0;
 }
 

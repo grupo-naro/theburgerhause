@@ -173,3 +173,81 @@ describe("escpos: robustness", () => {
     expect(hex(out).endsWith("1b64041d564203")).toBe(true);
   });
 });
+
+describe("escpos: logo (GS v 0 raster)", () => {
+  const LOGO: PrintBlock = { type: "logo" };
+  const GS_V_0 = "1d763000";
+
+  /** Parses the raster command out of the bytes: { xL xH yL yH, data }. */
+  function raster(out: Buffer) {
+    const at = out.indexOf(Buffer.from([0x1d, 0x76, 0x30, 0x00]));
+    if (at < 0) return null;
+    const bytesPerRow = out[at + 4] + out[at + 5] * 256;
+    const rows = out[at + 6] + out[at + 7] * 256;
+    return { at, bytesPerRow, rows, data: out.subarray(at + 8, at + 8 + bytesPerRow * rows), end: at + 8 + bytesPerRow * rows };
+  }
+
+  it("58 mm: centered GS v 0 with width in BYTES (xL xH) and height in dots (yL yH), data length = w*h", () => {
+    const out = enc(doc(LOGO), 58);
+    expect(hex(out).startsWith(INIT + CP858 + "1b6101")).toBe(true); // centered
+    const r = raster(out)!;
+    expect(r).not.toBeNull();
+    expect(r.bytesPerRow).toBe(18); // 144 dots
+    expect(r.rows).toBe(144);
+    expect(r.bytesPerRow * 8).toBeLessThanOrEqual(384); // never wider than the 58 mm head
+    expect(r.data).toHaveLength(18 * 144);
+    expect(r.data.some((b) => b !== 0)).toBe(true); // it has ink
+    expect(r.data.some((b) => b !== 0xff)).toBe(true); // and paper
+  });
+
+  it("80 mm gets the bigger raster, still within the 512 dot head", () => {
+    const r = raster(enc(doc(LOGO), 80))!;
+    expect(r.bytesPerRow).toBe(24); // 192 dots
+    expect(r.rows).toBe(192);
+    expect(r.bytesPerRow * 8).toBeLessThanOrEqual(512);
+  });
+
+  it("after the raster: alignment and line state reset, then a line feed (the next block starts clean)", () => {
+    const out = enc(doc(LOGO, text("x")), 58);
+    const r = raster(out)!;
+    expect(hex(out.subarray(r.end, r.end + 4))).toBe("1b6100" + "0a");
+  });
+
+  it("wide enough for the paper but bytes/rows fit the 16-bit length fields", () => {
+    for (const w of [58, 80] as const) {
+      const r = raster(enc(doc(LOGO), w))!;
+      expect(r.bytesPerRow).toBeLessThan(65536);
+      expect(r.rows).toBeLessThan(65536);
+    }
+  });
+
+  it("falls back to the brand name as large centered text when no raster is available (never fails)", () => {
+    const out = toEscPos(doc(LOGO, text("PEDIDO")), { paperWidth: 58, codepage: "cp858" }, { logos: null });
+    expect(hex(out)).not.toContain(GS_V_0);
+    const t = out.toString("latin1");
+    expect(t).toContain("THE BURGER");
+    expect(t).toContain("HOUSE");
+    expect(t).toContain("828");
+    expect(hex(out)).toContain("1b6101" + "1b4501" + "1d2111"); // centered, bold, size 2
+    expect(t).toContain("PEDIDO");
+  });
+
+  it("falls back when the raster data is corrupt (wrong length / bad size)", () => {
+    const bad = { 58: { width: 144, height: 144, data: "AAAA" }, 80: { width: 0, height: 0, data: "" } } as never;
+    for (const w of [58, 80] as const) {
+      const out = toEscPos(doc(LOGO), { paperWidth: w, codepage: "cp858" }, { logos: bad });
+      expect(hex(out)).not.toContain(GS_V_0);
+      expect(out.toString("latin1")).toContain("THE BURGER");
+    }
+  });
+
+  it("unknown block types are skipped, the rest still prints", () => {
+    const unknown = { type: "qr", data: "x" } as unknown as PrintBlock;
+    const out = enc(doc(text("A"), unknown, text("B"), { type: "cut" }));
+    expect(hex(out)).toBe(hex(enc(doc(text("A"), text("B"), { type: "cut" }))));
+  });
+
+  it("a doc ending in the cut with a logo still ends with the cut", () => {
+    expect(hex(enc(doc(LOGO, { type: "cut" }), 58)).endsWith("1b64041d564203")).toBe(true);
+  });
+});

@@ -118,3 +118,12 @@ describe("cli", () => {
     expect(r.err).toContain("No se pudo conectar con el servidor");
   });
 });
+
+describe("sample ticket (test-print)", () => {
+  it("shows the logo first and the thanks line before the cut, so the owner can verify the printer", () => {
+    expect(SAMPLE_TICKET.blocks[0]).toEqual({ type: "logo" });
+    expect(SAMPLE_TICKET.blocks.at(-2)).toEqual({ type: "text", text: "GRACIAS POR TU COMPRA", bold: true, align: "center" });
+    expect(SAMPLE_TICKET.blocks.at(-1)).toEqual({ type: "cut" });
+    expect(printDocumentSchema.safeParse(SAMPLE_TICKET).success).toBe(true);
+  });
+});
