@@ -8,7 +8,7 @@ import { startAgent } from "./index";
 import { createBackend } from "./printer";
 import { listPrinters } from "./printer/windows-raw";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 
 export const SAMPLE_TICKET: PrintDocument = {
   blocks: [

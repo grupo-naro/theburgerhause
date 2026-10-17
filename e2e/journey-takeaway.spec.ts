@@ -43,7 +43,7 @@ test("J3 takeaway with cash collected at pickup, a rejection with a reason, and 
     const takeaway = await placeRetiroOrder({ paymentMethod: "cash", single: true });
     const rejected = await placeDeliveryOrder({ paymentMethod: "cash", single: true });
 
-    await test.step("the cashier approves the takeaway order: payment stays pending, two jobs for the station", async () => {
+    await test.step("the cashier approves the takeaway order: payment stays pending, ONE job (the customer ticket) for the station", async () => {
       const card = orderCard(page, takeaway.number);
       await expect(card).toBeVisible();
       await expect(orderCard(dispatch, rejected.number)).toBeVisible(); // the delivery order is on the delivery manager's screen...
@@ -54,8 +54,7 @@ test("J3 takeaway with cash collected at pickup, a rejection with a reason, and 
       const row = await orderById(takeaway.id);
       expect(row).toMatchObject({ status: "en_preparacion", paymentStatus: "pending", fulfillment: "takeaway" });
       expect((await printJobsOf(takeaway.id)).map((j) => [j.type, j.status])).toEqual([
-        ["kitchen", "pending"],
-        ["ticket", "pending"],
+        ["customer", "pending"],
       ]);
     });
 

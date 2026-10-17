@@ -724,6 +724,9 @@ certificado vence; el disco se mira con `df -h` (sección 5.1) una vez por seman
    Si el servicio se reinició, los agentes reconectan solos y los trabajos pendientes se imprimen una sola vez.
 6. Otro agente con el mismo token: el log dice "Otro agente se conectó para esta estación" → dejar un solo agente por
    estación y rotar el token (sección 6).
+7. La alerta roja dice **"Ticket cliente: documento inválido"** y no sale papel: el agente de esa PC es **anterior al logo**
+   (versión 0.1.x sin soporte del bloque `logo`). Actualizarlo con el ZIP nuevo (`update.ps1`, `print-agent-install.md`
+   sección 9) y apretar **Reimprimir**. El ticket de delivery no usa el logo, por eso ese sí sale.
 
 ---
 
@@ -805,7 +808,7 @@ Revisalo antes de abrir al público y después cada 3 meses.
 | **"No se puede iniciar sesión"** | Usuario/clave mal, usuario inactivo, demasiados intentos (429), sesión invalidada por cambio de `SESSION_SECRET`, o se entró por `http://` (la cookie solo funciona con HTTPS) | Probar con `https://`; esperar 1 minuto si hubo muchos intentos; reiniciar la clave del admin (sección 6); revisar que el usuario esté activo en Admin → Usuarios. `journalctl -u burgerhause --since "10 min ago"` |
 | **El menú no se actualiza** en la web pública | Los cambios hechos desde Admin se reflejan al instante. Si se cambió la base por fuera (restauración, SQL manual) el menú en memoria queda viejo hasta 1 hora | `sudo systemctl restart burgerhause` |
 | **Pedidos duplicados** | El cliente apretó dos veces (la app los deduplica por clave) o hay **dos instancias** de la app | `pgrep -fc "next/dist/bin/next start"` debe dar `1`; `systemctl status burgerhause` debe mostrar un solo proceso principal. Si hay dos: `sudo systemctl stop burgerhause`, `sudo pkill -f "next/dist/bin/next start"`, `sudo systemctl start burgerhause`. Nunca levantar otra copia a mano |
-| Una **comanda sale dos veces** | Dos agentes con el mismo token, o reimpresión manual | Ver 5.3, punto 6; dejar un agente por estación |
+| Un **ticket sale dos veces** | Dos agentes con el mismo token, o reimpresión manual | Ver 5.3, punto 6; dejar un agente por estación |
 | **No imprime** | Agente caído, impresora, Spooler | Sección 5.3 |
 | `deploy.sh` falla en **migrate** | Base caída/clave mal, o una migración con error | La versión en uso no se tocó. Leer el mensaje (código de PostgreSQL). `sudo -u burgerhause psql -d burgerhause -c 'select 1'`. Si el aviso dice "destructive migration refused": ver el checklist de 3.3. Si es un error de la migración: avisar al soporte con las últimas 30 líneas (sin la URL de la base) |
 | `deploy.sh` falla en **build** con "Killed" o "out of memory" | Poca RAM | Agregar swap (2.3) y repetir |
@@ -837,7 +840,8 @@ administrador a `https://<TU_DOMINIO>/admin`:
 6. **Menú real**: categorías (Admin → Menú), productos con **foto** (hasta 5 MB cada una), precios, y los
    **modificadores** (Admin → Modificadores: quitar ingredientes, agregados, cambios) asociados a cada producto.
 7. **Instalar los agentes de impresión** en las 9 PCs (`docs/ops/print-agent-install.md`) y hacer un ticket de
-   prueba en cada una.
+   prueba en cada una (tiene que salir el **logo** arriba y "GRACIAS POR TU COMPRA"; si no, el agente es viejo: `update.ps1`).
+   Delivery imprime ticket de delivery + ticket del cliente; Mostrador imprime solo el del cliente; no hay comanda de cocina.
 8. **Pedido de prueba completo**: hacer un pedido desde el celular, aprobarlo en la pantalla del sector (un pedido de
    **delivery** se aprueba en **Gestión Delivery**; uno de **retiro** en **Retiro en local**), ver que imprime en la
    estación que lo aprobó y cobrarlo. Comprobar también que el de delivery NO aparece en el mostrador y viceversa. Después anularlo/borrarlo según el procedimiento del local.
@@ -861,7 +865,7 @@ Principio: **el local nunca deja de vender porque falle el sistema.** El procedi
 
 | Situación | Qué hace el local | Qué hacés vos |
 | --- | --- | --- |
-| **Falla una impresora** | La Caja avisa en rojo y reintenta sola. Resolver papel/cable/tapa y apretar **Reimprimir**. Mientras, la cocina lee el pedido en la pantalla de la Caja | Sección 5.3 |
+| **Falla una impresora** | La Caja avisa en rojo y reintenta sola. Resolver papel/cable/tapa y apretar **Reimprimir**. Mientras, la cocina lee el pedido en la pantalla de la Caja (no hay comanda impresa) | Sección 5.3 |
 | **Se cae el sistema (502/503)** | Tomar pedidos **a mano** en un block (número correlativo, hora, productos, aclaraciones, dirección/teléfono, forma de pago, total) y pasarlos a cocina en papel | Diagnóstico: sección 9 (502). Si no se resuelve en 15 minutos: `sudo systemctl restart burgerhause`; si fue un deploy: `deploy.sh rollback`; si es la base: sección 4.5. Avisar al local el estado cada 15 minutos |
 | **Se cae internet en el local** | Igual: pedidos a mano. Las pantallas y los agentes reconectan solos al volver internet; los pedidos aprobados durante la caída se imprimen en orden, una sola vez cada uno | Nada en el servidor; verificar luego `/api/health` |
 | **Se cae la VPS entera** | Pedidos a mano. Los clientes que piden por la web no pueden entrar: avisar por WhatsApp/redes | Reiniciar desde el panel de Contabo; si no vuelve, reconstruir con 4.5 ("si se perdió la VPS entera") |

@@ -103,3 +103,9 @@ export const latin1 = (b: Buffer): string => b.toString("latin1");
 export const CUT_HEX = "1b64041d564203";
 /** ESC @ (init) + ESC t 19 (code page cp858): every document starts with it. */
 export const INIT_HEX = "1b401b7413";
+/** ESC/POS GS v 0: the logo raster command. */
+export const GS_V_0 = Buffer.from([0x1d, 0x76, 0x30, 0x00]);
+/** What follows every text block: bold off, size 1, align left. */
+export const RESET_HEX = "1b45001d21001b6100";
+/** The last bytes of every customer ticket: the thanks line, its LF, the style reset and the cut (nothing printed after). */
+export const THANKS_TAIL_HEX = Buffer.from("GRACIAS POR TU COMPRA\n").toString("hex") + RESET_HEX + CUT_HEX;

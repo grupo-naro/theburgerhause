@@ -3,7 +3,7 @@ import { formatARS } from "../src/domain/money";
 import { freshStationToken, resetStationAgentState } from "./helpers/agent";
 import { openRetiro, recentRow } from "./helpers/caja";
 import { cleanBoard, dcard, lane, openPedidos } from "./helpers/despacho";
-import { cleanupAgents, CUT_HEX, latin1, launchAgent, printedFiles, readPrinted } from "./helpers/journey";
+import { cleanupAgents, GS_V_0, INIT_HEX, latin1, launchAgent, printedFiles, readPrinted, THANKS_TAIL_HEX } from "./helpers/journey";
 import {
   chargeButton,
   jobsOf,
@@ -84,17 +84,20 @@ test("J2 counter sale: POS, pager 7, real printing, dispatch pickup lane, pager 
       await shot(page, "journey-2-overlay");
     });
 
-    await test.step("the real agent prints both tickets (LLAMADOR 7, paid in cash) and the overlay turns to Impreso", async () => {
-      await expect.poll(() => printedFiles(agent.outDir).length, { timeout: 15_000 }).toBe(2);
-      const [kitchenJob, ticketJob] = await jobsOf(orderId);
-      const kitchen = latin1(readPrinted(agent.outDir, kitchenJob.id));
-      const ticket = latin1(readPrinted(agent.outDir, ticketJob.id));
-      expect(kitchen).toContain("LLAMADOR 7");
-      expect(kitchen).toContain("MOSTRADOR");
-      expect(kitchen).toContain("SIN CHEDDAR");
-      expect(readPrinted(agent.outDir, ticketJob.id).toString("hex").endsWith(CUT_HEX)).toBe(true);
+    await test.step("the real agent prints exactly ONE ticket: the customer ticket with logo, LLAMADOR 7, paid in cash, thanks; no kitchen comanda; the overlay turns to Impreso", async () => {
+      await expect.poll(() => printedFiles(agent.outDir).length, { timeout: 15_000 }).toBe(1);
+      const jobs = await jobsOf(orderId);
+      expect(jobs.map((j) => j.type)).toEqual(["customer"]);
+      const bytes = readPrinted(agent.outDir, jobs[0].id);
+      const ticket = latin1(bytes);
+      expect(bytes.subarray(0, 8).toString("hex")).toBe(INIT_HEX + "1b6101"); // logo first, centered
+      expect(bytes.subarray(8, 12).equals(GS_V_0)).toBe(true);
       expect(ticket).toContain("LLAMADOR 7");
       expect(ticket).toContain("Pago: Efectivo (pagado)");
+      expect(ticket).toContain("Sin cheddar"); // the customized unit, customer-facing wording
+      expect(ticket).not.toContain("MOSTRADOR"); // the kitchen comanda (service type banner) is gone
+      expect(ticket).not.toContain("SIN CHEDDAR");
+      expect(bytes.toString("hex").endsWith(THANKS_TAIL_HEX)).toBe(true);
       await expect(page.getByTestId("print-status")).toHaveAttribute("data-status", "done", { timeout: 15_000 });
       await expect(recentRow(caja, orderNumber).getByTestId("print-chip")).toHaveText("Impresión: ok");
     });

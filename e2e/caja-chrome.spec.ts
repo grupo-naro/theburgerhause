@@ -157,7 +157,7 @@ async function boardChecks(
   await shotViewport(page, `${workspace}-reject-dialog-${label}`);
   await page.keyboard.press("Escape");
 
-  // Recientes + failed alert: approve one order, fail its kitchen print.
+  // Recientes + failed alert: approve one order, fail its first print job.
   await orderCard(page, o.longOne.number).getByTestId("approve").click();
   await expect(orderCard(page, o.longOne.number)).toHaveCount(0);
   if (workspace === "delivery") await page.getByTestId("tab-recent").click();
@@ -166,10 +166,13 @@ async function boardChecks(
     await page.getByRole("button", { name: "Mostrar" }).click();
   }
   await expect(row).toBeVisible();
-  const [kitchen] = await printJobsOf(o.longOne.id);
+  const jobs = await printJobsOf(o.longOne.id);
+  // Delivery station: dispatch + customer ticket; Mostrador station: the customer ticket only.
+  expect(jobs.map((j) => j.type)).toEqual(workspace === "delivery" ? ["delivery", "customer"] : ["customer"]);
   try {
-    await failPrintJob(kitchen.id, "La impresora no responde (sin papel o desconectada)");
+    await failPrintJob(jobs[0].id, "La impresora no responde (sin papel o desconectada)");
     await expect(page.getByTestId("failed-print-alert")).toBeVisible();
+    await expect(page.getByTestId("failed-print")).toContainText(workspace === "delivery" ? "Ticket delivery:" : "Ticket cliente:");
     expect(await noHorizontalOverflow(page)).toBe(true);
     await page.evaluate(() => window.scrollTo(0, 0));
     await shot(page, `${workspace}-failed-and-recientes-${label}`);
@@ -224,6 +227,39 @@ test.describe("delivery manager", () => {
       await boardChecks(page, label, "delivery", { urgent, transfer, longOne });
     });
   }
+});
+
+test.describe("delivery manager reprint", () => {
+  test.use({ storageState: authFile("encargada") });
+
+  test("Reimprimir on a delivery order offers customer, delivery and both tickets, each queuing exactly its jobs", async ({ page }) => {
+    await parkPendingOrders();
+    const o = await placeDeliveryOrder({ paymentMethod: "cash" });
+    await openDelivery(page);
+    await orderCard(page, o.number).getByTestId("approve").click();
+    await expect(orderCard(page, o.number)).toHaveCount(0);
+    await page.getByTestId("tab-recent").click();
+    const row = recentRow(page, o.number);
+    await expect(row).toBeVisible();
+    try {
+      expect((await printJobsOf(o.id)).map((j) => j.type)).toEqual(["delivery", "customer"]);
+      const open = () => row.getByRole("button", { name: `Reimprimir pedido #${o.number}` }).click();
+      await open();
+      const menu = row.getByRole("group", { name: "Qué reimprimir" });
+      await expect(menu.getByRole("button")).toHaveText(["Ticket cliente", "Ticket delivery", "Ambos tickets"]);
+      await shotViewport(page, "delivery-reprint-menu");
+      await menu.getByRole("button", { name: "Ticket delivery" }).click();
+      await expect.poll(async () => (await printJobsOf(o.id)).map((j) => j.type)).toEqual(["delivery", "customer", "delivery"]);
+      await open();
+      await menu.getByRole("button", { name: "Ticket cliente" }).click();
+      await expect.poll(async () => (await printJobsOf(o.id)).map((j) => j.type)).toEqual(["delivery", "customer", "delivery", "customer"]);
+      await open();
+      await menu.getByRole("button", { name: "Ambos tickets" }).click();
+      await expect.poll(async () => (await printJobsOf(o.id)).map((j) => j.type)).toEqual(["delivery", "customer", "delivery", "customer", "delivery", "customer"]);
+    } finally {
+      await markJobsDone(o.id);
+    }
+  });
 });
 
 test.describe("admin", () => {

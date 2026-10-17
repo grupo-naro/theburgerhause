@@ -1,8 +1,8 @@
 # Protocolo del Print Agent (lado servidor)
 
 Un agente Node.js corre en cada PC con impresora térmica USB y se conecta HACIA AFUERA al servidor
-(no hay puertos abiertos en el local). El servidor le entrega los trabajos de impresión (cocina y
-ticket) por Server-Sent Events y el agente confirma cada uno con un POST. Código: `src/lib/print/*`,
+(no hay puertos abiertos en el local). El servidor le entrega los trabajos de impresión (ticket de
+delivery y ticket del cliente) por Server-Sent Events y el agente confirma cada uno con un POST. Código: `src/lib/print/*`,
 rutas en `src/app/api/agent/*`. El agente en sí es `packages/print-agent`; **cómo instalarlo en las PCs del local
 (tarea programada de Windows, release ZIP, planilla de las 9 PCs): [`print-agent-install.md`](./print-agent-install.md).**
 
@@ -19,6 +19,41 @@ approveOrder / reprint ── INSERT print_jobs (pending) + NOTIFY print_job_cre
 
 Si NO hay agente conectado, los trabajos quedan `pending` y se entregan UNA vez, del más viejo al más
 nuevo, cuando el agente (re)conecta: nada se pierde y nada se duplica.
+
+## Qué se imprime y el documento (Task 10.2)
+
+**No se imprime comanda de cocina**: la reemplazará la pantalla de cocina (KDS) de una fase posterior. El renderer
+(`renderKitchenTicket`) sigue en `src/domain/print-document.ts` y el valor `kitchen` sigue siendo válido en
+`print_jobs.type` (historial y KDS futuro), pero nada lo encola hoy.
+
+| Estación que aprueba / vende | Trabajos por pedido | Orden |
+| --- | --- | --- |
+| **Delivery** (pedido web de delivery) | `delivery` + `customer` | delivery primero |
+| **Mostrador** (retiro web o venta de mostrador) | `customer` | — |
+
+- `delivery`: ticket "normal" que viaja con el pedido: número grande, DELIVERY, hora, cliente, WhatsApp, dirección, entre
+  calles, aclaraciones, cada unidad con sus modificaciones y nota, subtotal/envío/total y el cobro
+  (`Efectivo: cobrar $X` o `Pago: Transferencia (pagado)`). **Sin logo ni agradecimiento.**
+- `customer`: logo (bloque `logo`) arriba, `THE BURGER HOUSE 828`, número y fecha, datos, `LLAMADOR n` en ventas de
+  mostrador, items con precios, totales, línea de pago y, al final, `GRACIAS POR TU COMPRA` centrado en negrita antes del corte.
+- La regla es por **tipo de estación** (no por rol): un admin que aprueba un delivery en una estación Mostrador imprime solo el
+  ticket del cliente. Una venta de mostrador siempre imprime solo `customer`.
+- Reimpresión (`which`): `customer`, `delivery` (solo pedidos web de delivery; si no, `VALIDATION`) o `both` (= lo que imprimiría
+  aprobar en ESA estación). Los valores viejos `kitchen`/`ticket` ya no se aceptan al reimprimir.
+- Migración `0005`: `print_job_type` suma `delivery` y `customer` (`kitchen`/`ticket` quedan por historial; un `ticket` viejo equivale a un `customer`).
+
+### Bloques (`PrintBlock`)
+
+`text` (`text`, `bold?`, `size?` 1|2, `align?` left|center), `divider`, `cut` y **`logo`** (sin campos). El servidor NO manda el bitmap:
+el agente lo trae embebido (`packages/print-agent/src/logo-data.ts`, generado desde `public/logo.png` con `pnpm --filter
+@burgerhause/print-agent logo`) y lo imprime como raster ESC/POS `GS v 0`, centrado: **144 px de ancho en 58 mm** (máx. 384) y
+**192 px en 80 mm** (máx. 512), 1 bit con difusión Atkinson y recorte circular (el fondo es papel). Si el bitmap no sirve, el
+agente imprime `THE BURGER HOUSE 828` grande y centrado: la impresión nunca falla por el logo.
+
+**Compatibilidad entre versiones**: un agente nuevo salta los tipos de bloque que no conoce (acepta el documento y lo imprime
+sin ellos). Un agente **anterior a la 10.2** valida el documento de forma estricta y **falla** el trabajo `customer` (error
+"documento inválido", alerta roja en la Caja) porque no conoce `logo`: hay que **actualizar los agentes** (`update.ps1`,
+ver `print-agent-install.md`) antes o junto con el deploy del servidor.
 
 ## Autenticación (todos los endpoints)
 
@@ -46,7 +81,7 @@ Headers: `Content-Type: text/event-stream; charset=utf-8`, `Cache-Control: no-ca
 | --- | --- |
 | `retry: 3000` | el cliente reconecta a los 3 s |
 | `event: hello` | `{ stationId, stationName, serverTime, protocol: 1, maxAttempts: 3, stuckAfterMs: 30000 }` |
-| `event: job` | `{ id, type: "kitchen"\|"ticket", attempts, createdAt, document }`; `document` = `{ blocks: PrintBlock[] }` tal cual se guardó |
+| `event: job` | `{ id, type: "delivery"\|"customer"\|"kitchen"\|"ticket", attempts, createdAt, document }`; `document` = `{ blocks: PrintBlock[] }` tal cual se guardó. `type` es informativo: el agente imprime el `document` sea cual sea |
 | `event: replaced` | otro agente se conectó para esta estación: este stream se cierra a continuación. NO reconectar en bucle |
 | `: ping` | comentario cada 25 s |
 

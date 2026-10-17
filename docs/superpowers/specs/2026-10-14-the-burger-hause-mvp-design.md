@@ -59,7 +59,7 @@ Importes en **enteros (centavos)**. Los pedidos guardan snapshots de nombres y p
 - `cadets`: id, name, phone, active.
 - `settlements`: id, cadet_id, amount, settled_by, created_at.
 - `settlement_orders`: settlement_id, order_id, amount.
-- `print_jobs`: id, order_id, station_id, type (`kitchen` | `ticket`), payload (jsonb), status (`pending` | `printing` | `done` | `failed`), attempts, error, created_at, printed_at.
+- `print_jobs`: id, order_id, station_id, type (`delivery` | `customer`; `kitchen` | `ticket` solo historial / KDS futuro, ver addendum Task 10.2), payload (jsonb), status (`pending` | `printing` | `done` | `failed`), attempts, error, created_at, printed_at.
 - `settings`: clave/valor — datos del local, alias/CBU para transferencias, `delivery_fee`.
 
 **Saldo del cadete (calculado, no almacenado):** suma de `total` de pedidos con `cadet_id = X`, `payment_method = cash`, `payment_status = pending`, `status = entregado`. Los pedidos `en_camino` se muestran aparte como "en ruta".
@@ -77,7 +77,7 @@ pendiente_aprobacion ──aprobar──▶ en_preparacion ──▶ listo_despa
 | Transición | Quién | Efectos |
 |---|---|---|
 | (web) crear → `pendiente_aprobacion` | Cliente | `payment_status = pending` |
-| `pendiente_aprobacion → en_preparacion` | Cajera | Transferencia: `paid` ("Aprobado y Pagado"). Efectivo: `pending` ("Aprobado"). Crea `print_jobs` kitchen + ticket para la estación que aprobó |
+| `pendiente_aprobacion → en_preparacion` | Cajera | Transferencia: `paid` ("Aprobado y Pagado"). Efectivo: `pending` ("Aprobado"). Crea los `print_jobs` de la estación que aprobó: Delivery = `delivery` + `customer`, Mostrador = `customer` (sin comanda de cocina; ver addendum Task 10.2) |
 | `pendiente_aprobacion → cancelado` | Cajera | Motivo registrado en `order_events` |
 | (mostrador) crear → `en_preparacion` | Cajera | `paid`, pager obligatorio, crea `print_jobs` |
 | `en_preparacion → listo_despacho` | Despacho (manual en MVP; en Fase 2 lo hace cocina/KDS) | — |
@@ -134,10 +134,10 @@ Todas validan con zod y llaman `requireRole()`. Cada una corre en una transacci�
 Menú → categoría → producto → modal (para cantidad N, N configuraciones independientes de quites y agregados) → carrito (desglose de modificaciones, cambiar cantidades, eliminar, volver al menú) → checkout (nombre, WhatsApp, método de pago, tipo de entrega; delivery pide dirección, entre calles y aclaraciones; takeaway muestra datos del local; transferencia muestra alias/CBU) → confirmación con enlace a `/pedido/[token]`.
 
 ### 6.2 Caja (pedidos web)
-Bandeja en vivo de `pendiente_aprobacion`. Transferencia: verificar acreditación y aprobar (`paid`). Efectivo: aprobar (`pending`). Al aprobar se imprimen comanda y ticket en la estación de la cajera.
+Bandeja en vivo de `pendiente_aprobacion`. Transferencia: verificar acreditación y aprobar (`paid`). Efectivo: aprobar (`pending`). Al aprobar se imprimen los tickets en la estación que aprueba (ver addendum Task 10.2: no hay comanda de cocina).
 
 ### 6.3 Mostrador (POS)
-Selección rápida de productos y modificadores → método de cobro → pager obligatorio → confirmar → comanda y ticket impresos.
+Selección rápida de productos y modificadores → método de cobro → pager obligatorio → confirmar → ticket del cliente impreso (con logo).
 
 ### 6.4 Despacho y rendición
 - Despacho takeaway: marcar `para_retirar` y llamar al cliente por pager.
@@ -155,7 +155,7 @@ Selección rápida de productos y modificadores → método de cobro → pager o
   4. Las pantallas de staff alertan los `failed` con botón "Reimprimir" y muestran agentes desconectados (`last_seen_at`).
 - **Idempotencia:** el agente recuerda los últimos IDs impresos.
 - **Render:** el servidor genera un documento neutro en JSON (bloques de texto con estilo, alineación, tamaño, separador, corte); el agente solo lo traduce a ESC/POS. Las plantillas se cambian sin reinstalar agentes.
-- **Comanda de cocina:** items por unidad, modificaciones destacadas (negrita, doble tamaño). **Ticket:** precios, total, datos del cliente, dirección/entre calles o N° de llamador.
+- **Comanda de cocina (DIFERIDA a la fase de pantalla KDS, Task 10.2):** items por unidad, modificaciones destacadas (negrita, doble tamaño). El renderer `renderKitchenTicket` y el valor `kitchen` del enum se conservan, pero NO se encola nada. **Ticket del cliente:** logo, precios, total, datos del cliente, N° de llamador y "GRACIAS POR TU COMPRA". **Ticket de delivery:** número, tipo, cliente, teléfono, dirección y referencias, items por unidad con modificaciones, cobro (`Efectivo: cobrar $X`), sin logo.
 
 ## 8. Autenticación y seguridad
 
@@ -200,3 +200,13 @@ acciones (admin exento). La navegación depende del rol y del tipo de estación.
 ## 13. Fuera de alcance — Fase 2
 
 KDS con temporizadores por color y botón "Listo para despacho" desde cocina; ingreso de materia prima; rendición manual de consumo; historial de stock. No se escribe código de Fase 2 hasta cerrar la Fase 1.
+
+
+## Addendum Task 10.2: rediseño de tickets (sin comanda de cocina, con logo y agradecimiento)
+
+Decisión del dueño: "el ticket de cocina no hace falta porque vamos a tener más adelante la pantalla (KDS); es para el ticket del delivery y del cliente".
+
+- **Trabajos por pedido aprobado**, según el TIPO de estación que aprueba: Delivery → `delivery` (ticket normal para el cadet: número grande, DELIVERY, cliente, teléfono, dirección y referencias, items por unidad con modificaciones, total, `Efectivo: cobrar $X` / `Pago: Transferencia (pagado)`; sin logo) + `customer` (logo, marca, número, items con precios, totales, pago, `LLAMADOR n` en mostrador, `GRACIAS POR TU COMPRA` en negrita antes del corte). Mostrador → solo `customer`. Las ventas de mostrador imprimen solo `customer`.
+- **Comanda de cocina: diferida a la Fase 2 / KDS.** `renderKitchenTicket` y el valor `kitchen` de `print_job_type` siguen disponibles para reutilizarlos; hoy nada los encola. `ticket` queda como alias histórico de `customer`.
+- **Logo**: nuevo bloque `{ type: "logo" }`; el agente lo traduce a raster ESC/POS `GS v 0` con un bitmap 1-bit embebido (144 px en 58 mm, 192 px en 80 mm, generado desde `public/logo.png`), con caída a texto grande si no hay bitmap. Los agentes anteriores a esta versión fallan el ticket del cliente (documento inválido) hasta actualizarse; los nuevos saltan bloques desconocidos.
+- **Reimpresión**: "Ticket cliente", "Ticket delivery" (solo pedidos de delivery) y "Ambos tickets"; `print-agent test-print` imprime el logo y la frase final.

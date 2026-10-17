@@ -80,7 +80,7 @@ test.afterAll(() => resetStationAgentState(STATION));
 test.describe("real agent, cashier flows", () => {
   test.use({ storageState: authFile("cajera") });
 
-  test("approving an order prints the kitchen and customer tickets through the real agent; chips turn ok live", async ({ page, baseURL }) => {
+  test("approving an order prints the customer ticket (logo first, thanks last, no kitchen comanda) through the real agent; chips turn ok live", async ({ page, baseURL }) => {
     await settleStationJobs(STATION);
     await parkPendingOrders();
     const token = await freshStationToken(STATION);
@@ -91,23 +91,22 @@ test.describe("real agent, cashier flows", () => {
     await expect(page.getByTestId("printer-indicator")).toBeVisible();
 
     await approveFromUi(page, o.number);
-    await expect.poll(() => files(a.outDir).length, { timeout: 10_000 }).toBe(2);
+    await expect.poll(() => files(a.outDir).length, { timeout: 10_000 }).toBe(1);
 
-    const [kitchenJob, ticketJob] = await printJobsOf(o.id);
-    expect([kitchenJob.type, ticketJob.type]).toEqual(["kitchen", "ticket"]);
-    const kitchen = readJob(a.outDir, kitchenJob.id);
+    const jobs = await printJobsOf(o.id);
+    expect(jobs.map((j) => j.type)).toEqual(["customer"]); // takeaway at Mostrador: one ticket, no kitchen comanda
+    const [ticketJob] = jobs;
     const ticket = readJob(a.outDir, ticketJob.id);
-    for (const bytes of [kitchen, ticket]) {
-      expect(bytes.subarray(0, 5).toString("hex")).toBe("1b401b7413"); // ESC @, code page cp858
-      expect(bytes.toString("hex").endsWith(CUT)).toBe(true);
-    }
-    const k = latin(kitchen);
-    expect(k).toContain(`PEDIDO #${o.number}`);
-    expect(k).toContain("SIN CHEDDAR");
-    expect(k).toContain("+ DIPS CHEDDAR");
-    expect(k).toContain("1) RANCHITA SIMPLE");
+    expect(ticket.subarray(0, 5).toString("hex")).toBe("1b401b7413"); // ESC @, code page cp858
+    expect(ticket.subarray(5, 8).toString("hex")).toBe("1b6101"); // centered, nothing printed before the logo
+    expect(ticket.subarray(8, 12).toString("hex")).toBe("1d763000"); // GS v 0: the logo raster
+    expect(ticket.toString("hex").endsWith(Buffer.from("GRACIAS POR TU COMPRA\n").toString("hex") + "1b45001d21001b6100" + CUT)).toBe(true);
     const t = latin(ticket);
     expect(t).toContain("THE BURGER HOUSE 828");
+    expect(t).toContain(`PEDIDO #${o.number}`);
+    expect(t).toContain("Sin cheddar");
+    expect(t).toContain("+ Dips de cheddar");
+    expect(t).not.toContain("1) RANCHITA SIMPLE");
     expect(t).toMatch(/TOTAL: \$ [\d.]+/);
 
     const row = recentRow(page, o.number);
@@ -115,10 +114,10 @@ test.describe("real agent, cashier flows", () => {
     await expect(page.getByTestId("printer-indicator")).toHaveAttribute("data-online", "true");
     const stored = await printJobsOf(o.id);
     expect(stored.every((j) => j.status === "done" && j.attempts === 1)).toBe(true);
-    expect(fs.existsSync(path.join(a.outDir, `job-${kitchenJob.id}-2.bin`))).toBe(false); // printed exactly once
+    expect(fs.existsSync(path.join(a.outDir, `job-${ticketJob.id}-2.bin`))).toBe(false); // printed exactly once
   });
 
-  test("offline: jobs wait as pending; when the agent starts it prints exactly 2 files, once", async ({ page, baseURL }) => {
+  test("offline: jobs wait as pending; when the agent starts it prints exactly 1 file, once", async ({ page, baseURL }) => {
     await settleStationJobs(STATION);
     await parkPendingOrders();
     const token = await freshStationToken(STATION);
@@ -126,17 +125,16 @@ test.describe("real agent, cashier flows", () => {
     await openRetiro(page);
     await approveFromUi(page, o.number);
     expect((await printJobsOf(o.id)).map((j) => [j.type, j.status, j.attempts])).toEqual([
-      ["kitchen", "pending", 0],
-      ["ticket", "pending", 0],
+      ["customer", "pending", 0],
     ]);
     await expect(recentRow(page, o.number).getByTestId("print-chip")).not.toHaveText("Impresión: ok");
 
     const a = launch(baseURL!, token);
-    await expect.poll(() => files(a.outDir).length, { timeout: 10_000 }).toBe(2);
+    await expect.poll(() => files(a.outDir).length, { timeout: 10_000 }).toBe(1);
     await expect(recentRow(page, o.number).getByTestId("print-chip")).toHaveText("Impresión: ok");
     // a graceful stop flushes everything; nothing else was printed meanwhile
     await a.agent.stop();
-    expect(files(a.outDir)).toHaveLength(2);
+    expect(files(a.outDir)).toHaveLength(1);
     expect((await printJobsOf(o.id)).every((j) => j.status === "done" && j.attempts === 1)).toBe(true);
     expect(a.agent.status().pendingAcks).toBe(0);
   });
@@ -150,7 +148,7 @@ test.describe("real agent, cashier flows", () => {
     const first = launch(baseURL!, token);
     await first.log.waitFor("Agente conectado");
     await approveFromUi(page, o.number);
-    await expect.poll(() => files(first.outDir).length, { timeout: 10_000 }).toBe(2);
+    await expect.poll(() => files(first.outDir).length, { timeout: 10_000 }).toBe(1);
     await expect.poll(async () => (await printJobsOf(o.id)).every((j) => j.status === "done"), { timeout: 10_000 }).toBe(true);
     await first.agent.stop();
 
@@ -159,8 +157,8 @@ test.describe("real agent, cashier flows", () => {
     const second = launch(baseURL!, token, { dataDir: first.dataDir, outDir: first.outDir });
     await second.log.waitFor("Trabajo repetido");
     await expect.poll(async () => (await printJobsOf(o.id)).every((j) => j.status === "done"), { timeout: 10_000 }).toBe(true);
-    await expect.poll(() => second.log.count("Trabajo repetido"), { timeout: 10_000 }).toBe(2);
-    expect(files(first.outDir)).toHaveLength(2); // nothing printed again
+    await expect.poll(() => second.log.count("Trabajo repetido"), { timeout: 10_000 }).toBe(1);
+    expect(files(first.outDir)).toHaveLength(1); // nothing printed again
     expect(second.log.has("Trabajo impreso")).toBe(false);
   });
 
@@ -177,7 +175,7 @@ test.describe("real agent, cashier flows", () => {
     const o = await placeRetiroOrder({ paymentMethod: "cash" });
     await openRetiro(page);
     await approveFromUi(page, o.number);
-    await expect.poll(() => files(second.outDir).length, { timeout: 10_000 }).toBe(2);
+    await expect.poll(() => files(second.outDir).length, { timeout: 10_000 }).toBe(1);
     expect(files(first.outDir)).toHaveLength(0);
   });
 });

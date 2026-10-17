@@ -1,7 +1,7 @@
 # Burger Hause Print Agent
 
 Programa Node.js que corre en cada PC del local con una impresora térmica USB. Se conecta HACIA AFUERA al
-servidor (no abre puertos), recibe los trabajos de impresión (cocina y ticket) por Server-Sent Events, los
+servidor (no abre puertos), recibe los trabajos de impresión (ticket de delivery y ticket del cliente con logo) por Server-Sent Events, los
 traduce a ESC/POS y los imprime con el driver normal de Windows (modo RAW). Confirma cada trabajo al servidor.
 
 El protocolo del lado servidor está en `docs/ops/print-agent-protocol.md`. **Para instalarlo en las PCs del local:
@@ -145,8 +145,15 @@ set PRINTER_NAME=POS-80
 node print-agent.cjs test-print
 ```
 
-Imprime título grande en negrita, acentos (`áéíóú ÁÉÍÓÚ ñ Ñ ü ¿ ¡ °`), negrita, tamaño doble, una línea larga para ver el
-ajuste de palabras, divisores y el corte.
+Imprime el **logo** (raster `GS v 0`), acentos (`áéíóú ÁÉÍÓÚ ñ Ñ ü ¿ ¡ °`), negrita, tamaño doble, una línea larga para ver el
+ajuste de palabras, divisores, `GRACIAS POR TU COMPRA` y el corte. Si el logo no sale (aparece el nombre en letras grandes),
+la impresora no soporta `GS v 0`; el resto del ticket sale igual.
+
+### El logo
+
+`src/logo-data.ts` está **generado** y commiteado (`pnpm --filter @burgerhause/print-agent logo`, opcional `-- --preview <carpeta>` para
+ver los PNG): 144×144 puntos para 58 mm y 192×192 para 80 mm, desde `public/logo.png` (círculo, fondo blanco = papel). Un bloque
+desconocido del servidor se ignora; un bitmap inválido cae al texto.
 
 ## Ancho de papel: 58 vs 80 mm
 
@@ -204,7 +211,7 @@ Marcar cada punto en la PC del local, con la impresora real:
    se cuelga (máx. 15 s). Volver a enchufarla y repetir: imprime. Si la cola SÍ acumula trabajos y el agente dice "impreso",
    el driver no informa su estado: anotar el modelo/driver (el chequeo previo no puede ayudar con ese driver).
 8. [ ] Con `SERVER_URL`/`STATION_TOKEN` reales: `check` → `Servidor: OK`. Luego `run`, aprobar un pedido en la Caja:
-   salen la comanda de cocina y el ticket, y los chips de la Caja pasan a "Impresión: ok".
+   salen los tickets (en Delivery: el ticket de delivery y el del cliente con logo; en Mostrador: el del cliente) y los chips de la Caja pasan a "Impresión: ok".
 9. [ ] Cerrar la Caja de otra PC no afecta; apagar internet 1 minuto y volver: el agente reconecta solo y no repite tickets.
 10. [ ] Reiniciar el agente (Ctrl+C y volver a correr) no reimprime nada.
 11. [ ] Dejar la impresora sin papel (o con la tapa abierta) y aprobar un pedido en la Caja. Observar: (a) la línea de log

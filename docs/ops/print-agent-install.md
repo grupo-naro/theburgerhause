@@ -1,6 +1,6 @@
 # Instalación del Print Agent en las PCs del local (guía paso a paso)
 
-Esta guía es para quien instala el programa que **imprime los tickets y comandas** en cada PC del local
+Esta guía es para quien instala el programa que **imprime los tickets** en cada PC del local
 (4 de mostrador y 5 de delivery). No hace falta saber programar: solo seguir los pasos en orden, copiando
 y pegando los comandos. Tiempo: unos 15 a 20 minutos por PC.
 
@@ -55,10 +55,10 @@ Cada PC tiene su propia **estación** (Mostrador 1, 2, 3, 4; Delivery 1 a 5) y c
 ## 3. Bajar y descomprimir el instalador
 
 1. Copiá el ZIP a la PC (pendrive o descarga). Si tenés el archivo `.sha256`, podés comprobar que no se dañó:
-   en PowerShell `Get-FileHash .\burgerhause-print-agent-0.1.0.zip -Algorithm SHA256` debe mostrar el mismo
+   en PowerShell `Get-FileHash .\burgerhause-print-agent-0.2.0.zip -Algorithm SHA256` debe mostrar el mismo
    código largo que dentro del archivo `.sha256`.
 2. Clic derecho en el ZIP → **Extraer todo…** → carpeta destino `C:\Instalador` → **Extraer**.
-3. Adentro queda una carpeta `burgerhause-print-agent-0.1.0` con los archivos `install.ps1`, `status.ps1`,
+3. Adentro queda una carpeta `burgerhause-print-agent-0.2.0` con los archivos `install.ps1`, `status.ps1`,
    `update.ps1`, `uninstall.ps1`, `print-agent.cjs` y otros. No los abras con doble clic: se usan desde PowerShell.
 
 ## 4. Node.js (el programa necesita Node 20 o superior)
@@ -89,10 +89,10 @@ instalado en la PC (A).
 Entrá a la carpeta del instalador (copiá y pegá con clic derecho, y Enter):
 
 ```powershell
-cd C:\Instalador\burgerhause-print-agent-0.1.0
+cd C:\Instalador\burgerhause-print-agent-0.2.0
 ```
 
-Esperado: el cursor pasa a `PS C:\Instalador\burgerhause-print-agent-0.1.0>`.
+Esperado: el cursor pasa a `PS C:\Instalador\burgerhause-print-agent-0.2.0>`.
 
 ## 6. Elegir ancho de papel y página de códigos
 
@@ -124,8 +124,8 @@ Qué pasa y qué tenés que hacer:
 1. Si no pusiste `-PrinterName`, muestra una lista numerada de impresoras: escribí el número y Enter.
 2. Pide el token: **"Pegá el token de la estación…"**. Pegalo con clic derecho (no se ve nada mientras se pega: es
    normal) y apretá Enter.
-3. Pregunta **"Imprimir un ticket de prueba ahora (s/N)"**: escribí `s` y Enter. **Tiene que salir un ticket** con
-   el título grande, acentos, negrita, tamaño doble y el corte.
+3. Pregunta **"Imprimir un ticket de prueba ahora (s/N)"**: escribí `s` y Enter. **Tiene que salir un ticket** con el **logo**,
+   acentos, negrita, tamaño doble, "GRACIAS POR TU COMPRA" y el corte.
 
 Salida esperada (resumida):
 
@@ -140,7 +140,7 @@ Salida esperada (resumida):
   Servidor: OK (https://...), la estación quedó marcada como activa. Diferencia de reloj con el servidor: 0 s
   [OK] Servidor y token verificados
 == Ticket de prueba
-  [OK] Ticket de prueba enviado: revisá el papel (acentos, negrita, corte)
+  [OK] Ticket de prueba enviado: revisá el papel (logo, acentos, negrita, frase final, corte)
 == Registrando la tarea programada
   [OK] Tarea 'BurgerHouseAgent' registrada
   [OK] El agente está conectado al servidor
@@ -165,7 +165,7 @@ Si querés **ver qué haría sin cambiar nada**, agregá `-DryRun` al final del 
 2. En el sistema, entrá a la **Caja** desde esa PC eligiendo **la estación de esa PC**. Arriba tiene que decir
    **"Impresora lista"** (si dice "Sin agente", mirá la tabla de problemas).
 3. Hacé un **pedido de prueba** (por ejemplo una venta de mostrador de un producto barato), aprobalo y
-   comprobá que salen **los dos papeles**: la comanda de cocina y el ticket, y que los chips del pedido pasan a
+   comprobá que salen los papeles correctos (**Delivery: dos** — el ticket de delivery y el del cliente con logo y "GRACIAS POR TU COMPRA"; **Mostrador: uno** — el del cliente), y que los chips del pedido pasan a
    "Impresión: ok". Después cancelá o anulá ese pedido de prueba según la rutina del local.
 4. **Prueba de reinicio**: reiniciá la PC (Inicio → Reiniciar). **No inicies sesión ni abras nada.** Esperá 2 minutos,
    y desde otra PC mirá en `Admin → Estaciones` que la estación aparezca **Conectada**, o entrá a la Caja de esa
@@ -177,10 +177,17 @@ Si querés **ver qué haría sin cambiar nada**, agregá `-DryRun` al final del 
 
 Si pasó todo, completá la fila de esta PC en la lista de la sección 12.
 
+> **Actualización 10.2 (logo y nuevos tickets): hay que actualizar los agentes.** Desde esta versión el servidor manda el
+> ticket del cliente con **logo** y "GRACIAS POR TU COMPRA", y el de delivery; **ya no se imprime la comanda de cocina**. El logo
+> viaja dentro del agente, así que **cada PC debe correr `update.ps1` con el ZIP nuevo** (sección 9) antes o al mismo tiempo que
+> el deploy del servidor. Un agente viejo **no** sabe imprimir el bloque del logo: rechaza ese ticket ("documento inválido"),
+> la Caja muestra la alerta roja "Ticket cliente: documento inválido" y no sale papel hasta actualizarlo. Después de actualizar,
+> corré `test-print`: tiene que salir el logo arriba y la frase final.
+
 ## 9. Uso diario y mantenimiento
 
 Todos los comandos se escriben en PowerShell abierto **como Administrador**, dentro de la carpeta del instalador
-(`cd C:\Instalador\burgerhause-print-agent-0.1.0`). Para `update.ps1` hay que usar la carpeta de la versión nueva.
+(`cd C:\Instalador\burgerhause-print-agent-0.2.0`). Para `update.ps1` hay que usar la carpeta de la versión nueva.
 
 | Qué querés hacer | Comando |
 | --- | --- |
@@ -302,8 +309,8 @@ Completar una fila por PC al terminar. "Token rotado" es la fecha en que se gene
 
 1. La Caja avisa en rojo y reintenta sola (3 veces). Resolver lo básico: papel, cable, encendido, tapa.
 2. Cuando la impresora vuelve, apretar **Reimprimir** en el aviso rojo (o en **Recientes → Reimprimir** y elegir
-   comanda o ticket). Sale una sola vez.
-3. Mientras tanto, la cocina puede trabajar **leyendo el pedido desde la pantalla de la Caja** o escribiéndolo a mano.
+   ticket del cliente o ticket de delivery). Sale una sola vez.
+3. Mientras tanto, la cocina puede trabajar **leyendo el pedido desde la pantalla de la Caja / Gestión Delivery** o escribiéndolo a mano (no hay comanda impresa: la reemplazará la pantalla de cocina).
 4. Si la impresora de una estación no se puede recuperar en el momento, usar la de otra estación: en esa PC
    entrar a la Caja y reimprimir el pedido desde **Recientes** (se imprime en la estación en la que estás).
 
@@ -342,14 +349,14 @@ El software se probó con una impresora simulada y con la cola de Windows, **no 
 confirmar en el local, con el modelo real (anotar resultado en la planilla):
 
 - [ ] Marca, modelo, ancho de papel y página de códigos que funcionan (pregunta abierta 2 del diseño).
-- [ ] El ticket de prueba sale completo: título grande, acentos (`á é í ó ú ñ ¿ ¡ °`), negrita, tamaño doble y el **corte** (que sea
+- [ ] El ticket de prueba sale completo: **logo** arriba,  acentos (`á é í ó ú ñ ¿ ¡ °`), negrita, tamaño doble y el **corte** (que sea
       parcial y no desperdicie mucho papel).
 - [ ] Impresora desenchufada/apagada/sin papel: el agente informa el problema y la cola de Windows no acumula
       trabajos (algunos drivers no informan su estado; ver tabla de problemas).
 - [ ] Un tiempo de impresión aceptable en la PC más lenta (cada ticket arranca PowerShell: 1 a 3 s es lo normal;
       si pasa de ~6 s, avisar).
 - [ ] Reinicio en frío en cada una de las 9 PCs: el agente vuelve solo, sin iniciar sesión.
-- [ ] Prueba completa con pedidos reales: salen la comanda y el ticket, y los chips pasan a "Impresión: ok".
+- [ ] Prueba completa con pedidos reales: sale el ticket del cliente (con logo) en Mostrador, y el de delivery + el del cliente en Delivery; los chips pasan a "Impresión: ok".
 - [ ] Que el instalador funcione con el Windows y las políticas de seguridad (antivirus, usuarios sin permisos) de
       las PCs reales.
 

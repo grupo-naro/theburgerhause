@@ -64,10 +64,10 @@ the final state.
 
 | Spec | Journey |
 | --- | --- |
-| `journey-delivery.spec.ts` (`@mobile`) | J1: customer on a phone builds a per-unit order (delivery + transfer) -> the delivery manager sees it live in Gestión Delivery (the cashier never does), verifies, approves -> the Delivery station agent prints kitchen + ticket (ESC/POS bytes asserted) -> tracking page moves on by itself (Playwright clock) -> she assigns it with two cash orders to ONE cadet -> deliveries -> exact settlement, balance $0, event chain and print jobs asserted. |
-| `journey-counter.spec.ts` | J2: POS sale with a customized unit, change and pager 7 -> real printing (`LLAMADOR 7`, `Pago: Efectivo (pagado)`) -> pickup lane -> delivered -> pager 7 free again; reusing it before delivery is refused naming the order. |
+| `journey-delivery.spec.ts` (`@mobile`) | J1: customer on a phone builds a per-unit order (delivery + transfer) -> the delivery manager sees it live in Gestión Delivery (the cashier never does), verifies, approves -> the Delivery station agent prints the delivery ticket + the customer ticket with logo (GS v 0) and GRACIAS POR TU COMPRA (ESC/POS bytes asserted, no kitchen comanda) -> tracking page moves on by itself (Playwright clock) -> she assigns it with two cash orders to ONE cadet -> deliveries -> exact settlement, balance $0, event chain and print jobs asserted. |
+| `journey-counter.spec.ts` | J2: POS sale with a customized unit, change and pager 7 -> real printing of exactly ONE ticket, the customer one (logo first, `LLAMADOR 7`, `Pago: Efectivo (pagado)`, GRACIAS last) -> pickup lane -> delivered -> pager 7 free again; reusing it before delivery is refused naming the order. |
 | `journey-takeaway.spec.ts` | J3: web takeaway paid in cash (collect dialog on delivery -> `paid`), a rejected order (reason, cancelled, no jobs), a cadet settlement with a shortage. |
-| `journey-print-agent.spec.ts` | J4: no agent (jobs pending, "Sin agente") -> agent starts and prints once; a crash after printing but before the ack -> stuck timeout -> redelivery that is NOT printed twice; three failed prints -> red alert -> Reimprimir. |
+| `journey-print-agent.spec.ts` | J4: no agent (jobs pending, "Sin agente") -> agent starts and prints once (Mostrador station: one ticket per order); a crash after printing but before the ack -> stuck timeout -> redelivery that is NOT printed twice; three failed prints -> red alert -> Reimprimir. |
 
 Time is never slept: the 30 s stuck timeout is simulated by moving `claimed_at` in the DB, tracking polls run on
 `page.clock`, and agent output is awaited by polling the temp dir / the DB.

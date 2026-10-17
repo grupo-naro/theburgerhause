@@ -1,10 +1,11 @@
 # The Burger House 828
 
 Sistema de pedidos y despacho de The Burger House 828: tienda online para los clientes, caja y mostrador
-para aprobar y cobrar, impresión automática de comandas, despacho con cadetes y rendición de efectivo.
+para aprobar y cobrar, impresión automática de tickets, despacho con cadetes y rendición de efectivo.
 
-El ciclo completo que cubre (criterio de éxito del MVP): pedido del cliente → aprobación en caja → comanda
-impresa sola en la impresora USB de la PC correspondiente → despacho → cadete → rendición del efectivo.
+El ciclo completo que cubre (criterio de éxito del MVP): pedido del cliente → aprobación en caja → tickets
+impresos solos en la impresora USB de la PC correspondiente (Delivery: ticket de delivery + ticket del cliente con logo;
+Mostrador: ticket del cliente; sin comanda de cocina hasta la pantalla KDS) → despacho → cadete → rendición del efectivo.
 
 ## Arquitectura
 
@@ -180,7 +181,7 @@ docs/
 - **Snapshots**: el pedido guarda nombre y precio de cada producto y modificador al momento de comprar; cambiar el
   menú después no altera pedidos viejos.
 - **Una fila `order_items` por unidad**: dos hamburguesas son dos filas, cada una con sus modificaciones; así la
-  comanda y el ticket se leen unidad por unidad.
+  los tickets se leen unidad por unidad.
 - **Idempotencia**: crear pedido (web y mostrador) usa una clave de idempotencia; reintentar tras un error de red
   no duplica el pedido.
 - **Advisory locks de Postgres** (`pg_advisory_xact_lock`) serializan la creación de pedidos con la misma clave y la

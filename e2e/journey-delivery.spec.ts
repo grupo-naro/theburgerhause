@@ -7,7 +7,7 @@ import { eventsOf, openDelivery, orderById, orderCard, parkPendingOrders, printJ
 import { choosePayment, fillCustomer, fillDelivery, submitButton, unique, uniquePhone } from "./helpers/checkout";
 import { currentSettings, db, findStation, findUser, ordersOf } from "./helpers/db";
 import { cadetGroup, cleanBoard, dcard, ensureCadet, lane, placeReady, routeOrder, runCleanups, tag } from "./helpers/despacho";
-import { cleanupAgents, CUT_HEX, INIT_HEX, latin1, launchAgent, printedFiles, readPrinted, staffContext } from "./helpers/journey";
+import { cleanupAgents, CUT_HEX, GS_V_0, INIT_HEX, latin1, launchAgent, printedFiles, readPrinted, staffContext, THANKS_TAIL_HEX } from "./helpers/journey";
 import { modifierDelta, priceOf } from "./helpers/pos";
 import { openDetail, retireCadets, settlementLines, settlementsOf } from "./helpers/rendicion";
 import { shot } from "./helpers/shots";
@@ -124,38 +124,57 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
       await shot(dispatch, "journey-1-delivery-approved");
     });
 
-    await test.step("the real agent prints the kitchen order and the ticket (ESC/POS bytes)", async () => {
+    await test.step("the real agent prints the delivery ticket and the customer ticket with logo and thanks (ESC/POS bytes); no kitchen comanda", async () => {
       await expect.poll(() => printedFiles(agent.outDir).length, { timeout: 15_000 }).toBe(2);
-      const [kitchenJob, ticketJob] = await printJobsOf(orderId);
-      expect([kitchenJob.type, ticketJob.type]).toEqual(["kitchen", "ticket"]);
+      const [deliveryJob, customerJob] = await printJobsOf(orderId);
+      expect([deliveryJob.type, customerJob.type]).toEqual(["delivery", "customer"]);
       const station = await findStation(STATION);
-      expect(kitchenJob.stationId).toBe(station.id);
-      const kitchen = readPrinted(agent.outDir, kitchenJob.id);
-      const ticket = readPrinted(agent.outDir, ticketJob.id);
-      for (const bytes of [kitchen, ticket]) {
+      expect(deliveryJob.stationId).toBe(station.id);
+      const delivery = readPrinted(agent.outDir, deliveryJob.id);
+      const customer = readPrinted(agent.outDir, customerJob.id);
+      for (const bytes of [delivery, customer]) {
         expect(bytes.subarray(0, 5).toString("hex")).toBe(INIT_HEX);
         expect(bytes.toString("hex").endsWith(CUT_HEX)).toBe(true);
       }
-      const k = latin1(kitchen);
-      expect(k).toContain(`PEDIDO #${orderNumber}`);
-      expect(k).toContain("DELIVERY");
-      // the modification of each unit sits under ITS unit
-      const u1 = k.indexOf("1) RANCHITA SIMPLE");
-      const u2 = k.indexOf("2) RANCHITA SIMPLE");
-      const u3 = k.indexOf("3) MELT SIMPLE");
+      const money = (n: number) => formatARS(n).replace(/ /g, " "); // the printer has no nbsp
+
+      // Delivery (dispatch) ticket: the one that travels with the cadet. No logo, no thanks, no kitchen layout.
+      const d = latin1(delivery);
+      expect(delivery.includes(GS_V_0)).toBe(false);
+      expect(d).toContain(`PEDIDO #${orderNumber}`);
+      expect(d).toContain("DELIVERY");
+      expect(d).toContain(`Cliente: ${name}`);
+      expect(d).toContain("WhatsApp:"); // the phone line (exact digits depend on the normalization)
+      expect(d).toContain(address);
+      expect(d).toContain("Mitre y Sarmiento");
+      expect(d).toContain("Port¢n verde"); // « Portón verde » in cp858
+      expect(d).toContain("Pago: Transferencia (pagado)");
+      expect(d).toContain(`TOTAL: ${money(expectedTotal)}`);
+      expect(d).not.toContain("GRACIAS");
+      expect(d).not.toContain("1) RANCHITA SIMPLE"); // the kitchen comanda layout is gone
+      // each unit with its modification right under it, customer-facing names
+      const u1 = d.indexOf("Ranchita simple");
+      const u2 = d.indexOf("Ranchita simple", u1 + 1);
+      const u3 = d.indexOf("Melt simple");
       expect(u1).toBeGreaterThanOrEqual(0);
       expect(u2).toBeGreaterThan(u1);
       expect(u3).toBeGreaterThan(u2);
-      expect(k.indexOf("SIN CHEDDAR")).toBeGreaterThan(u1);
-      expect(k.indexOf("SIN CHEDDAR")).toBeLessThan(u2);
-      expect(k.indexOf("+ DIPS CHEDDAR")).toBeGreaterThan(u2);
-      expect(k.indexOf("+ DIPS CHEDDAR")).toBeLessThan(u3);
-      const t = latin1(ticket);
+      expect(d.indexOf("Sin cheddar")).toBeGreaterThan(u1);
+      expect(d.indexOf("Sin cheddar")).toBeLessThan(u2);
+      expect(d.indexOf("+ Dips de cheddar")).toBeGreaterThan(u2);
+      expect(d.indexOf("+ Dips de cheddar")).toBeLessThan(u3);
+
+      // Customer ticket: logo raster FIRST (centered, GS v 0), then the brand, items, totals, and the thanks line last.
+      const t = latin1(customer);
+      expect(customer.subarray(0, 8).toString("hex")).toBe(INIT_HEX + "1b6101"); // init, cp858, centered: nothing before the logo
+      expect(customer.subarray(8, 12).equals(GS_V_0)).toBe(true);
       expect(t).toContain("THE BURGER HOUSE 828");
       expect(t).toContain(`Cliente: ${name}`);
       expect(t).toContain(address);
       expect(t).toContain("Pago: Transferencia (pagado)");
-      expect(t).toContain(`TOTAL: ${formatARS(expectedTotal).replace(/ /g, " ")}`); // the printer has no nbsp
+      expect(t).toContain(`TOTAL: ${money(expectedTotal)}`);
+      expect(t.lastIndexOf("GRACIAS POR TU COMPRA")).toBeGreaterThan(t.lastIndexOf("Pago:"));
+      expect(customer.toString("hex").endsWith(THANKS_TAIL_HEX)).toBe(true); // the thanks is the last thing before the cut
     });
 
     await test.step("Recientes shows the print chip ok, live", async () => {
@@ -242,7 +261,7 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
           return rows.length === 6 && rows.every((j) => j.status === "done" && j.attempts === 1);
         }, { timeout: 20_000 })
         .toBe(true);
-      for (const id of ids) expect((await printJobsOf(id)).map((j) => j.type)).toEqual(["kitchen", "ticket"]);
+      for (const id of ids) expect((await printJobsOf(id)).map((j) => j.type)).toEqual(["delivery", "customer"]);
 
       // settlement: only the two cash orders, exact, no shortage
       const settlements = await settlementsOf(cadet.id);
