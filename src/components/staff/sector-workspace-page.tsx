@@ -38,7 +38,7 @@ export async function SectorWorkspacePage({
     // Recientes keeps the whole sector (the counter sector also holds the counter sales: reprint lives here).
     listRecentProcessed(db, { limit: 30, now, sector }),
     getDispatchBoard(db, { now, ...scope }),
-    session.stationId === null ? Promise.resolve([]) : listFailedPrintJobs(db, session.stationId, { sector }),
+    session.stationId === null ? Promise.resolve([]) : listFailedPrintJobs(db, session.stationId, { sector: session.user.role === "admin" ? null : sector }),
   ]);
 
   return (

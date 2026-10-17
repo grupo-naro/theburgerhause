@@ -11,6 +11,7 @@ import { assignCadet, markDelivered, markPickup, markReady, returnToDispatch } f
 import { getDispatchBoard } from "./dispatch-queries";
 import { rejectOrder } from "./reject-order";
 import { reprintOrder } from "./reprint";
+import { getStationHeader } from "@/lib/stations/header";
 import { WRONG_SECTOR_MESSAGE } from "./sector";
 
 const db = () => testDb();
@@ -22,7 +23,7 @@ beforeEach(async () => {
 });
 afterAll(closeDb);
 
-const approve = (orderId: number, sector?: "mostrador" | "delivery" | null, stationId = fx.stationId) =>
+const approve = (orderId: number, sector: "mostrador" | "delivery" | null = null, stationId = fx.stationId) =>
   approveOrder(db(), { orderId, userId: fx.userId, stationId, paymentVerified: true, sector });
 
 /** A full snapshot of the order, its events and the print jobs: a rejected action must leave it untouched. */
@@ -207,5 +208,19 @@ describe("cores reject the wrong sector BEFORE any write; admin (no sector) is e
     if (!r.ok) expect(r.details?.map((x) => x.orderId)).toEqual([d.id]);
     expect(await snapshot(d.id)).toBe(before);
     expect(await assignCadet(db(), { orderIds: [d.id], cadetId: cadet.id, userId: fx.userId, sector: "delivery" })).toMatchObject({ ok: true });
+  });
+});
+
+describe("station header failed-print count is scoped like the workspace list", () => {
+  it("a delivery order printed on a Mostrador station by an admin does not make the cashier's header red", async () => {
+    const d = await placeWebOrder(fx, { fulfillment: "delivery" });
+    const t = await placeWebOrder(fx, { fulfillment: "takeaway" });
+    await approve(d.id, null, fx.stationId); // admin approves a delivery order at the Mostrador station
+    await approve(t.id, "mostrador", fx.stationId);
+    await db().update(s.printJobs).set({ status: "failed", error: "sin papel" });
+    const own = await getStationHeader(db(), fx.stationId, "mostrador");
+    expect(own?.failedCount).toBe((await listFailedPrintJobs(db(), fx.stationId, { sector: "mostrador" })).length);
+    expect(own?.failedCount).toBe(2); // only the takeaway order's two jobs
+    expect((await getStationHeader(db(), fx.stationId, null))?.failedCount).toBe(4); // admin: the station's own jobs, all of them
   });
 });

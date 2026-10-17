@@ -20,7 +20,7 @@ import { StaffNav } from "./staff-nav";
  * inside it must not mount another. Reads request data: render it inside <Suspense>.
  */
 export async function StaffShell({ session, ownsOrderAlert = false, children }: { session: AuthSession; ownsOrderAlert?: boolean; children: ReactNode }) {
-  const station = session.stationId === null ? null : await getStationHeader(getDb(), session.stationId);
+  const station = session.stationId === null ? null : await getStationHeader(getDb(), session.stationId, session.user.role === "admin" ? null : session.stationKind);
   const printer = station
     ? derivePrinterStatus({ lastSeenAt: station.lastSeenAt, failedCount: station.failedCount, now: new Date() })
     : null;
