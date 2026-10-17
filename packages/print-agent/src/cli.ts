@@ -191,7 +191,13 @@ if (typeof require !== "undefined" && typeof module !== "undefined" && require.m
     stderr: (s) => void process.stderr.write(s),
   };
   main(process.argv.slice(2), io).then(
-    (code) => process.exit(code),
+    (code) => {
+      // No process.exit() here: on Windows with Node 24 exiting while the HTTP client still closes its sockets
+      // aborts with "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)" and a bad exit code even though the
+      // command succeeded. Let the event loop drain; the unref'd timer only forces the exit if something lingers.
+      process.exitCode = code;
+      setTimeout(() => process.exit(code), 10_000).unref();
+    },
     (err) => {
       process.stderr.write(`Error: ${err instanceof Error ? err.message : String(err)}\n`);
       process.exit(1);
