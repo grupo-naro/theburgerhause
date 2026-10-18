@@ -26,5 +26,6 @@ describe("needsCollection", () => {
     expect(needsCollection({ fulfillment: "takeaway", ...o("cash", "paid", 1) })).toBe(false);
     expect(needsCollection({ fulfillment: "takeaway", ...o("transfer", "paid", 1) })).toBe(false);
     expect(needsCollection({ fulfillment: "delivery", ...o("cash", "pending", 1) })).toBe(false);
+    expect(needsCollection({ fulfillment: "takeaway", ...o("cash", "pending", 0) })).toBe(false); // nothing to charge
   });
 });

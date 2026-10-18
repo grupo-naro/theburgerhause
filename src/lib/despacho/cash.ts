@@ -15,7 +15,7 @@ export function cashToCollect(orders: ReadonlyArray<Payable>): number {
   return sum;
 }
 
-/** A takeaway order paid in cash must be charged at the counter before it is handed over. */
+/** A takeaway order paid in cash (and worth more than $0) must be charged at the counter before it is handed over. */
 export function needsCollection(o: Payable & { fulfillment: "delivery" | "takeaway" }): boolean {
-  return o.fulfillment === "takeaway" && o.paymentMethod === "cash" && o.paymentStatus === "pending";
+  return o.fulfillment === "takeaway" && o.paymentMethod === "cash" && o.paymentStatus === "pending" && o.total > 0;
 }

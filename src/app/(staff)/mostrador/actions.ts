@@ -16,6 +16,7 @@ import type { PrintState } from "@/lib/orders/caja-queries";
 import { listActivePagers, type ActivePager } from "@/lib/orders/pagers";
 import { getOrderPrintState } from "@/lib/orders/print-state";
 import { fieldErrorsOf } from "@/lib/orders/schemas";
+import { actorRefusal, actorSectorFor } from "@/lib/orders/sector";
 
 /**
  * Counter-sale Server Actions: thin wrappers. They are PUBLIC endpoints, so each one:
@@ -32,7 +33,7 @@ import { fieldErrorsOf } from "@/lib/orders/schemas";
 
 export type CounterActionFailure = {
   ok: false;
-  code: CreateCounterOrderFailure["code"] | "FORBIDDEN" | "NOT_FOUND";
+  code: CreateCounterOrderFailure["code"] | "FORBIDDEN" | "NOT_FOUND" | "WRONG_SECTOR";
   message: string;
   fieldErrors?: Record<string, string>;
   unitIssues?: CreateCounterOrderFailure["unitIssues"];
@@ -48,7 +49,12 @@ type Authorized = { session: AuthSession } | { result: CounterActionFailure };
 /** UNAUTHENTICATED -> /login; FORBIDDEN -> generic error result. */
 async function authorize(): Promise<Authorized> {
   try {
-    return { session: await requireRole("cajera", "admin") };
+    const session = await requireRole("cajera", "admin");
+    // Sector rule, server side: counter sales belong to the mostrador sector (admin exempt). A missing station is
+    // reported by the core (STATION_REQUIRED) with the printing wording.
+    const actor = actorSectorFor(session.user.role, session.stationKind);
+    if (!actor.ok && actor.code === "WRONG_SECTOR") return { result: actorRefusal(actor.code) };
+    return { session };
   } catch (e) {
     if (e instanceof AuthError) {
       if (e.code === "UNAUTHENTICATED") redirect("/login");

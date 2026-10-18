@@ -178,7 +178,10 @@ export async function markDelivered(
   if (!input.success) return fail("VALIDATION", "Solicitud inválida");
   const { orderId, userId, collected } = input.data;
   const at = ctx.now ?? new Date();
-  const collects = (o: LockedOrder) => o.fulfillment === "takeaway" && o.paymentStatus === "pending";
+  // A $0 order has nothing to collect: it is marked paid on delivery without a confirmation (and a cadet never owes $0:
+  // a settlement needs amount > 0).
+  const free = (o: LockedOrder) => o.total === 0 && o.paymentStatus === "pending";
+  const collects = (o: LockedOrder) => o.fulfillment === "takeaway" && o.paymentStatus === "pending" && o.total > 0;
   return move(db, orderId, userId, raw.sector, {
     op: "markDelivered",
     // The domain table also allows para_retirar -> entregado for any order; a delivery order is
@@ -190,7 +193,7 @@ export async function markDelivered(
       if (collects(o) && collected !== true) return fail("VALIDATION", `Confirmá que cobraste ${formatARS(o.total)}`);
       return null;
     },
-    patch: (o) => ({ deliveredAt: at, ...(collects(o) ? { paymentStatus: "paid" as const } : {}) }),
+    patch: (o) => ({ deliveredAt: at, ...(collects(o) || free(o) ? { paymentStatus: "paid" as const } : {}) }),
   });
 }
 

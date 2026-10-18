@@ -2,7 +2,6 @@ import { z } from "zod";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url().startsWith("postgres"),
-  SESSION_SECRET: z.string().min(32),
   UPLOAD_DIR: z.string().min(1),
 });
 

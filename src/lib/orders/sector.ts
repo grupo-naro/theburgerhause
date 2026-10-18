@@ -17,8 +17,8 @@ export function sectorOfFulfillment(fulfillment: Fulfillment): Sector {
   return fulfillment === "delivery" ? "delivery" : "mostrador";
 }
 
-/** Counter sales are always takeaway, so the fulfillment alone decides; `channel` is accepted for readability. */
-export function sectorOfOrder(order: { fulfillment: Fulfillment; channel?: "web" | "counter" }): Sector {
+/** Counter sales are always takeaway, so the fulfillment alone decides. */
+export function sectorOfOrder(order: { fulfillment: Fulfillment }): Sector {
   return sectorOfFulfillment(order.fulfillment);
 }
 

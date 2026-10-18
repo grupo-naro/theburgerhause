@@ -7,7 +7,7 @@ import { getDb } from "@/db/client";
 import { authenticate, roleHome, safeNextPath } from "@/lib/auth/login";
 import { isLoginBlocked, recordLoginFailure } from "@/lib/auth/login-rate-limit";
 import { setSessionCookie } from "@/lib/auth/session";
-import { createSession, setSessionStation } from "@/lib/auth/session-store";
+import { createSession, deleteExpiredSessions, setSessionStation } from "@/lib/auth/session-store";
 import { getStationCookie } from "@/lib/auth/station-cookie";
 import { WRONG_STATION_REASON } from "@/lib/auth/workspace";
 import { clientIp } from "@/lib/client-ip";
@@ -43,6 +43,8 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const next = typeof rawNext === "string" ? rawNext : null;
 
   const { token } = await createSession(db, { userId: user.id });
+  // Housekeeping: expired sessions are dead weight; every login (a few dozen a day) sweeps them. Never blocks a login.
+  await deleteExpiredSessions(db).catch(() => console.error("[login] expired session purge failed"));
   await setSessionCookie(token);
 
   let destination: string;

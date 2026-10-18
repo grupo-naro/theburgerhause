@@ -115,6 +115,15 @@ describe("createCounterOrderAction", () => {
     expect((await jobs()).every((j) => j.stationId === fx.stationId)).toBe(true);
   });
 
+  it("sector rule: a cashier at a Delivery station is refused (WRONG_SECTOR) before anything is written; admin is exempt", async () => {
+    as("cajera", fx.otherStationId);
+    expect(await createCounterOrderAction(body())).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(createCounterOrder).not.toHaveBeenCalled();
+    expect(await orders()).toHaveLength(0);
+    as("admin", fx.otherStationId);
+    expect(await createCounterOrderAction(body())).toMatchObject({ ok: true });
+  });
+
   it("returns serializable data", async () => {
     as("admin");
     const r = await createCounterOrderAction(body());

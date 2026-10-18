@@ -32,7 +32,6 @@ health_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$HEALTH_URL
 write_env() {
   cat >"$ENV_FILE" <<'ENVF'
 DATABASE_URL=postgres://burgerhause:secret@127.0.0.1:5432/burgerhause?sslmode=disable&x=1
-SESSION_SECRET=0123456789abcdef0123456789abcdef0123456789
 UPLOAD_DIR=/var/lib/burgerhause/uploads
 NODE_ENV=production
 ENVF
@@ -135,16 +134,13 @@ expect "service still healthy" eq "$(health_code)" 200
 # ------------------------------------------------------------------------------------------------
 echo "== 7. configuration checks (nothing is created)"
 before="$(nreleases)"
-sed -i 's/^SESSION_SECRET=.*/SESSION_SECRET=short/' "$ENV_FILE"
-run_deploy ok
-expect "short SESSION_SECRET refused: exit 2 (got $RC)" eq "$RC" 2
-write_env; echo 'ALLOW_DEMO_SEED=1' >>"$ENV_FILE"
+echo 'ALLOW_DEMO_SEED=1' >>"$ENV_FILE"
 run_deploy ok
 expect "ALLOW_DEMO_SEED refused: exit 2 (got $RC)" eq "$RC" 2
 write_env; sed -i 's/^UPLOAD_DIR=.*/UPLOAD_DIR=relative\/path/' "$ENV_FILE"
 run_deploy ok
 expect "relative UPLOAD_DIR refused: exit 2 (got $RC)" eq "$RC" 2
-write_env; sed -i 's/^SESSION_SECRET=.*/SESSION_SECRET=CHANGE_ME_openssl_rand_base64_48_padding_padding/' "$ENV_FILE"
+write_env; sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgres://u:CHANGE_ME_DB_PASSWORD@127.0.0.1:5432/burgerhause|" "$ENV_FILE"
 run_deploy ok
 expect "template placeholder refused: exit 2 (got $RC)" eq "$RC" 2
 write_env
@@ -272,6 +268,9 @@ for ref in '--upload-pack=touch /tmp/pwn' 'a b' '-x' 'a;b' '$(id)'; do
 done
 OUT="$(REPO_URL='--upload-pack=touch /tmp/pwn' bash "$DEPLOY_SH" 2>&1)"; RC=$?
 expect "REPO_URL starting with '-' rejected (exit $RC)" eq "$RC" 2
+OUT="$(REPO_URL=file:///nonexistent bash "$DEPLOY_SH" 2>&1)"; RC=$?
+expect "REPO_URL without REF is refused (no implicit branch): exit 2 (got $RC)" eq "$RC" 2
+expect "the refusal says REF is required and suggests a tag" bash -c 'printf %s "$1" | grep -q "REF is required" && printf %s "$1" | grep -q "v1.0.0"' _ "$OUT"
 OUT="$(REPO_URL=file:///nonexistent REF=release/v1.2-rc.1 bash "$DEPLOY_SH" 2>&1)"; RC=$?
 expect "a valid branch/tag name passes validation and fails only at the clone: exit 1 (got $RC)" eq "$RC" 1
 expect "nothing created by the failed clone" eq "$(nreleases)" 0

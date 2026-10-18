@@ -23,6 +23,29 @@ beforeEach(async () => {
 });
 afterAll(closeDb);
 
+describe("$0 cash orders", () => {
+  it("a $0 cash delivery is born paid-on-delivery: it never becomes cash a cadet owes (settlements need amount > 0)", async () => {
+    const cadet = await makeCadet();
+    const o = await preparingWebOrder(fx, { fulfillment: "delivery", paymentMethod: "cash" });
+    await ready(o.id);
+    await db().update(s.orders).set({ total: 0, status: "en_camino", cadetId: cadet.id }).where(eq(s.orders.id, o.id));
+    expect(await deliver(o.id)).toMatchObject({ ok: true, data: { paymentStatus: "paid" } });
+    expect(await orderRow(o.id)).toMatchObject({ status: "entregado", paymentStatus: "paid" });
+    const { listCadetBalances } = await import("@/lib/settlements/queries");
+    expect((await listCadetBalances(db())).find((c) => c.cadetId === cadet.id)).toMatchObject({ owed: 0, owedOrderCount: 0 });
+    const { settleCadet } = await import("@/lib/settlements/settle-cadet");
+    expect(await settleCadet(db(), { cadetId: cadet.id, expectedAmount: 1, userId: fx.userId })).toMatchObject({ ok: false, code: "NOTHING_TO_SETTLE" });
+  });
+
+  it("a $0 cash takeaway is delivered without asking to confirm a charge of $0", async () => {
+    const o = await preparingWebOrder(fx, { fulfillment: "takeaway", paymentMethod: "cash" });
+    await ready(o.id);
+    await pickup(o.id);
+    await db().update(s.orders).set({ total: 0 }).where(eq(s.orders.id, o.id));
+    expect(await deliver(o.id)).toMatchObject({ ok: true, data: { paymentStatus: "paid" } });
+  });
+});
+
 describe("happy flows", () => {
   it("web delivery: markReady, then (assigned elsewhere) markDelivered keeps cash pending", async () => {
     const o = await preparingWebOrder(fx, { fulfillment: "delivery", paymentMethod: "cash" });

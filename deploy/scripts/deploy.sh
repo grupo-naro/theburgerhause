@@ -30,8 +30,9 @@
 #
 # Environment (defaults suit the production layout):
 #   APP_ROOT=/opt/burgerhause   ENV_FILE=/etc/burgerhause/burgerhause.env   SERVICE_NAME=burgerhause
-#   REPO_URL=<git url>  REF=main        source from git (shallow clone of branch/tag REF; commit SHAs are NOT
-#                                       supported); both may also be set in the env file ($ENV_FILE)
+#   REPO_URL=<git url>  REF=<tag|branch> source from git (shallow clone of branch/tag REF; commit SHAs are NOT
+#                                       supported); both may also be set in the env file ($ENV_FILE).
+#                                       REF is REQUIRED (no default): deploy an explicit tag such as v1.0.0
 #   SOURCE_DIR=<dir>                    OR copy an already prepared tree (rsync/scp'd artifact); wins over REPO_URL
 #   APP_USER=burgerhause                steps install/migrate/build/backup run as this user when started as root
 #   APP_HOME=/var/lib/burgerhause       HOME for those steps (pnpm store, corepack cache)
@@ -71,7 +72,6 @@ ENV_FILE="${ENV_FILE:-/etc/burgerhause/burgerhause.env}"
 SERVICE_NAME="${SERVICE_NAME:-burgerhause}"
 REPO_URL="${REPO_URL:-$(env_file_value "$ENV_FILE" REPO_URL)}"
 REF="${REF:-$(env_file_value "$ENV_FILE" REF)}"
-REF="${REF:-main}"
 SOURCE_DIR="${SOURCE_DIR:-}"
 if [ -z "${APP_USER+x}" ]; then
   if [ "$(id -u)" = 0 ]; then APP_USER="burgerhause"; else APP_USER=""; fi
@@ -150,23 +150,22 @@ check_env() { # validate the production env file; never prints values
   [ -r "$ENV_FILE" ] || die "env file $ENV_FILE does not exist or is not readable" 2
   load_env_file "$ENV_FILE"
   local missing=() k
-  for k in DATABASE_URL SESSION_SECRET UPLOAD_DIR; do
+  for k in DATABASE_URL UPLOAD_DIR; do
     [ -n "${!k:-}" ] || missing+=("$k")
   done
   [ "${#missing[@]}" = 0 ] || die "missing in $ENV_FILE: ${missing[*]}" 2
   case "$DATABASE_URL" in postgres://* | postgresql://*) ;; *) die "DATABASE_URL must start with postgres://" 2 ;; esac
-  [ "${#SESSION_SECRET}" -ge 32 ] || die "SESSION_SECRET must be at least 32 characters (openssl rand -base64 48)" 2
-  case "$SESSION_SECRET" in CHANGE_ME*) die "SESSION_SECRET is still the template placeholder" 2 ;; esac
   case "$DATABASE_URL" in *CHANGE_ME*) die "DATABASE_URL still contains the template placeholder" 2 ;; esac
   case "$UPLOAD_DIR" in /*) ;; *) die "UPLOAD_DIR must be an absolute path" 2 ;; esac
   [ -z "${ALLOW_DEMO_SEED:-}" ] || die "ALLOW_DEMO_SEED must NEVER be set in production" 2
   [ "${NODE_ENV:-}" = "production" ] || log "WARNING: NODE_ENV is '${NODE_ENV:-unset}' in $ENV_FILE (expected production)"
-  log "env file ok (DATABASE_URL, SESSION_SECRET, UPLOAD_DIR present)"
+  log "env file ok (DATABASE_URL, UPLOAD_DIR present)"
 }
 
 check_source_args() { # reject values that git could take as options; branches/tags only
   if [ -z "$SOURCE_DIR" ]; then
     case "$REPO_URL" in -*) die "REPO_URL must not start with '-'" 2 ;; esac
+    [ -n "$REF" ] || die "REF is required: pass the tag or branch to deploy, e.g. REF=v1.0.0 (there is no default branch; see docs/ops/runbook.md, 'Versionar y desplegar')" 2
     case "$REF" in -*) die "REF must not start with '-'" 2 ;; esac
     [[ "$REF" =~ ^[A-Za-z0-9._/-]+$ ]] || die "REF '$REF' is not a plain branch or tag name (letters, digits, . _ / -; commit SHAs are not supported)" 2
   fi
@@ -398,11 +397,11 @@ do_deploy() {
     log "  9. health:  $HEALTH_URL must report status ok within ${HEALTH_TIMEOUT}s, then mark the release $OK_MARKER"
     log " 10. on failure: re-point $CURRENT to ${prev:-<nothing: first deploy>}, restart, rename the failed release *.failed"
     log " 11. keep the last $KEEP_RELEASES good releases"
-    [ -z "$SOURCE_DIR" ] && [ -z "$REPO_URL" ] && log "NOTE: set REPO_URL (+REF) or SOURCE_DIR before a real deploy"
+    [ -z "$SOURCE_DIR" ] && [ -z "$REPO_URL" ] && log "NOTE: set REPO_URL + REF (a tag such as v1.0.0) or SOURCE_DIR before a real deploy"
     return 0
   fi
 
-  [ -n "$SOURCE_DIR" ] || [ -n "$REPO_URL" ] || die "set REPO_URL (and optionally REF) or SOURCE_DIR" 2
+  [ -n "$SOURCE_DIR" ] || [ -n "$REPO_URL" ] || die "set REPO_URL and REF, or SOURCE_DIR" 2
   [ -z "$SOURCE_DIR" ] || [ -d "$SOURCE_DIR" ] || die "SOURCE_DIR $SOURCE_DIR is not a directory" 2
 
   acquire_lock

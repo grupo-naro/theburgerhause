@@ -96,6 +96,20 @@ describe("login action", () => {
     expect(await login(prev, form({ username: "cora", password: "bad" }))).toEqual({ error: GENERIC });
   });
 
+  it("a login sweeps expired sessions (and only them)", async () => {
+    const [u] = await testDb().select({ id: s.users.id }).from(s.users).limit(1);
+    await testDb().insert(s.sessions).values([
+      { id: "expired-session-token", userId: u.id, expiresAt: new Date(Date.now() - 86_400_000) },
+      { id: "live-session-token", userId: u.id, expiresAt: new Date(Date.now() + 86_400_000) },
+    ]);
+    jar.set("bh_station", String(fx.station));
+    await redirectOf(login(prev, form({ username: "cora", password: PASSWORD })));
+    const ids = (await sessions()).map((r) => r.id);
+    expect(ids).toContain("live-session-token");
+    expect(ids).not.toContain("expired-session-token");
+    expect(ids).toHaveLength(2);
+  });
+
   it("cannot dodge the limit by rotating the first X-Forwarded-For hop", async () => {
     for (let i = 0; i < 5; i++) {
       requestHeaders.value = new Headers({ "x-forwarded-for": `1.1.1.${i}, 10.0.0.1` });

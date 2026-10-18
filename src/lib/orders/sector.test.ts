@@ -17,8 +17,8 @@ describe("sectorOfFulfillment / sectorOfOrder", () => {
     expect(sectorOfFulfillment("takeaway")).toBe("mostrador");
   });
   it("counter sales (always takeaway) belong to mostrador", () => {
-    expect(sectorOfOrder({ channel: "counter", fulfillment: "takeaway" })).toBe("mostrador");
-    expect(sectorOfOrder({ channel: "web", fulfillment: "delivery" })).toBe("delivery");
+    expect(sectorOfOrder({ fulfillment: "takeaway" })).toBe("mostrador");
+    expect(sectorOfOrder({ fulfillment: "delivery" })).toBe("delivery");
   });
 });
 
