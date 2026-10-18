@@ -35,7 +35,7 @@ Para quien trabaja en una PC de **Mostrador** (Mostrador 1 a 4). Las capturas us
    **Esperando la impresora…** esperá unos segundos; si dice **Falló la impresión**, revisá papel/cable y apretá **Reimprimir**.
    Para la próxima venta apretá **Nuevo pedido** (o Enter).
 
-> No sale comanda de cocina impresa. La cocina ve el pedido en la pantalla **Mostrador** (ver abajo) hasta que llegue la pantalla de cocina.
+> No sale comanda de cocina impresa. **DEFINIR POR EL DUEÑO:** cómo se entera la cocina de cada pedido (pantalla, papel, aviso de voz u otro): todavía no hay una decisión tomada.
 
 Otros atajos: `Alt+L` limpiar el ticket, `Esc` cerrar.
 
@@ -67,6 +67,11 @@ aviso (si activaste el sonido) y aparece un número rojo en el menú.
 
 **Rechazar**: **Rechazar** → elegí un motivo (**Sin stock**, **Zona sin cobertura**, **Pago no acreditado**, **Datos incompletos**) o
 escribí uno (mínimo 3 letras) → **Rechazar pedido**. El cliente ve su pedido como cancelado, con ese motivo.
+
+**Cancelar un pedido ya aprobado** (se equivocó la carga, el cliente se arrepintió, no hay stock): en la tarjeta del pedido (**En preparación**, **Listos** o **Para retirar**) tocá
+**Cancelar pedido**, elegí un motivo (**Cliente canceló**, **Error de carga**, **Sin stock**, **No se pudo entregar**) o escribí uno (obligatorio, mínimo 3 letras) y confirmá con
+**Cancelar pedido**. El pedido sale del tablero, **el llamador queda libre** y no se imprime nada más de ese pedido. La cancelación **no devuelve plata**: si ya se cobró,
+el reintegro lo resolvés aparte con el cliente. Una venta ya **Entregada** no se puede cancelar. Sirve igual para anular una venta del mostrador cargada por error.
 
 **Después**: **Listo** → **Llamar / Para retirar** → **Entregado** (igual que en Mostrador). Si el pedido era en **efectivo**, al
 tocar **Entregado** aparece **"Cobrá $… antes de entregar"**: recibí la plata, tildá **Cobré $…** y apretá **Entregar pedido**.

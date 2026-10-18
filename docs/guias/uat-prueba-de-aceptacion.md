@@ -58,7 +58,7 @@ Roles: **C** cajera (PC Mostrador), **E** encargada (PC Delivery), **A** adminis
 
 | N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |
 | --- | --- | --- | --- | --- |
-| A1 | Local cerrado | **Ajustes → Pausar pedidos**. Desde el celular recargar la tienda; intentar pedir. | La tienda muestra "Por el momento no estamos tomando pedidos" con los horarios y no deja confirmar un pedido. **Anotar** si las ventas de **Venta** (mostrador) siguen funcionando: no está confirmado en la documentación. | [ ] OK  [ ] FALLÓ |
+| A1 | Local cerrado | **Ajustes → Pausar pedidos**. Desde el celular recargar la tienda; intentar pedir. | La tienda muestra "Por el momento no estamos tomando pedidos" con los horarios y no deja confirmar un pedido. Las ventas de **Venta** (mostrador) **siguen funcionando** con los pedidos pausados (pausar frena solo los pedidos web): hacer una venta de prueba y confirmar que se cobra e imprime. | [ ] OK  [ ] FALLÓ |
 | A2 | Reabrir | **Reanudar pedidos**. | El cartel desaparece y se puede pedir. | [ ] OK  [ ] FALLÓ |
 | A3 | Producto agotado | **Menú → Desactivar** un producto. Mirar la tienda desde el celular. Volver a **Activar**. | Deja de verse (y reaparece al activarlo). | [ ] OK  [ ] FALLÓ |
 | A4 | Cambio de precio | Cambiar el precio de un producto y hacer un pedido nuevo. | El pedido nuevo usa el precio nuevo. Los pedidos anteriores no cambian. | [ ] OK  [ ] FALLÓ |

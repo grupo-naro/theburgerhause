@@ -25,4 +25,5 @@ Orden sugerido de la puesta en marcha: **checklist de salida** (secciones 1 a 7)
 - **Sin verificar todavía** (puntos explícitos del checklist): la impresora definitiva en las 9 PCs (marca, ancho, página de códigos, corte, tiempo), el
   instalador con permisos de Administrador en Windows real, la VPS real (certbot, systemd, firewall), la copia remota de backups.
 - Cómo se duplican los pedidos web durante la operación en paralelo depende de cómo llegan hoy en pxw: se define con el responsable antes de empezar.
-- Si pausar pedidos también frena las ventas de mostrador no está documentado: el escenario A1 de la UAT lo registra.
+- **Pausar pedidos** frena solo los pedidos web: las ventas de mostrador (pantalla **Venta**) siguen funcionando (verificado en el código: la venta de mostrador no consulta ese interruptor).
+- **DEFINIR POR EL DUEÑO**: cómo se entera la cocina de cada pedido. Las guías lo dejan abierto a propósito.

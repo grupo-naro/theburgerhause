@@ -10,7 +10,7 @@ Para quien trabaja en una PC de **Delivery** (Delivery 1 a 5). Las capturas usan
 
 En esta PC entran **solo** los pedidos web de **delivery**. Al aprobar, **esta estación imprime dos papeles**: el **ticket de delivery**
 (el que viaja con el cadete: número, cliente, teléfono, dirección, productos, cuánto cobrar) y el **ticket del cliente** (con logo
-y "GRACIAS POR TU COMPRA"). No sale comanda de cocina: la cocina lee el pedido en **En preparación**.
+y "GRACIAS POR TU COMPRA"). No sale comanda de cocina impresa. **DEFINIR POR EL DUEÑO:** cómo se entera la cocina de cada pedido (pantalla, papel, aviso de voz u otro): todavía no hay una decisión tomada.
 
 ## 1. Gestión Delivery: cinco pestañas
 
@@ -39,6 +39,13 @@ Cuando la cocina termina, tocá **Listo** en ese pedido. Pasa a **Listos / Despa
 1. Tildá los pedidos que lleva **un mismo cadete** (uno o varios; **Seleccionar todos** / **Limpiar**).
 2. Abajo aparece la barra de asignación con el resumen (por ejemplo "3 pedidos") y **Efectivo a cobrar**.
 3. En **Elegí un cadete…** elegí al cadete y apretá **Asignar a <nombre>**. Los pedidos pasan a **En camino**.
+
+### Cancelar un pedido ya aprobado
+
+En **En preparación** y en **Listos / Despacho** cada pedido tiene el botón **Cancelar pedido**: elegí un motivo (**Cliente canceló**, **Error de carga**,
+**Sin stock**, **No se pudo entregar**) o escribí uno (obligatorio, mínimo 3 letras) y confirmá. El pedido sale del tablero y no se imprime nada más de él. La cancelación
+**no devuelve plata**: si ya se cobró por transferencia, el reintegro se resuelve aparte con el cliente. Un pedido **En camino** no se cancela directamente: primero
+**No se pudo entregar** (vuelve a **Listos / Despacho**) y ahí **Cancelar pedido**. Un pedido cancelado **no entra en la rendición** del cadete.
 
 ### En camino
 

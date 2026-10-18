@@ -17,7 +17,9 @@ generales: **Vista general** (`/caja`) y **Tablero general** (`/despacho`). El a
   (La casilla **Recibiendo pedidos online** abajo hace lo mismo; recordá **Guardar ajustes** si la cambiás ahí.)
 - **Datos del local**: nombre, dirección, teléfono, WhatsApp (con código de país, ej. 5491155551234), **Horarios** (texto libre).
 - **Pago por transferencia**: **Alias** y **CBU / CVU** (22 dígitos). Es lo que ve el cliente al elegir transferencia.
-- **Envío y pedidos**: **Costo de envío ($)**, en pesos enteros (0 = sin cargo).
+- **Envío y pedidos**: **Costo de envío ($)**, en pesos enteros (0 = sin cargo). **Cierre del día de trabajo**: la hora (Buenos Aires, por defecto **06:00**) en la que
+  el número de pedido vuelve a 1. Una venta de las 23:50 y otra de las 00:05 son del mismo día de trabajo; el número reinicia recién a la hora de cierre.
+  Cambiarlo no renumera pedidos ya hechos.
 - Terminá con **Guardar ajustes**.
 
 ### Estaciones (`/admin/estaciones`)
@@ -56,4 +58,4 @@ Ver `docs/guias/carga-del-menu.md` (paso a paso, con capturas).
 
 ## Cosas que NO se hacen desde el sistema (pedir al soporte técnico)
 
-Deploy y rollback, backups y restauración, rotar `SESSION_SECRET`, certificados: `docs/ops/runbook.md`.
+Deploy y rollback, backups y restauración, cerrar todas las sesiones, etiquetar y desplegar una versión, certificados: `docs/ops/runbook.md`.

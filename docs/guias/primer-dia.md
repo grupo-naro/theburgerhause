@@ -20,7 +20,7 @@
 ## Reglas de oro
 
 - **Transferencia: primero mirá que la plata llegó**, después tildá y aprobá. Si no llegó: **Rechazar → Pago no acreditado**.
-- **No sale comanda de cocina.** La cocina lee el pedido en la pantalla (**En preparación**). Papel: Delivery sale con **dos** tickets (delivery + cliente);
+- **No sale comanda de cocina impresa.** **DEFINIR POR EL DUEÑO:** cómo se entera la cocina de cada pedido (pantalla, papel, aviso de voz u otro): todavía no hay una decisión tomada. Papel: Delivery sale con **dos** tickets (delivery + cliente);
   Mostrador con **uno** (cliente).
 - **Cuadro rojo "impresión falló"** → revisá papel y cable → **Reimprimir**. No reimprimas "por las dudas": sale otro papel.
 - **Los pedidos web de delivery solo aparecen en Delivery; los de retiro, en Mostrador.** Es normal no ver el del otro sector.

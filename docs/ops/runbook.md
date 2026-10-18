@@ -287,7 +287,6 @@ sudo -u burgerhause psql -d burgerhause -c 'select current_user, current_databas
 
 ```bash
 sudo install -m 640 -o root -g burgerhause /opt/burgerhause/repo/deploy/env/burgerhause.env.example /etc/burgerhause/burgerhause.env
-openssl rand -base64 48                # copiá el resultado: es <SESSION_SECRET>
 sudo nano /etc/burgerhause/burgerhause.env
 ```
 
@@ -295,9 +294,8 @@ Dentro del archivo cambiá **solo** estas líneas (sin comillas, sin espacios al
 
 ```
 DATABASE_URL=postgres://burgerhause:<CLAVE_DB>@127.0.0.1:5432/burgerhause
-SESSION_SECRET=<SESSION_SECRET>
 REPO_URL=<REPO_URL>                    # sacale el # del principio
-REF=main                               # idem
+REF=v1.0.0                             # idem: la etiqueta (o rama) a desplegar; es OBLIGATORIA, no hay rama por defecto (ver 3.2)
 ```
 
 Dejá `UPLOAD_DIR=/var/lib/burgerhause/uploads` y `NODE_ENV=production` como están. Guardá con `Ctrl+O`, `Enter`,
@@ -466,8 +464,23 @@ sano, `sudo ./deploy/scripts/deploy.sh rollback`. Cada paso queda en `journalctl
 cd /opt/burgerhause/repo && sudo git pull --ff-only          # trae la última versión de los scripts
 sudo DRY_RUN=1 ./deploy/scripts/deploy.sh                    # opcional: ver el plan
 sudo ./deploy/scripts/deploy.sh                              # usa REPO_URL y REF del archivo de variables
-sudo REF=v1.2.0 ./deploy/scripts/deploy.sh                   # una rama o etiqueta (tag) concreta
+sudo REF=v1.2.0 ./deploy/scripts/deploy.sh                   # una rama o etiqueta (tag) concreta (pisa la del archivo)
 ```
+
+**`REF` es obligatoria: no existe una rama por defecto.** Si falta, el deploy se rechaza antes de tocar nada (código de salida 2) y
+explica que hay que indicar una etiqueta o rama. Este repositorio no tiene rama `main`: lo que se despliega en producción tiene que ser una
+**etiqueta**, así se sabe siempre qué versión corre y se puede volver a ella.
+
+**Etiquetar la primera versión (`v1.0.0`)**, desde la PC de desarrollo, con la rama ya revisada y con todos los controles en verde:
+
+```bash
+git checkout <RAMA_REVISADA> && git pull --ff-only
+git tag -a v1.0.0 -m "The Burger House 828 - primera versión en producción"
+git push origin v1.0.0
+```
+
+Después, en la VPS: `REF=v1.0.0` en `/etc/burgerhause/burgerhause.env` (o `sudo REF=v1.0.0 ./deploy/scripts/deploy.sh`). Cada versión
+nueva lleva su etiqueta (`v1.0.1`, `v1.1.0`...): las etiquetas no se mueven ni se reutilizan.
 
 (Recordá lanzarlo con `systemd-run` o `tmux`, ver 2.13. `REF` acepta nombres de rama o etiqueta —letras, números, `. _ / -`—;
 los hashes de commit no se aceptan.)
@@ -544,7 +557,7 @@ Corre todos los días a las **04:30** (`burgerhause-backup.timer`). Si la VPS es
 prenderse. El deploy hace además un backup antes de migrar.
 
 **Lo que NO está en el backup**: el archivo `/etc/burgerhause/burgerhause.env` (guardalo vos, cifrado, en tu gestor
-de claves: sin el `SESSION_SECRET` solo se cierran las sesiones, pero la `DATABASE_URL` hay que poder rehacerla) y
+de claves: la `DATABASE_URL` hay que poder rehacerla) y
 los tokens de estación (se regeneran en Admin → Estaciones).
 
 ### 4.2 Cómo verificar que el backup corrió
@@ -734,7 +747,7 @@ certificado vence; el disco se mira con `df -h` (sección 5.1) una vez por seman
 
 | Qué | Cómo | Efecto |
 | --- | --- | --- |
-| `SESSION_SECRET` | `openssl rand -base64 48`, pegar en `/etc/burgerhause/burgerhause.env` y `sudo systemctl restart burgerhause` | **Cierra la sesión de todos** (cajeras, encargada, admin). Los clientes no se ven afectados. Hacerlo si se sospecha filtración |
+| Sesiones (cerrar la sesión de todos) | No hay clave de firma que rotar: las sesiones son identificadores al azar guardados en la base. Para cerrarlas todas: `sudo -u burgerhause psql -d burgerhause -c 'DELETE FROM sessions;'` (para un solo usuario: Admin → Usuarios → **Cerrar sesiones**) | Cajeras, encargada y admin tienen que volver a entrar. Los clientes no se ven afectados. Hacerlo si se sospecha filtración |
 | Token de estación | Admin → Estaciones → **Rotar token**; después actualizarlo en la PC (`print-agent-install.md`, sección 9) | El token viejo deja de servir al instante; esa estación no imprime hasta cargar el nuevo |
 | Clave de un usuario | Admin → Usuarios → editar | Cierra sus sesiones |
 | Clave del admin (olvidada) | `sudo ADMIN_USERNAME=<USUARIO_ADMIN> /opt/burgerhause/repo/deploy/scripts/app-run.sh pnpm db:seed-admin` | Genera una clave nueva (se muestra una sola vez), reactiva al admin y revoca sus sesiones |
@@ -802,11 +815,11 @@ Revisalo antes de abrir al público y después cada 3 meses.
 | --- | --- | --- |
 | El navegador muestra **502 Bad Gateway** | La app no está corriendo o no responde en `127.0.0.1:3000` | `systemctl status burgerhause --no-pager`; `journalctl -u burgerhause -n 100 --no-pager`; `sudo systemctl restart burgerhause`; `curl -s http://127.0.0.1:3000/api/health`. Si arrancó y cae enseguida: el log dice por qué (variable faltante, base caída). Si fue después de un deploy: `sudo ./deploy/scripts/deploy.sh rollback` |
 | **503 en `/api/health`** (`db: down`) | PostgreSQL parado o clave de `DATABASE_URL` incorrecta | `systemctl status postgresql --no-pager`; `sudo systemctl start postgresql`; probar `sudo -u burgerhause psql -d burgerhause -c 'select 1'` (entra por el socket, sin clave; si funciona y la app no, la clave de `DATABASE_URL` no coincide con la del rol: `\password`); revisar `df -h` (disco lleno frena a PostgreSQL) |
-| **429 Too Many Requests** | Tope de volumen por IP de Nginx (login: 30 por minuto con ráfaga de 30; pedidos: 10/s con ráfaga de 20; el local entero comparte una IP). La app además limita los intentos de login por su cuenta (5 por usuario+IP y 20 por IP cada 15 minutos): ese es el que frena la fuerza bruta | Esperar un minuto (o 15 si fueron intentos de clave). Si pasa seguido en el local, subir `rate`/`burst` de la zona `bh_login` en `/etc/nginx/conf.d/00-burgerhause-zones.conf` y `/etc/nginx/sites-available/burgerhause.conf`, `sudo nginx -t && sudo systemctl reload nginx` |
+| **429 Too Many Requests** | Tope de volumen por IP de Nginx (login: 30 por minuto con ráfaga de 30; pedidos: 10/s con ráfaga de 20; el local entero comparte una IP). La app además limita los intentos de login por su cuenta y **solo cuentan los intentos fallidos** (5 fallidos por usuario+IP y 60 fallidos por IP cada 15 minutos; entrar bien no gasta cupo, así las 9 PCs del local pueden iniciar sesión juntas al empezar el turno): ese es el que frena la fuerza bruta | Esperar un minuto (o 15 si fueron intentos de clave). Si pasa seguido en el local, subir `rate`/`burst` de la zona `bh_login` en `/etc/nginx/conf.d/00-burgerhause-zones.conf` y `/etc/nginx/sites-available/burgerhause.conf`, `sudo nginx -t && sudo systemctl reload nginx` |
 | "Sin conexión" en pantallas / **el tiempo real se corta** | Se cortó el stream (`/api/events`): reinicio de la app, Nginx con buffering o timeouts, o internet del local | El navegador reconecta solo (3 s) y recarga datos. Si pasa cada minuto: `sudo nginx -T \| grep -A8 "location = /api/events"` debe mostrar `proxy_buffering off` y `proxy_read_timeout 1h`; comprobar que no haya otro proxy/Cloudflare delante con timeout corto. `curl -sN https://<TU_DOMINIO>/api/events` debe devolver 401 (sin sesión), no colgarse |
 | **No se puede subir una imagen** (413 o "imagen demasiado grande") | La app limita a 5 MB por imagen; Nginx a 6 MB en `/api/uploads` | Reducir la foto (menos de 5 MB). Si es menor y falla: `grep client_max_body_size /etc/nginx/sites-available/burgerhause.conf` (debe haber `6m` en `/api/uploads`) |
 | La imagen sube pero **no se ve** | Nginx no puede leer la carpeta (permisos/grupo) | `sudo -u www-data ls /var/lib/burgerhause/uploads \| head`; si dice "Permission denied": `id www-data` (debe incluir `burgerhause`), `sudo usermod -aG burgerhause www-data && sudo systemctl restart nginx`, `ls -ld /var/lib/burgerhause` (750, grupo burgerhause) |
-| **"No se puede iniciar sesión"** | Usuario/clave mal, usuario inactivo, demasiados intentos (429), sesión invalidada por cambio de `SESSION_SECRET`, o se entró por `http://` (la cookie solo funciona con HTTPS) | Probar con `https://`; esperar 1 minuto si hubo muchos intentos; reiniciar la clave del admin (sección 6); revisar que el usuario esté activo en Admin → Usuarios. `journalctl -u burgerhause --since "10 min ago"` |
+| **"No se puede iniciar sesión"** | Usuario/clave mal, usuario inactivo, demasiados intentos fallidos (429), sesión cerrada por el admin, o se entró por `http://` (la cookie solo funciona con HTTPS) | Probar con `https://`; esperar 1 minuto si hubo muchos intentos; reiniciar la clave del admin (sección 6); revisar que el usuario esté activo en Admin → Usuarios. `journalctl -u burgerhause --since "10 min ago"` |
 | **El menú no se actualiza** en la web pública | Los cambios hechos desde Admin se reflejan al instante. Si se cambió la base por fuera (restauración, SQL manual) el menú en memoria queda viejo hasta 1 hora | `sudo systemctl restart burgerhause` |
 | **Pedidos duplicados** | El cliente apretó dos veces (la app los deduplica por clave) o hay **dos instancias** de la app | `pgrep -fc "next/dist/bin/next start"` debe dar `1`; `systemctl status burgerhause` debe mostrar un solo proceso principal. Si hay dos: `sudo systemctl stop burgerhause`, `sudo pkill -f "next/dist/bin/next start"`, `sudo systemctl start burgerhause`. Nunca levantar otra copia a mano |
 | Un **ticket sale dos veces** | Dos agentes con el mismo token, o reimpresión manual | Ver 5.3, punto 6; dejar un agente por estación |
@@ -831,7 +844,8 @@ administrador a `https://<TU_DOMINIO>/admin`:
 
 1. **Administrador**: ya creado en 2.14. Guardá su clave en un gestor de claves.
 2. **Ajustes** (Admin → Ajustes): nombre del local, dirección, teléfono, WhatsApp, alias y CBU para transferencias,
-   costo de envío, horarios (texto que ven los clientes). El interruptor de **aceptar pedidos** sigue apagado.
+   costo de envío, horarios (texto que ven los clientes) y el **Cierre del día de trabajo** (hora, por defecto 06:00: a esa hora el número de
+   pedido vuelve a 1; una venta de las 00:05 cuenta como del día anterior). El interruptor de **aceptar pedidos** sigue apagado.
 3. **Estaciones** (Admin → Estaciones): crear las 9 (4 de mostrador y 5 de delivery). Al crear/rotar se muestra el
    **token una sola vez**: anotarlo en la planilla de `print-agent-install.md` (sección 12) y cargarlo en el
    instalador de cada PC. El token no se guarda en ningún archivo del servidor.
@@ -842,12 +856,12 @@ administrador a `https://<TU_DOMINIO>/admin`:
    **modificadores** (Admin → Modificadores: quitar ingredientes, agregados, cambios) asociados a cada producto.
 7. **Instalar los agentes de impresión** en las 9 PCs (`docs/ops/print-agent-install.md`) y hacer un ticket de
    prueba en cada una (tiene que salir el **logo** arriba y "GRACIAS POR TU COMPRA"; si no, el agente es viejo: `update.ps1`).
-   Delivery imprime ticket de delivery + ticket del cliente; Mostrador imprime solo el del cliente; no hay comanda de cocina.
+   Delivery imprime ticket de delivery + ticket del cliente; Mostrador imprime solo el del cliente; no hay comanda de cocina impresa. **DEFINIR POR EL DUEÑO:** cómo se entera la cocina de cada pedido (pantalla, papel, aviso de voz u otro): todavía no hay una decisión tomada.
 8. **Pedido de prueba completo**: hacer un pedido desde el celular, aprobarlo en la pantalla del sector (un pedido de
    **delivery** se aprueba en **Gestión Delivery**; uno de **retiro** en **Retiro en local**), ver que imprime en la
    estación que lo aprobó y cobrarlo. Comprobar también que el de delivery NO aparece en el mostrador y viceversa. Después anularlo/borrarlo según el procedimiento del local.
 9. **Práctica de restauración** (4.6) y **monitor externo** (5.2).
-10. **Abrir pedidos**: Admin → Ajustes → activar **aceptar pedidos**. Probar desde un celular fuera de la red
+10. **Abrir pedidos**: Admin → Ajustes → **Reanudar pedidos** (equivale a la casilla **Recibiendo pedidos online** + **Guardar ajustes**). Probar desde un celular fuera de la red
     del local que `https://<TU_DOMINIO>` carga el menú.
 
 `pnpm db:init-prod` deja en la base una marca (`deployment = production` en los ajustes): desde ese momento el seed de demo
@@ -866,7 +880,7 @@ Principio: **el local nunca deja de vender porque falle el sistema.** El procedi
 
 | Situación | Qué hace el local | Qué hacés vos |
 | --- | --- | --- |
-| **Falla una impresora** | La Caja avisa en rojo y reintenta sola. Resolver papel/cable/tapa y apretar **Reimprimir**. Mientras, la cocina lee el pedido en la pantalla de la Caja (no hay comanda impresa) | Sección 5.3 |
+| **Falla una impresora** | La Caja avisa en rojo y reintenta sola. Resolver papel/cable/tapa y apretar **Reimprimir**. Mientras, el pedido sigue en la pantalla (no hay comanda impresa; **DEFINIR POR EL DUEÑO:** cómo se entera la cocina de cada pedido (pantalla, papel, aviso de voz u otro): todavía no hay una decisión tomada) | Sección 5.3 |
 | **Se cae el sistema (502/503)** | Tomar pedidos **a mano** en un block (número correlativo, hora, productos, aclaraciones, dirección/teléfono, forma de pago, total) y pasarlos a cocina en papel | Diagnóstico: sección 9 (502). Si no se resuelve en 15 minutos: `sudo systemctl restart burgerhause`; si fue un deploy: `deploy.sh rollback`; si es la base: sección 4.5. Avisar al local el estado cada 15 minutos |
 | **Se cae internet en el local** | Igual: pedidos a mano. Las pantallas y los agentes reconectan solos al volver internet; los pedidos aprobados durante la caída se imprimen en orden, una sola vez cada uno | Nada en el servidor; verificar luego `/api/health` |
 | **Se cae la VPS entera** | Pedidos a mano. Los clientes que piden por la web no pueden entrar: avisar por WhatsApp/redes | Reiniciar desde el panel de Contabo; si no vuelve, reconstruir con 4.5 ("si se perdió la VPS entera") |

@@ -22,7 +22,7 @@ Datos a completar: dominio `__________`, IP de la VPS `__________`, responsable 
 
 ## 3. Variables de entorno (R 2.10)
 
-- [ ] `/etc/burgerhause/burgerhause.env` con `DATABASE_URL`, `SESSION_SECRET` (**32+ caracteres, generado al azar, distinto al de desarrollo**), `UPLOAD_DIR`.
+- [ ] `/etc/burgerhause/burgerhause.env` con `DATABASE_URL`, `UPLOAD_DIR` y `REF=v1.0.0` (la etiqueta a desplegar es obligatoria; ver runbook 3.2). Ya no se usa `SESSION_SECRET`.
 - [ ] Copia **cifrada** del archivo `.env` guardada fuera de la VPS (gestor de claves). Sin ADMIN_PASSWORD en texto plano.
 
 ## 4. Migraciones y primer deploy (R 2.13, sección 3)

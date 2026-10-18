@@ -138,7 +138,7 @@ Barra superior común: nombre de estación, **indicador de impresora** (verde/ro
 - Delivery: lista de pedidos `listo_despacho` con casillas; al seleccionar, aparece una **barra de acción inferior** "Asignar 3 pedidos a [selector de cadete]" → `en_camino`.
 - Sección "En ruta" por cadete con sus pedidos y acciones Entregado / Volver a despacho.
 
-### 4.4 Rendición `/despacho/rendicion`
+### 4.4 Rendición `/delivery/rendicion`
 - Lista de cadetes con **saldo pendiente** destacado y cantidad de pedidos en ruta.
 - Detalle del cadete: tabla de pedidos entregados en efectivo con su monto y total a rendir.
 - **"Recibí $X"** abre una confirmación que repite el monto; al confirmar, el saldo queda en $0 y se muestra el comprobante de la rendición.

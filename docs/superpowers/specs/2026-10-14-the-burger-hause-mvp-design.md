@@ -96,7 +96,7 @@ Reglas:
 
 ### Páginas
 - `(public)`: `/` (menú por categorías + modal de producto), `/carrito`, `/checkout`, `/pedido/[token]`.
-- `(staff)`: `/login`, `/caja`, `/mostrador`, `/despacho`, `/despacho/rendicion`.
+- `(staff)`: `/login`, `/estacion`, `/mostrador` (Venta), `/mostrador/pedidos`, `/retiro`, `/delivery` (Gestión Delivery), `/delivery/rendicion`; vistas generales del admin: `/caja`, `/despacho`.
 - `(admin)`: `/admin/menu`, `/admin/modificadores`, `/admin/cadetes`, `/admin/usuarios`, `/admin/estaciones`, `/admin/ajustes`.
 
 El carrito vive en el cliente (estado + `localStorage`) y se persiste solo al confirmar.
@@ -134,7 +134,7 @@ Todas validan con zod y llaman `requireRole()`. Cada una corre en una transacci�
 Menú → categoría → producto → modal (para cantidad N, N configuraciones independientes de quites y agregados) → carrito (desglose de modificaciones, cambiar cantidades, eliminar, volver al menú) → checkout (nombre, WhatsApp, método de pago, tipo de entrega; delivery pide dirección, entre calles y aclaraciones; takeaway muestra datos del local; transferencia muestra alias/CBU) → confirmación con enlace a `/pedido/[token]`.
 
 ### 6.2 Caja (pedidos web)
-Bandeja en vivo de `pendiente_aprobacion`. Transferencia: verificar acreditación y aprobar (`paid`). Efectivo: aprobar (`pending`). Al aprobar se imprimen los tickets en la estación que aprueba (ver addendum Task 10.2: no hay comanda de cocina).
+Bandeja en vivo de `pendiente_aprobacion`. Transferencia: verificar acreditación y aprobar (`paid`). Efectivo: aprobar (`pending`). Al aprobar se imprimen los tickets en la estación que aprueba (ver addendum Task 10.2: no hay comanda de cocina). **Cada sector aprueba solo sus pedidos** (addendum Task 10.1): la encargada de delivery (estación Delivery) los de delivery y la cajera (estación Mostrador) los de retiro; el admin, todos. Un pedido ya aprobado se puede cancelar (en preparación, listo o para retirar) con motivo obligatorio, con la misma regla de sector.
 
 ### 6.3 Mostrador (POS)
 Selección rápida de productos y modificadores → método de cobro → pager obligatorio → confirmar → ticket del cliente impreso (con logo).
@@ -172,7 +172,7 @@ Selección rápida de productos y modificadores → método de cobro → pager o
 
 - Nginx (TLS Let's Encrypt) → `next start` bajo systemd/PM2 (una instancia) → PostgreSQL local (puerto 5432 no expuesto).
 - `drizzle-kit migrate` en el paso de deploy, antes de reiniciar.
-- Variables en `.env` fuera del repo: `DATABASE_URL`, `SESSION_SECRET`, `UPLOAD_DIR`.
+- Variables en `.env` fuera del repo: `DATABASE_URL`, `UPLOAD_DIR` (las sesiones son tokens aleatorios en la base: no hay clave de firma).
 - Backups: `pg_dump` diario con retención de 14 días + rsync de `uploads` a destino externo.
 - Logs a journald; `/api/health`.
 

@@ -10,8 +10,7 @@ pnpm e2e:ui               # interactive runner
 
 Chromium only (`pnpm exec playwright install chromium` once). The web server is a production
 build (`next build` + `next start`) started by Playwright's `webServer` with the TEST database
-(`burgerhause_test` on the same Postgres server as `DATABASE_URL`), a constant `SESSION_SECRET`
-and `UPLOAD_DIR=.uploads-e2e`. Locally an already-running server on :3100 is reused (rebuild it
+(`burgerhause_test` on the same Postgres server as `DATABASE_URL`), and `UPLOAD_DIR=.uploads-e2e`. Locally an already-running server on :3100 is reused (rebuild it
 if you changed code); in CI it is always started fresh.
 
 ## What global setup does (`e2e/global-setup.ts`)

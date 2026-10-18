@@ -15,12 +15,10 @@ if (!serverUrl) throw new Error("DATABASE_URL is not set (needed to reach the Po
 /** Test-only values, shared by the web server, global setup and helpers. */
 export const E2E_DATABASE_URL = testDatabaseUrl(serverUrl);
 export const E2E_UPLOAD_DIR = path.resolve(process.cwd(), ".uploads-e2e");
-const E2E_SESSION_SECRET = "e2e-only-session-secret-0123456789abcdef";
 
 // Everything in the runner process (global setup, helpers) talks to the TEST database.
 process.env.E2E_SERVER_DATABASE_URL = serverUrl;
 process.env.DATABASE_URL = E2E_DATABASE_URL;
-process.env.SESSION_SECRET = E2E_SESSION_SECRET;
 process.env.UPLOAD_DIR = E2E_UPLOAD_DIR;
 
 // Login rate limits are per IP (X-Forwarded-For, in-memory in the server). A random
@@ -62,7 +60,6 @@ export default defineConfig({
     env: {
       DATABASE_URL: E2E_DATABASE_URL,
       E2E_SERVER_DATABASE_URL: serverUrl,
-      SESSION_SECRET: E2E_SESSION_SECRET,
       UPLOAD_DIR: E2E_UPLOAD_DIR,
       PORT: String(PORT),
     },

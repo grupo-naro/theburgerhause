@@ -37,7 +37,6 @@ export function assertLocalDatabase(serverUrl, allowRemote = false) {
 }
 
 export const PERF_DIR = path.join(ROOT, "perf-reports");
-export const SESSION_SECRET = "perf-only-session-secret-0123456789abcdef";
 
 /** @returns {{serverUrl:string,testUrl:string,port:number,baseUrl:string,uploadDir:string}} */
 export function loadEnv() {
@@ -67,7 +66,6 @@ export const serverEnv = (env) => ({
   NODE_ENV: "production",
   DATABASE_URL: env.testUrl,
   E2E_SERVER_DATABASE_URL: env.serverUrl,
-  SESSION_SECRET,
   UPLOAD_DIR: env.uploadDir,
   PORT: String(env.port),
 });

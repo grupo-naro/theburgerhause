@@ -34,7 +34,7 @@ Requisitos: Node.js 20 o superior (se desarrolla con 24), pnpm 10 y Docker.
 
 ```bash
 docker compose up -d          # PostgreSQL 16 en localhost:15435 (usuario/clave/base: burgerhause)
-cp .env.example .env          # y cambiá SESSION_SECRET (mínimo 32 caracteres)
+cp .env.example .env
 pnpm install
 pnpm db:migrate               # aplica las migraciones
 pnpm db:seed                  # SOLO desarrollo: carga menú, categorías, modificadores y estaciones de DEMO
@@ -51,7 +51,6 @@ Las demás cuentas (cajera, encargada) las crea el admin en `/admin/usuarios`.
 | Variable | Obligatoria | Para qué sirve |
 | --- | --- | --- |
 | `DATABASE_URL` | sí | Conexión a PostgreSQL (`postgres://...`). Los tests usan la base `burgerhause_test` del mismo servidor. |
-| `SESSION_SECRET` | sí | Firma de las sesiones. Mínimo 32 caracteres. |
 | `UPLOAD_DIR` | sí | Carpeta donde se guardan las fotos de productos subidas desde el admin. |
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | no | Solo para `pnpm db:seed-admin`. |
 
