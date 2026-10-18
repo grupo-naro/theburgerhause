@@ -307,7 +307,7 @@ export async function assignCadet(
       }
 
       const out = [...ordered]
-        .sort((a, b) => a.number - b.number)
+        .sort((a, b) => a.id - b.id)
         .map((o) => ({ id: o.id, number: o.number, total: o.total, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus }));
       const cashToCollect = out
         .filter((o) => o.paymentMethod === "cash" && o.paymentStatus === "pending")

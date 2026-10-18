@@ -15,5 +15,6 @@ export function settingsFromForm(fd: FormData) {
     deliveryFeePesos: fee === "" ? Number.NaN : Number(fee),
     acceptingOrders: fd.has("acceptingOrders"),
     openingHoursText: text(fd, "openingHoursText"),
+    businessDayCutoff: text(fd, "businessDayCutoff"),
   };
 }

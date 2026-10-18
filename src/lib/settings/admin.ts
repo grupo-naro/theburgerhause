@@ -32,6 +32,7 @@ export async function saveSettings(db: Conn, input: unknown): Promise<Result<nul
     deliveryFee: pesosToCents(v.deliveryFeePesos),
     acceptingOrders: v.acceptingOrders,
     openingHoursText: v.openingHoursText,
+    businessDayCutoff: v.businessDayCutoff,
   };
   try {
     await asDb(db).transaction((tx) =>

@@ -29,6 +29,10 @@ export const settingsInputSchema = z.object({
     .max(100_000_000, "Importe demasiado alto"),
   acceptingOrders: z.boolean(),
   openingHoursText: text(500),
+  businessDayCutoff: z
+    .string()
+    .trim()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Ingresá una hora entre 00:00 y 23:59 (ej. 06:00)"),
 });
 
 export type SettingsInput = z.input<typeof settingsInputSchema>;

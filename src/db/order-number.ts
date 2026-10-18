@@ -9,9 +9,24 @@ const dateFormat = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
-/** Calendar day (YYYY-MM-DD) in Buenos Aires for the given instant. Pure. */
-export function businessDateFor(d: Date): string {
-  return dateFormat.format(d);
+export const DEFAULT_BUSINESS_DAY_CUTOFF = "06:00";
+const CUTOFF_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/** "HH:MM" -> minutes after midnight, or null when malformed. Pure. */
+export function cutoffMinutes(cutoff: string): number | null {
+  const m = CUTOFF_RE.exec(cutoff);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+/**
+ * Business day (YYYY-MM-DD) for the given instant: the Buenos Aires calendar day of the instant
+ * shifted back by the cutoff ("HH:MM", default 06:00). A sale at 23:50 and one at 00:05 are the same
+ * business day; the day (and the order numbering) rolls over at the cutoff. Pure. A malformed cutoff
+ * falls back to the default.
+ */
+export function businessDateFor(d: Date, cutoff: string = DEFAULT_BUSINESS_DAY_CUTOFF): string {
+  const minutes = cutoffMinutes(cutoff) ?? (cutoffMinutes(DEFAULT_BUSINESS_DAY_CUTOFF) as number);
+  return dateFormat.format(new Date(d.getTime() - minutes * 60_000));
 }
 
 /**

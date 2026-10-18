@@ -49,6 +49,7 @@ export default async function AdminSettingsPage() {
           deliveryFeePesos: centsToPesos(settings.deliveryFee),
           acceptingOrders: settings.acceptingOrders,
           openingHoursText: settings.openingHoursText,
+          businessDayCutoff: settings.businessDayCutoff,
         }}
       />
     </section>

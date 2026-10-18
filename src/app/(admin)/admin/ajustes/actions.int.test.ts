@@ -41,6 +41,7 @@ const valid = (over: Record<string, string> = {}) =>
     deliveryFeePesos: "1500",
     acceptingOrders: "on",
     openingHoursText: "Lun a Dom",
+    businessDayCutoff: "06:00",
     ...over,
   });
 

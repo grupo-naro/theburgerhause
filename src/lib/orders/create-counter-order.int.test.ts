@@ -590,3 +590,14 @@ describe("createCounterOrder: atomicity", () => {
     expect(await counts()).toEqual(EMPTY);
   });
 });
+
+describe("createCounterOrder: business day cutoff (default 06:00 Buenos Aires)", () => {
+  it("a 23:50 sale and a 00:05 sale are the same business day; the number restarts at 06:00", async () => {
+    const a = okData(await createCounterOrder(db(), fresh(fx, { pagerNumber: 1 }), { now: new Date("2026-10-15T02:50:00Z") }));
+    const b = okData(await createCounterOrder(db(), fresh(fx, { pagerNumber: 2 }), { now: new Date("2026-10-15T03:05:00Z") }));
+    const c = okData(await createCounterOrder(db(), fresh(fx, { pagerNumber: 3 }), { now: new Date("2026-10-15T09:00:00Z") }));
+    expect([a.number, b.number, c.number]).toEqual([1, 2, 1]);
+    const rows = await db().select().from(s.orders).orderBy(s.orders.id);
+    expect(rows.map((r) => r.businessDate)).toEqual(["2026-10-14", "2026-10-14", "2026-10-15"]);
+  });
+});

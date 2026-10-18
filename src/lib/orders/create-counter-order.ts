@@ -5,6 +5,7 @@ import * as s from "@/db/schema";
 import { orderTotals } from "@/domain/pricing";
 import { ORDERS_CHANNEL } from "@/lib/events/channels";
 import { notifyInTx } from "@/lib/events/notify";
+import { getBusinessDayCutoff } from "@/lib/settings";
 import { counterOrderSchema } from "./counter-schemas";
 import { STATION_REQUIRED_MESSAGE } from "./approve-order";
 import { defaultToken, insertOrderItems, loadCatalog, pgError } from "./order-rows";
@@ -131,7 +132,7 @@ async function place(
     0,
   );
   const now = ctx.now ?? new Date();
-  const businessDate = businessDateFor(now);
+  const businessDate = businessDateFor(now, await getBusinessDayCutoff(tx));
   const number = await nextOrderNumber(tx, businessDate);
 
   const [order] = await tx

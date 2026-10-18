@@ -11,6 +11,7 @@ const base = {
   deliveryFeePesos: 0,
   acceptingOrders: true,
   openingHoursText: "",
+  businessDayCutoff: "06:00",
 };
 
 describe("settingsInputSchema", () => {
@@ -51,5 +52,14 @@ describe("settingsInputSchema", () => {
     );
     expect(settingsInputSchema.safeParse({ ...base, whatsapp: "wa me" }).success).toBe(false);
     expect(settingsInputSchema.safeParse({ ...base, storePhone: "1".repeat(31) }).success).toBe(false);
+  });
+});
+
+describe("businessDayCutoff", () => {
+  it("accepts HH:MM", () => {
+    for (const businessDayCutoff of ["00:00", "06:00", "23:59"]) expect(settingsInputSchema.safeParse({ ...base, businessDayCutoff }).success).toBe(true);
+  });
+  it("rejects anything else", () => {
+    for (const businessDayCutoff of ["", "6:00", "24:00", "06:60", "06", "ab:cd"]) expect(settingsInputSchema.safeParse({ ...base, businessDayCutoff }).success).toBe(false);
   });
 });

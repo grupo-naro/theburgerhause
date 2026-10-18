@@ -18,6 +18,7 @@ export type SettingsFormValues = {
   deliveryFeePesos: number;
   acceptingOrders: boolean;
   openingHoursText: string;
+  businessDayCutoff: string;
 };
 
 export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
@@ -82,6 +83,14 @@ export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Costo de envío ($)" htmlFor="deliveryFeePesos" hint="En pesos enteros. 0 = envío sin cargo." error={fe.deliveryFeePesos}>
             <Input id="deliveryFeePesos" name="deliveryFeePesos" type="number" inputMode="numeric" required defaultValue={pick("deliveryFeePesos")} hasHint error={fe.deliveryFeePesos} />
+          </Field>
+          <Field
+            label="Cierre del día de trabajo"
+            htmlFor="businessDayCutoff"
+            hint="Hora (Buenos Aires) en la que el número de pedido vuelve a 1. Antes de esa hora, las ventas cuentan como del día anterior. Ej: 06:00."
+            error={fe.businessDayCutoff}
+          >
+            <Input id="businessDayCutoff" name="businessDayCutoff" type="time" required defaultValue={pick("businessDayCutoff")} hasHint error={fe.businessDayCutoff} />
           </Field>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium">

@@ -542,3 +542,24 @@ describe("createOrder: orders_changed notification", () => {
     }
   });
 });
+
+describe("createOrder: business day cutoff (default 06:00 Buenos Aires)", () => {
+  const place = (now: Date) => createOrder(db(), input(fx, { idempotencyKey: crypto.randomUUID() }), { now });
+
+  it("23:50 and 00:05 share the business day and keep counting; the number restarts at 06:00", async () => {
+    const a = await place(new Date("2026-10-15T02:50:00Z")); // 14/10 23:50 BA
+    const b = await place(new Date("2026-10-15T03:05:00Z")); // 15/10 00:05 BA
+    const c = await place(new Date("2026-10-15T08:59:00Z")); // 05:59 BA
+    const d = await place(new Date("2026-10-15T09:00:00Z")); // 06:00 BA
+    expect([a, b, c, d].map((r) => (r.ok ? r.data.number : -1))).toEqual([1, 2, 3, 1]);
+    const rows = await db().select().from(s.orders).orderBy(s.orders.id);
+    expect(rows.map((r) => r.businessDate)).toEqual(["2026-10-14", "2026-10-14", "2026-10-14", "2026-10-15"]);
+  });
+
+  it("honours the cutoff saved in settings", async () => {
+    await setSetting("business_day_cutoff", "00:00");
+    const a = await place(new Date("2026-10-15T02:50:00Z"));
+    const b = await place(new Date("2026-10-15T03:05:00Z"));
+    expect([a, b].map((r) => (r.ok ? r.data.number : -1))).toEqual([1, 1]);
+  });
+});

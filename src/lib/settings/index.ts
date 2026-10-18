@@ -1,6 +1,7 @@
 import type { Db, DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { cutoffMinutes, DEFAULT_BUSINESS_DAY_CUTOFF } from "@/db/order-number";
 
 /**
  * Typed view over the key/value `settings` table (jsonb values). No next/*
@@ -12,6 +13,7 @@ import { eq, sql } from "drizzle-orm";
  *  bank_alias -> bankAlias ("")                       bank_cbu -> bankCbu ("")
  *  delivery_fee -> deliveryFee (0, centavos)          accepting_orders -> acceptingOrders (true)
  *  opening_hours_text -> openingHoursText ("")
+ *  business_day_cutoff -> businessDayCutoff ("06:00", HH:MM Buenos Aires: orders numbering and business date roll here)
  */
 
 export type Settings = {
@@ -25,6 +27,8 @@ export type Settings = {
   deliveryFee: number;
   acceptingOrders: boolean;
   openingHoursText: string;
+  /** "HH:MM" (America/Argentina/Buenos_Aires): the business day and the order numbering roll over at this time. */
+  businessDayCutoff: string;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -37,6 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
   deliveryFee: 0,
   acceptingOrders: true,
   openingHoursText: "",
+  businessDayCutoff: DEFAULT_BUSINESS_DAY_CUTOFF,
 };
 
 /** DB key of each field. */
@@ -50,6 +55,7 @@ export const SETTING_KEYS = {
   deliveryFee: "delivery_fee",
   acceptingOrders: "accepting_orders",
   openingHoursText: "opening_hours_text",
+  businessDayCutoff: "business_day_cutoff",
 } as const satisfies Record<keyof Settings, string>;
 
 type Conn = Db | DbTransaction;
@@ -57,6 +63,7 @@ type Conn = Db | DbTransaction;
 const asString = (v: unknown, fallback: string) => (typeof v === "string" ? v : fallback);
 const asCents = (v: unknown, fallback: number) =>
   typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : fallback;
+const asCutoff = (v: unknown, fallback: string) => (typeof v === "string" && cutoffMinutes(v) !== null ? v : fallback);
 const asBool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
 
 /** Merges rows over the defaults; a missing or garbage value falls back to that key's default. */
@@ -74,6 +81,7 @@ export function parseSettings(rows: { key: string; value: unknown }[]): Settings
     deliveryFee: asCents(raw.get(k.deliveryFee), d.deliveryFee),
     acceptingOrders: asBool(raw.get(k.acceptingOrders), d.acceptingOrders),
     openingHoursText: asString(raw.get(k.openingHoursText), d.openingHoursText),
+    businessDayCutoff: asCutoff(raw.get(k.businessDayCutoff), d.businessDayCutoff),
   };
 }
 
@@ -107,4 +115,13 @@ export async function getAcceptingOrders(db: Conn): Promise<boolean> {
     .from(s.settings)
     .where(eq(s.settings.key, SETTING_KEYS.acceptingOrders));
   return asBool(row ? parseJson(row.value) : undefined, DEFAULT_SETTINGS.acceptingOrders);
+}
+
+/** Strongly consistent read of the business-day cutoff (order creation uses it inside its transaction). */
+export async function getBusinessDayCutoff(db: Conn): Promise<string> {
+  const [row] = await db
+    .select({ value: valueText })
+    .from(s.settings)
+    .where(eq(s.settings.key, SETTING_KEYS.businessDayCutoff));
+  return asCutoff(row ? parseJson(row.value) : undefined, DEFAULT_SETTINGS.businessDayCutoff);
 }

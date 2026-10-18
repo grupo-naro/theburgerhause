@@ -5,7 +5,7 @@ import * as s from "@/db/schema";
 import { orderTotals } from "@/domain/pricing";
 import { ORDERS_CHANNEL } from "@/lib/events/channels";
 import { notifyInTx } from "@/lib/events/notify";
-import { getAcceptingOrders, getSettings } from "@/lib/settings";
+import { getAcceptingOrders, getBusinessDayCutoff, getSettings } from "@/lib/settings";
 import { createOrderSchema, fieldErrorsOf, type CreateOrderInput } from "./schemas";
 import { defaultToken, insertOrderItems, loadCatalog, pgError } from "./order-rows";
 import { resolveUnits, type UnitIssue } from "./resolve-units";
@@ -94,7 +94,7 @@ async function place(
   );
 
   const now = ctx.now ?? new Date();
-  const businessDate = businessDateFor(now);
+  const businessDate = businessDateFor(now, await getBusinessDayCutoff(tx));
   const number = await nextOrderNumber(tx, businessDate);
   const publicToken = (ctx.newToken ?? defaultToken)();
 

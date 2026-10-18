@@ -14,6 +14,7 @@ describe("parseSettings", () => {
       deliveryFee: 0,
       acceptingOrders: true,
       openingHoursText: "",
+      businessDayCutoff: "06:00",
     });
   });
   it("reads known keys and merges the rest with defaults", () => {

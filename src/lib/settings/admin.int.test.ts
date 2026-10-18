@@ -17,6 +17,7 @@ const input = (over: Record<string, unknown> = {}) => ({
   deliveryFeePesos: 1500,
   acceptingOrders: true,
   openingHoursText: "Lun a Dom 20 a 00",
+  businessDayCutoff: "06:00",
   ...over,
 });
 
@@ -55,6 +56,7 @@ describe("saveSettings", () => {
       deliveryFee: 150000,
       acceptingOrders: true,
       openingHoursText: "Lun a Dom 20 a 00",
+      businessDayCutoff: "06:00",
     });
     const [fee] = await db().select().from(s.settings).where(eq(s.settings.key, "delivery_fee"));
     expect(fee.value).toBe(150000);
@@ -64,7 +66,7 @@ describe("saveSettings", () => {
     await saveSettings(db(), input({ deliveryFeePesos: 0, acceptingOrders: false, bankAlias: "" }));
     const got = await getSettings(db());
     expect(got).toMatchObject({ deliveryFee: 0, acceptingOrders: false, bankAlias: "" });
-    expect(await db().select().from(s.settings)).toHaveLength(9);
+    expect(await db().select().from(s.settings)).toHaveLength(10);
   });
   it("rejects an invalid CBU / alias / fee with field errors and writes nothing", async () => {
     const r = await saveSettings(db(), input({ bankCbu: "123", bankAlias: "no valido", deliveryFeePesos: -5 }));
@@ -105,5 +107,16 @@ describe("numeric-looking strings", () => {
   it("a 22-digit CBU and a numeric WhatsApp come back as exact strings", async () => {
     await saveSettings(db(), input({ bankCbu: "0000003100012345678901", whatsapp: "5491155551234" }));
     expect(await getSettings(db())).toMatchObject({ bankCbu: "0000003100012345678901", whatsapp: "5491155551234" });
+  });
+});
+
+describe("getBusinessDayCutoff", () => {
+  it("defaults to 06:00, reads the saved value and ignores garbage", async () => {
+    const { getBusinessDayCutoff } = await import("./index");
+    expect(await getBusinessDayCutoff(db())).toBe("06:00");
+    await saveSettings(db(), input({ businessDayCutoff: "04:30" }));
+    expect(await getBusinessDayCutoff(db())).toBe("04:30");
+    await db().update(s.settings).set({ value: "banana" }).where(eq(s.settings.key, "business_day_cutoff"));
+    expect(await getBusinessDayCutoff(db())).toBe("06:00");
   });
 });

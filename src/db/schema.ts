@@ -364,6 +364,7 @@ export const printJobs = pgTable(
  *  - bank_cbu        string   (transfer payments)
  *  - delivery_fee    number   (centavos)
  *  - accepting_orders boolean (false shows the "local cerrado" banner)
+ *  - business_day_cutoff string "HH:MM" (Buenos Aires; numbering and business_date roll here, default 06:00)
  */
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
