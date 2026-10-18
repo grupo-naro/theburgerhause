@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthSession, Role } from "@/lib/auth/roles";
 
 /**
@@ -82,6 +82,18 @@ const refused = (o: Outcome): boolean => {
   const v = o.value as { code?: unknown; error?: unknown } | undefined;
   return v?.code === "FORBIDDEN" || (typeof v?.error === "string" && /permisos/.test(v.error));
 };
+
+// Importing every actions module (and the route modules) the first time is slow on a busy machine: do it once, outside the per-test timeout.
+beforeAll(async () => {
+  await Promise.all(Object.values(modules).map((load) => load()));
+  await Promise.all([
+    import("../../app/api/events/route"),
+    import("../../app/api/uploads/route"),
+    import("../../app/api/agent/heartbeat/route"),
+    import("../../app/api/agent/jobs/[id]/ack/route"),
+    import("../../app/api/agent/stream/route"),
+  ]);
+}, 120_000);
 
 beforeEach(() => {
   state.session = null;
