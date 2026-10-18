@@ -87,6 +87,16 @@ The saved logins land on `/mostrador` (cajera, station Mostrador 1) and `/delive
 Helpers: `openRetiro`, `openDelivery(page, tab?)`, `openPedidos`, `openDespacho` (admin board), `openCaja` (admin general view). `placeApproved` approves
 delivery orders as the encargada at Delivery 1 and takeaway ones as the cajera at Mostrador 1.
 
+## Security (Task 9.3)
+
+`security.spec.ts` checks the production build as an attacker/auditor would: hardening headers on public, redirect and 404 responses
+(and `no-referrer` kept on `/pedido`), **zero CSP violations** on every public and staff page (collected from
+`securitypolicyviolation` events and the console, so a new inline `eval` or remote origin fails the suite), cookie flags (`HttpOnly`,
+`Secure`, `SameSite=Lax`, `Path=/`, 30-day max-age, nothing readable by page scripts), a fresh token per login and a planted
+token never adopted, the 6th login attempt blocked, revoked and expired sessions refused on a page, a Server Action and
+`/api/events`, a Server Action posted with a foreign `Origin`, and the 1 MB Server Action / 8 KB CSP-report body caps.
+Its logins use their own `X-Forwarded-For` (the login limiter is per IP and the run shares one).
+
 ## Commands
 
 ```

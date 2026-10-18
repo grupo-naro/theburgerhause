@@ -1,4 +1,5 @@
 import { getDb, type Db } from "@/db/client";
+import { readCappedText } from "@/lib/http/read-capped";
 import { touchStationSeen } from "./agent-auth";
 import { authorizeAgent, jsonResponse } from "./agent-http";
 import { ackPrintJob } from "./jobs";
@@ -7,7 +8,7 @@ import { ackBodySchema } from "./protocol";
 /** Handlers of POST /api/agent/jobs/[id]/ack and POST /api/agent/heartbeat (route files only re-export them). */
 
 type Options = { db?: Db; now?: () => Date };
-const MAX_BODY_CHARS = 4_096;
+const MAX_BODY_BYTES = 4_096;
 const JOB_ID = /^[1-9][0-9]{0,9}$/;
 
 async function touch(db: Db, stationId: number, now: Date): Promise<void> {
@@ -29,8 +30,9 @@ export function createAckHandler(opts: Options = {}) {
 
     let raw: unknown;
     try {
-      const text = await request.text();
-      if (text.length > MAX_BODY_CHARS) throw new Error("too large");
+      // Capped read: a body that never ends (or lies about Content-Length) is cut at the limit, not buffered.
+      const text = await readCappedText(request, MAX_BODY_BYTES);
+      if (text === null) throw new Error("too large");
       raw = JSON.parse(text);
     } catch {
       return jsonResponse(400, { error: "invalid_body" });

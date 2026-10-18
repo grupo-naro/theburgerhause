@@ -95,10 +95,13 @@ token de estación).
 ```bash
 pnpm lint            # ESLint
 pnpm test            # unitarios (Vitest): src/ y packages/ (incluye el Print Agent)
+pnpm test:security   # auditoría de seguridad: superficie de autorización (acciones, rutas, páginas), cabeceras, CSP
 pnpm test:int        # integración contra PostgreSQL real (base burgerhause_test)
 pnpm test:deploy     # artefactos de producción (deploy/): scripts, rollback, Nginx y backup/restore, en Docker
 pnpm e2e             # Playwright: compila la app, la levanta en :3100 y corre todo
 pnpm e2e:ui          # runner interactivo
+pnpm perf:lighthouse # Lighthouse móvil (build de producción, base de test): reportes en perf-reports/
+pnpm loadtest        # prueba de carga del pico realista (30 clientes, 10 pedidos/min, 9 pantallas SSE, 9 agentes)
 pnpm verify:fast     # lint + unitarios + typecheck del agente + build
 pnpm verify          # TODO: lint, unitarios, typecheck del agente, integración, build y e2e (ver abajo)
 ```
@@ -111,6 +114,17 @@ pnpm verify          # TODO: lint, unitarios, typecheck del agente, integración
   **11 minutos** (unos 10,5 medidos, de los cuales ~6 son los e2e) en esta máquina.
 - Tests del agente: `pnpm --filter @burgerhause/print-agent test` (los corre también `pnpm test`) y
   `pnpm --filter @burgerhause/print-agent typecheck`.
+
+### Seguridad y rendimiento
+
+- **`pnpm test:security`** (sin base de datos): escanea el código y falla si aparece un Server Action, un método de Route
+  Handler o una página SIN clasificar en `src/lib/security/surface.ts` (clase de acceso y roles), si una acción protegida
+  toca la base antes de autorizar, o si un anónimo / un rol equivocado pasa. La tabla generada es
+  `docs/ops/security-surface.md` (`UPDATE_SURFACE_DOC=1 pnpm test:security` la regenera). `e2e/security.spec.ts` cubre
+  cabeceras, CSP, cookies, sesiones revocadas/vencidas y límites sobre el build de producción.
+- **`pnpm perf:lighthouse`** y **`pnpm loadtest`**: siembran la base de test, compilan y levantan `next start` en el
+  puerto 3100 (`PERF_PORT` para otro), así que no pueden correr junto a `pnpm e2e`. Opciones y números medidos:
+  runbook, sección 13. Usan el Chromium que instala Playwright. Los reportes quedan en `perf-reports/` (ignorado por git).
 
 ### Convenciones de e2e
 

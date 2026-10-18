@@ -36,6 +36,11 @@ describe("serialize / parse", () => {
     expect(p?.lines[0]).toEqual({ id: "a", productId: 1, modifierIds: [], note: "" });
     expect(p).not.toHaveProperty("evil");
   });
+  it("a __proto__ price key never reaches the prototype", () => {
+    const parsed = parseCart('{"v":1,"lines":[],"prices":{"__proto__":5,"ok":7}}')!;
+    expect(parsed.prices).toEqual({ ok: 7 });
+    expect(Object.getPrototypeOf(parsed.prices)).toBe(Object.prototype);
+  });
   it("missing prices are tolerated", () => {
     expect(parseCart(JSON.stringify({ v: 1, lines: [] }))).toEqual({ lines: [], prices: {} });
   });
@@ -60,6 +65,11 @@ describe("serialize / parse", () => {
     ["duplicate line ids", wrap([line("a"), line("a")])],
     ["negative price", wrap([], { prices: { a: -1 } })],
     ["fractional price", wrap([], { prices: { a: 1.5 } })],
+    ["price as a string", wrap([], { prices: { a: "5" } })],
+    ["prices as an array", wrap([], { prices: [] })],
+    ["modifierIds not an array", wrap([rawLine({ modifierIds: "1" })])],
+    ["line not an object", wrap(["a"])],
+    ["price key too long", wrap([], { prices: { ["k".repeat(65)]: 1 } })],
   ])("returns null on %s", (_name, raw) => {
     expect(parseCart(raw as string | null)).toBeNull();
   });

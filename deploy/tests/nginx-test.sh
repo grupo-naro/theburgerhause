@@ -106,6 +106,9 @@ hdr="$(cx -sI https://127.0.0.1/pedido/abc)"
 check "/pedido keeps the app's own Referrer-Policy: no-referrer (exactly one header)" \
   bash -c '[[ "$(grep -ci "^referrer-policy:" <<<"$1")" == 1 && "$1" == *"no-referrer"* ]]' _ "$hdr"
 
+hdr="$(cx -sI https://127.0.0.1/hardened)"
+check "headers the app also sets (X-Frame-Options, nosniff) appear exactly once, X-Powered-By is dropped"   bash -c '[[ "$(grep -ci "^x-frame-options:" <<<"$1")" == 1 && "$(grep -ci "^x-content-type-options:" <<<"$1")" == 1 && "$1" != *[Pp]owered-[Bb]y* ]]' _ "$hdr"
+
 # -- dotfiles / source maps ----------------------------------------------------------------------------
 check "/.env -> 404" bash -c '[[ "$(docker exec "$1" curl -ks -o /dev/null -w "%{http_code}" -H "Host: burgerhause.example.com" https://127.0.0.1/.env)" == 404 ]]' _ "$NAME"
 check "/.git/config -> 404" bash -c '[[ "$(docker exec "$1" curl -ks -o /dev/null -w "%{http_code}" -H "Host: burgerhause.example.com" https://127.0.0.1/.git/config)" == 404 ]]' _ "$NAME"
@@ -170,6 +173,11 @@ check "/api/pedido/: 10 r/s burst 20 throttles a flood ($r)" bash -c '[[ "$1" ==
 r="$(burst /api/uploads 20)"
 check "/api/uploads: 2 r/s burst 10 throttles a flood ($r)" bash -c '[[ "$1" == *429* && "$1" == *200* ]]' _ "$r"
 check "limit_conn for SSE is >= 40 (60)" bash -c '[[ "$1" == *"limit_conn bh_sse 60"* ]]' _ "$conf"
+
+r="$(burst /some/page 160)"
+check "general volume cap: 160 rapid page requests from one IP trip 30 r/s + burst 100 ($r)" bash -c '[[ "$1" == *429* && "$1" == *200* ]]' _ "$r"
+r="$(burst /_next/static/chunks/a.js 160)"
+check "/_next/static/ is exempt from the volume cap ($r)" bash -c '[[ "$1" == *"160 200"* && "$1" != *429* ]]' _ "$r"
 
 # -- hardening round: TLS catch-all, x-middleware-subrequest, /pedido without trailing slash ---------------------
 set +e

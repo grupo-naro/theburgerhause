@@ -154,6 +154,31 @@ describe("POST /api/agent/jobs/[id]/ack", () => {
     expect((await job(j.id)).status).toBe("printing");
   });
 
+  it("cuts a body that never ends at the 4 KB cap instead of buffering it (and a declared huge Content-Length is refused unread)", async () => {
+    const j = await addJob({ status: "printing", attempts: 1, claimedAt: new Date() });
+    let chunks = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(c) {
+        chunks++;
+        c.enqueue(new TextEncoder().encode("x".repeat(1024)));
+      },
+    });
+    const res = await ack(
+      new Request(`http://localhost/api/agent/jobs/${j.id}/ack`, {
+        method: "POST",
+        headers: { "x-forwarded-for": "9.9.9.9", authorization: `Bearer ${tokenA}`, "content-type": "application/json" },
+        body: endless,
+        duplex: "half",
+      } as RequestInit),
+      { params: Promise.resolve({ id: String(j.id) }) },
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "invalid_body" });
+    expect(chunks).toBeLessThan(20);
+    const declared = await callAck(j.id, tokenA, undefined, JSON.stringify({ status: "done" }));
+    expect(declared.status).toBe(200); // a normal body still works
+  });
+
   it("refreshes the station's last_seen_at", async () => {
     const j = await addJob({ status: "printing", attempts: 1, claimedAt: new Date() });
     expect((await station(fx.stationId)).lastSeenAt).toBeNull();

@@ -1,4 +1,3 @@
-import { z } from "@/lib/zod";
 import { NOTE_MAX, normalizeLine } from "./normalize";
 import { MAX_LINES } from "./reducer";
 import type { CartLine, CartState } from "./types";
@@ -11,18 +10,43 @@ const MAX_RAW_LENGTH = 200_000;
 /** The subset of `Storage` we use; `undefined`/`null` means "no storage available". */
 export type CartStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
-const lineSchema = z.object({
-  id: z.string().min(1).max(64),
-  productId: z.number().int().positive(),
-  modifierIds: z.array(z.number().int().positive()).max(30),
-  note: z.string().max(NOTE_MAX),
-});
+// Hand-written validation (not zod): this module is on the critical path of EVERY storefront page and zod
+// is ~80 KB of JavaScript. Same rules as the schema it replaces: unknown keys are dropped, anything else invalid -> null.
+const isPositiveInt = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v > 0;
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
-const storedSchema = z.object({
-  v: z.literal(VERSION),
-  lines: z.array(lineSchema).max(MAX_LINES),
-  prices: z.record(z.string().max(64), z.number().int().nonnegative()).default({}),
-});
+function readLine(v: unknown): CartLine | null {
+  if (!isRecord(v)) return null;
+  const { id, productId, modifierIds, note } = v;
+  if (typeof id !== "string" || id.length < 1 || id.length > 64) return null;
+  if (!isPositiveInt(productId)) return null;
+  if (!Array.isArray(modifierIds) || modifierIds.length > 30 || !modifierIds.every(isPositiveInt)) return null;
+  if (typeof note !== "string" || note.length > NOTE_MAX) return null;
+  return { id, productId, modifierIds: [...modifierIds], note };
+}
+
+function readPrices(v: unknown): Record<string, number> | null {
+  if (v === undefined) return {};
+  if (!isRecord(v)) return null;
+  const out: Record<string, number> = {};
+  for (const [key, price] of Object.entries(v)) {
+    if (key.length > 64 || typeof price !== "number" || !Number.isSafeInteger(price) || price < 0) return null;
+    if (key !== "__proto__") out[key] = price;
+  }
+  return out;
+}
+
+function readStored(v: unknown): { lines: CartLine[]; prices: Record<string, number> } | null {
+  if (!isRecord(v) || v.v !== VERSION || !Array.isArray(v.lines) || v.lines.length > MAX_LINES) return null;
+  const lines: CartLine[] = [];
+  for (const raw of v.lines) {
+    const line = readLine(raw);
+    if (!line) return null;
+    lines.push(line);
+  }
+  const prices = readPrices(v.prices);
+  return prices ? { lines, prices } : null;
+}
 
 export function serializeCart(state: CartState, prices: Record<string, number>): string {
   const ids = new Set(state.lines.map((l) => l.id));
@@ -35,11 +59,11 @@ export function serializeCart(state: CartState, prices: Record<string, number>):
 export function parseCart(raw: string | null): { lines: CartLine[]; prices: Record<string, number> } | null {
   if (!raw || raw.length > MAX_RAW_LENGTH) return null;
   try {
-    const parsed = storedSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) return null;
-    const lines = parsed.data.lines.map(normalizeLine);
+    const parsed = readStored(JSON.parse(raw));
+    if (!parsed) return null;
+    const lines = parsed.lines.map(normalizeLine);
     if (new Set(lines.map((l) => l.id)).size !== lines.length) return null;
-    return { lines, prices: parsed.data.prices };
+    return { lines, prices: parsed.prices };
   } catch {
     return null;
   }

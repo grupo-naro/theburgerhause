@@ -786,6 +786,7 @@ Revisalo antes de abrir al público y después cada 3 meses.
 | Sin datos de demo | Admin → Menú: solo tus productos; `grep ALLOW_DEMO_SEED /etc/burgerhause/burgerhause.env` | Sin resultados |
 | HTTPS y HSTS | `curl -sI https://<TU_DOMINIO>/ \| grep -i strict-transport` | `max-age=31536000` |
 | HTTP redirige a HTTPS | `curl -sI http://<TU_DOMINIO>/ \| head -3` | `301` con `Location: https://…` |
+| Cabeceras de seguridad | `curl -sI https://<TU_DOMINIO>/ \| grep -iE "x-frame\|nosniff\|permissions-policy\|content-security\|referrer-policy"` | Las cinco, **cada una una sola vez** (la CSP en modo `Report-Only` hasta la sección 13.2) |
 | Dotfiles y mapas bloqueados | `curl -s -o /dev/null -w "%{http_code}\n" https://<TU_DOMINIO>/.env` | `404` |
 | Certificado renueva solo | `sudo certbot renew --dry-run` | Sin errores |
 | Backups probados | Sección 4.6, con fecha anotada | Menos de 1 mes |
@@ -887,3 +888,179 @@ proveedor de internet del local `<TELÉFONO_ISP>`, dominio/DNS `<PROVEEDOR_DNS>`
 - Acotar `ProtectSystem=strict` de la app (hoy permite escribir en `/opt/burgerhause/releases` por el caché de Next): enlazar `.next/cache` a una carpeta propia.
 - Crecimiento de la copia remota de backups (no se borra nada allá): tarea periódica de limpieza en el otro equipo.
 - Memoria durante el `build` en VPS chicas: correrlo con `nice` y/o `NODE_OPTIONS=--max-old-space-size`.
+
+---
+
+## 13. Seguridad y rendimiento (Task 9.3)
+
+Resumen de lo que se endureció y se midió antes de abrir al público. Los comandos de esta sección se corren en una PC de
+desarrollo (usan la base `burgerhause_test` y el puerto 3100), **no en la VPS de producción**.
+
+### 13.1 Cabeceras de seguridad
+
+La app las pone en todas las respuestas (`src/lib/security/headers.ts`, aplicadas desde `next.config.ts`); Nginx suma HSTS y
+es el dueño de `X-Content-Type-Options` y `X-Frame-Options` (el snippet `burgerhause-proxy.conf` oculta la copia de la app para
+que cada cabecera aparezca **una sola vez**; lo verifica `pnpm test:deploy`).
+
+| Cabecera | Valor | Para qué |
+| --- | --- | --- |
+| `X-Content-Type-Options` | `nosniff` | El navegador no adivina tipos de archivo |
+| `X-Frame-Options` + CSP `frame-ancestors` | `DENY` / `'none'` | Nadie puede incrustar el sistema en un iframe (clickjacking) |
+| `Referrer-Policy` | `strict-origin-when-cross-origin`; **`no-referrer`** en `/pedido` y `/api/pedido` | El token de seguimiento no se filtra por `Referer` |
+| `Permissions-Policy` | cámara, micrófono, geolocalización, pagos, USB, serial, bluetooth, sensores: `()` (denegados) | El producto no usa ninguno |
+| `Cross-Origin-Opener-Policy` | `same-origin` | Aísla la pestaña de otras ventanas |
+| `X-DNS-Prefetch-Control` | `off` | |
+| `Content-Security-Policy-Report-Only` | ver 13.2 | |
+| HSTS | `max-age=31536000` (Nginx) | |
+| `X-Powered-By` | eliminada | No anunciamos el framework |
+
+### 13.2 CSP: de "solo reportar" a "bloquear"
+
+La política es **la más estricta que la app cumple hoy**: `default-src 'self'`; `script-src 'self' 'unsafe-inline'`; `style-src 'self'
+'unsafe-inline'`; `img-src 'self' data: blob:`; `font-src 'self'`; `connect-src 'self'`; `object-src 'none'`; `base-uri 'self'`;
+`form-action 'self'`; `frame-ancestors 'none'`. Sin ningún origen externo.
+
+**Por qué `'unsafe-inline'` en scripts**: la alternativa (un *nonce* por pedido) obliga a renderizar CADA página en cada visita,
+y la guía de Next.js dice que es incompatible con Partial Prerender: perderíamos el menú pre-renderizado (el cambio más
+importante de rendimiento). Lo que sí bloquea la política aunque permita scripts inline: iframes, plugins, `<base>` y
+formularios hacia otros sitios, conexiones y recursos de otros orígenes (un script inyectado no puede enviar datos a un servidor ajeno).
+
+Hoy se entrega como **Report-Only**: el navegador no bloquea nada y avisa cada infracción a `POST /api/csp-report`
+(con límite por IP, cuerpo máximo de 8 KB, una línea de log fija con solo el nombre de la directiva y **nunca** se guarda el cuerpo).
+`pnpm e2e` verifica que NO hay infracciones en ninguna pantalla pública ni de personal.
+
+Procedimiento para pasar a **bloquear** (después de ~1 semana de uso real):
+
+1. Revisá el log: `sudo journalctl -u burgerhause --since "7 days ago" | grep "\[csp\] violation"`. Lo esperado es **cero**
+   líneas. Unas pocas y aisladas suelen ser extensiones del navegador de algún cliente y se ignoran; si hay una infracción
+   repetida de la propia app, corregila antes.
+2. En `src/lib/security/headers.ts` cambiá `export const CSP_ENFORCE = false;` por `true` (un solo interruptor: los tests y el
+   e2e se adaptan solos).
+3. `pnpm test:security` y `pnpm e2e e2e/security.spec.ts`, y hacé el deploy normal (sección 3).
+4. Mirá unos minutos el log y probá a mano: carta, carrito, pedido de prueba, login, Caja. **Rollback** = volver a `false` y deploy.
+
+### 13.3 Sesiones, cookies y contraseñas
+
+- Cookie `bh_session`: `HttpOnly`, `SameSite=Lax`, `Path=/`, **`Secure` cuando `NODE_ENV=production`** (la unidad systemd
+  `burgerhause.service` fija `NODE_ENV=production`, y `next start` también). Detrás de Nginx con TLS es lo correcto; si alguien
+  abriera el servicio por HTTP plano, el navegador descartaría la cookie y el login "no pegaría" (falla cerrada). Cookie
+  `bh_station`: mismas banderas, solo contiene el número de la estación.
+- El navegador la conserva 30 días, pero **la fila en la base manda**: 12 h de vigencia que se renuevan con la actividad. Cerrar
+  sesión, desactivar a la persona o "Cerrar sesiones" en Admin la borran al instante; una sesión vencida o revocada se rechaza en
+  páginas, Server Actions y `/api/events`. Cada login emite un token NUEVO (no hay fijación de sesión).
+- Login: 5 intentos / 15 min por IP+usuario y 20 / 15 min por IP (el 6.º se bloquea aunque la clave sea correcta); Nginx suma un tope de volumen.
+- Contraseñas: scrypt **N=2^15, r=8, p=3** (32 MiB, ~180 ms en esta PC; antes N=2^14, p=1 = 16 MiB, ~30 ms). Es una de las
+  configuraciones equivalentes de OWASP; la de N=2^17 pedía 128 MiB por intento, demasiado si alguien inunda el login en una VPS chica.
+  Los hashes viejos siguen funcionando y se **reescriben solos en el próximo login correcto**. Nada que hacer a mano.
+
+### 13.4 Límites y protección contra abuso
+
+| Dónde | Límite |
+| --- | --- |
+| Server Actions | cuerpo máximo 1 MB (`next.config.ts`, `serverActions.bodySizeLimit`); chequeo de mismo origen (`Origin` vs `Host`, Nginx reenvía el host público) |
+| Subida de imágenes | 5 MB (Nginx 6 MB), solo admin, se recodifica con sharp |
+| Ack del agente | cuerpo máx. 4 KB, leído con tope (un cuerpo infinito se corta) |
+| Reporte CSP | 8 KB, 30 por minuto por IP |
+| Pedido (`createOrderAction`) | tope de intentos por IP, cupo de creación por IP+WhatsApp, honeypot, clave de idempotencia, máx. 100 unidades, largos máximos en cada campo |
+| Seguimiento | límite por IP del estado y de tokens inexistentes; Nginx 10 r/s |
+| Login / agente / health | límites propios de la app (ver `docs/ops/security-surface.md`) + zonas de Nginx |
+| Todo lo demás | zona general de Nginx: 30 r/s por IP con ráfaga 100 (los estáticos de `/_next/static/` quedan exentos) |
+| IP del cliente | último salto de `X-Forwarded-For` (Nginx lo **sobrescribe**) |
+
+Endpoints públicos que dependen **solo de Nginx** como cota (la app no los limita): la página `/pedido/<token>`, `checkOrdersOpen` (una
+consulta de un booleano) y las páginas pre-renderizadas. Es una decisión consciente; se revisa si aparece abuso.
+
+### 13.5 Superficie de autorización
+
+`docs/ops/security-surface.md` (generado) lista **cada** Server Action, método de Route Handler y página con su clase de acceso
+(`public`, `staff`, `admin`, `agent-token`, `capability-token`), los roles y el test que lo respalda. `pnpm test:security` **falla**
+si se agrega una acción/ruta/página sin clasificar. Alta de una nueva: agregar su fila en `src/lib/security/surface.ts`, correr
+`UPDATE_SURFACE_DOC=1 pnpm test:security` y commitear el documento.
+
+### 13.6 Dependencias y secretos
+
+- `pnpm audit --prod`: **sin vulnerabilidades conocidas** en lo que se ejecuta en producción. `pnpm audit` completo marca 2 solo de
+  desarrollo (herramientas que no se instalan en la VPS): `braces` (ReDoS en el lint, vía `eslint-config-next`) y `esbuild`
+  (servidor de desarrollo de una versión vieja de `drizzle-kit`); no se actualizan a ciegas por ser cambios mayores de herramientas de desarrollo.
+- Historial del repositorio revisado con patrones (`bhst_`, `SESSION_SECRET=`, claves privadas, URLs con clave, tokens de GitHub/AWS):
+  solo aparecen valores de ejemplo, constantes de tests y la clave de la base de desarrollo local (`burgerhause:burgerhause`, en `docker-compose.yml`).
+  Nunca se versionó un `.env`, un volcado ni archivos de `.uploads`. `.gitignore` cubre `.env*`, `.uploads*`, `*.dump` y `perf-reports/`.
+- Logs: ningún `console.log` imprime secretos; los módulos sensibles registran un texto fijo y el código de error de Postgres
+  (la única excepción deliberada es `db:seed-admin`, que muestra una vez la clave generada en la consola de quien lo ejecuta).
+- En la PC de desarrollo, `docker-compose.yml` publica Postgres en `0.0.0.0:15435` con una clave de juguete: no la dejes alcanzable desde redes ajenas (firewall de la PC).
+
+### 13.7 Lighthouse móvil
+
+```bash
+pnpm perf:lighthouse                       # siembra la base de test, compila, levanta next start y audita 5 páginas (mediana de 3)
+pnpm perf:lighthouse --no-build --runs 1   # reutiliza el build; más rápido
+pnpm perf:lighthouse --throttling devtools # red y CPU limitadas de verdad (más lento, más parecido a un celular real)
+```
+
+Emulación móvil por defecto (Moto G Power, Slow 4G simulado, CPU 4x más lenta). Usa el Chromium de Playwright
+(`pnpm exec playwright install chromium`). Reportes HTML/JSON en `perf-reports/`.
+
+Máquina: AMD Ryzen 7 3700X (16 hilos), 16 GB, Windows 10, Node 24. Mediana de 3 corridas, throttling simulado:
+
+| Página | Perf. antes → después | Accesib. | Mejores prácticas | SEO | LCP antes → después | CLS antes → después | Peso antes → después |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `/` | 91 → 94 | 100 | 100 | 100 | 3,55 s → 3,15 s | 0 | 448 → 315 KB |
+| `/carrito` (con 3 líneas) | 86 → 96 | 98 | 100 | 63* | 2,98 s → 2,63 s | **0,173 → 0** | 410 → 397 KB |
+| `/checkout` | 94 → 94 | 100 | 100 | 63* | 2,96 s → 3,03 s | 0 | 406 → 394 KB |
+| `/pedido/<token>` | 94 → 96 | 100 | 100 | 63* | 3,04 s → 2,82 s | 0 | 403 → 301 KB |
+| `/login` | 97 → 97 | 100 | 100 | 100 | 2,63 s → 2,63 s | 0 | 283 → 271 KB |
+
+\* SEO 63 es **a propósito**: carrito, checkout y seguimiento llevan `noindex` (no deben aparecer en Google); es lo único que Lighthouse penaliza.
+
+Cambios que lo lograron: se quitó zod (~83 KB de JavaScript) de la carta y el carrito (validación a mano en `persistence.ts` y
+`customer-memory.ts`); el logo de relleno de las tarjetas pasó de 36 KB a imágenes de 4/10 KB con `srcset`; el favicon de 15 KB a 2 KB;
+cabecera de caché para `/brand/*`; el carrito reserva alto de pantalla para que el pie de página no se mueva al hidratar (CLS).
+
+**Objetivos y lo que NO se alcanzó**: Performance ≥ 85 en `/` ✓ (94), Accesibilidad ≥ 95 en todas ✓ (98–100), CLS ≤ 0,05 ✓ (0 en todas).
+**LCP ≤ 2,5 s en `/`: el modelo simulado de Lighthouse da 3,15 s (✗)**. Es una estimación (Lantern) que suma todos los bytes de la
+carga inicial a 1,6 Mbps (315 KB: fuentes 70 KB, framework ~190 KB, CSS 16 KB; el elemento LCP, la foto del primer destacado, pesa 5 KB y
+está bien priorizado). Con red y CPU **realmente** limitadas (`--throttling devtools`, Slow 4G + CPU 4x) el LCP medido es **2,18 s** (Perf. 96): se cumple.
+Observación abierta: `/checkout` bajo ese throttling real marca LCP ≈ 4,0 s (Perf. 84): el elemento es el título, que espera a la
+fuente display; no está en los objetivos y queda como mejora (precarga/peso de fuentes).
+
+### 13.8 Prueba de carga
+
+```bash
+pnpm loadtest                              # 3 min de pico, siembra + build + next start
+pnpm loadtest --no-build --duration 600    # 10 min, para ver la memoria
+```
+
+Simula: 30 clientes navegando (carta + imágenes + estáticos + carrito), 20 clientes consultando el estado de su pedido cada 8 s,
+**10 pedidos por minuto** creados llamando a la Server Action real `createOrderAction` por HTTP (como el navegador), aprobados por la cajera y la
+encargada con `approveOrderAction` (cookies de sesión reales), **9 pantallas del personal** en `/api/events` y **9 agentes** en
+`/api/agent/stream` que confirman cada trabajo. Las 9 pantallas, los 9 agentes y las aprobaciones salen de **una sola IP** (como el local).
+Mide latencias (p50/p95/p99), 429 en el tráfico legítimo, retraso de los eventos SSE, memoria del proceso de Next y conexiones a Postgres.
+Éxito: 0 errores 5xx, 0 respuestas 429 a la IP compartida, p95 de la carta < 800 ms, SSE p95 < 1 s, ningún evento perdido, conexiones acotadas.
+
+Resultados en esta PC (AMD Ryzen 7 3700X, 16 hilos, 16 GB, Windows 10, Node 24; Postgres 16 en Docker; build de producción):
+
+| | 3 min (`main`) | 10 min (`long`) |
+| --- | --- | --- |
+| Pedidos creados y aprobados por HTTP | 29 / 29 | 97 / 97 |
+| Trabajos de impresión confirmados por los agentes | 43 / 43 | 145 / 145 |
+| Errores 5xx o de red | **0** | **0** |
+| 429 recibidos por la IP compartida (9 pantallas + 9 agentes + aprobaciones) | **0** | **0** |
+| Carta `GET /` p50 / p95 / p99 | 22 / 37 / 60 ms | 22 / 51 / 73 ms |
+| `GET /carrito` p95 | 34 ms | 50 ms |
+| Estado del pedido (`/api/pedido/:token/status`) p95 | 6 ms | 7 ms |
+| `createOrderAction` p50 / p95 | 14 / 25 ms | 13 / 34 ms |
+| `approveOrderAction` p95 | 37 ms | 29 ms |
+| Ack del agente p95 | 14 ms | 20 ms |
+| Entrega SSE (desde que el cliente envía el pedido hasta que la pantalla del personal lo recibe) p50 / p95 / p99 | 13 / 25 / 54 ms | 13 / 30 / 307 ms |
+| Eventos SSE perdidos (9 pantallas × pedidos) | 0 / 261 | 0 / 873 |
+| Memoria del proceso de Next (RSS) | 116 → 281 MB | 116 → 293 MB (**estable en ~290 MB desde los 4 min**; pendiente de +0,7 MB/min en los últimos 5 min) |
+| Conexiones a Postgres de la app | máx. 9 | máx. 11 (pool de la app ≤ 10 + 1 de escucha `bh-listener`) |
+| Streams caídos | 0 | 0 |
+
+Lectura: la memoria sube en los primeros minutos (arranque en frío de la app, cachés y memoria que el motor todavía no devolvió) y luego se aplana; no hay fuga visible en 10 minutos de pico,
+aunque 10 minutos no prueban días de uptime (vigilar `ps -o rss` de la VPS en las primeras semanas). El p99 de 307 ms del SSE es un único pedido
+(el mismo que marca el máximo de 308 ms de `createOrderAction`; no se investigó la causa puntual). La diferencia entre el momento en que llega el evento SSE y la respuesta de la acción al que
+creó el pedido es menor a 1 ms: el evento sale en el COMMIT, antes que la respuesta.
+
+Es una corrida **local en Windows**: indicativa, no una garantía de producción (otra CPU, Nginx, TLS y red real cambian los números;
+la VPS tiene menos núcleos y memoria).

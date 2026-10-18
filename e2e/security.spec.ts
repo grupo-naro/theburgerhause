@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { eq } from "drizzle-orm";
+import { CSP_ENFORCE, CSP_HEADER_NAME } from "../src/lib/security/headers";
 import * as s from "../src/db/schema";
 import { db } from "./helpers/db";
 import { openSheet, gotoStore, sheetOf } from "./helpers/store";
@@ -29,13 +31,13 @@ test.describe("security headers", () => {
     expect(h["permissions-policy"]).toContain("camera=()");
     expect(h["permissions-policy"]).toContain("geolocation=()");
     expect(h["x-powered-by"]).toBeUndefined();
-    const csp = h["content-security-policy-report-only"];
+    const csp = h[CSP_HEADER_NAME.toLowerCase()];
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("report-uri /api/csp-report");
     expect(csp).not.toContain("unsafe-eval");
-    // Report-only until the owner switches it (docs/ops/runbook.md).
-    expect(h["content-security-policy"]).toBeUndefined();
+    // Exactly one of the two CSP headers (report-only until CSP_ENFORCE is flipped, see docs/ops/runbook.md).
+    expect(h[(CSP_ENFORCE ? "content-security-policy-report-only" : "content-security-policy")]).toBeUndefined();
     return h;
   };
 
@@ -165,6 +167,30 @@ async function freshCashier(browser: Browser, baseURL: string | undefined) {
   await expect(page).toHaveURL(/\/mostrador$/);
   return { context, page };
 }
+
+test.describe("request limits", () => {
+  test.use({ storageState: anonymous });
+
+  test("a Server Action body above 1 MB is rejected before the action runs", async ({ request, baseURL }) => {
+    // The action id comes from the build's own manifest (the same ids the browser bundle carries).
+    const manifest = JSON.parse(readFileSync(".next/server/server-reference-manifest.json", "utf8")) as {
+      node: Record<string, { filename: string; exportedName: string }>;
+    };
+    const login = Object.entries(manifest.node).find(([, e]) => e.filename.endsWith("login/actions.ts") && e.exportedName === "login");
+    expect(login, "login action id in the build manifest").toBeDefined();
+    const res = await request.post("/login", {
+      headers: { "next-action": login![0], "content-type": "text/plain;charset=UTF-8", origin: new URL(baseURL!).origin },
+      data: "a".repeat(1_300_000),
+    });
+    expect(res.ok()).toBe(false);
+    expect(res.headers()["set-cookie"]).toBeUndefined();
+  });
+
+  test("the CSP report endpoint refuses an oversized report", async ({ request }) => {
+    const res = await request.post("/api/csp-report", { headers: { "content-type": "application/csp-report" }, data: "x".repeat(20_000) });
+    expect(res.status()).toBe(413);
+  });
+});
 
 test.describe("cookies and sessions (production build)", () => {
   test.use({ storageState: anonymous });

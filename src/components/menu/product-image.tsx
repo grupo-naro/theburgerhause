@@ -21,7 +21,9 @@ export function ProductImage({ product, priority = false, sizes }: Props) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/brand/logo-512.webp"
+          src="/brand/logo-192.webp"
+          srcSet="/brand/logo-112.webp 112w, /brand/logo-192.webp 192w"
+          sizes="(min-width: 768px) 96px, 56px"
           alt=""
           width={96}
           height={96}

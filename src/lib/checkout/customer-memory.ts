@@ -1,5 +1,3 @@
-import { z } from "@/lib/zod";
-
 /** localStorage key of the "remember me" data. Only name, WhatsApp and the delivery fields. */
 export const CUSTOMER_STORAGE_KEY = "bh_customer_v1";
 const VERSION = 1;
@@ -9,14 +7,8 @@ const MAX_RAW_LENGTH = 10_000;
 /** The subset of `Storage` we use; `null`/`undefined` means "no storage available". */
 export type MemoryStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
-const stored = z.object({
-  v: z.literal(VERSION),
-  name: z.string().max(80),
-  whatsapp: z.string().max(40),
-  address: z.string().max(160),
-  crossStreets: z.string().max(120),
-  notes: z.string().max(300),
-});
+// Hand-written validation (not zod): checkout is a critical page and zod is ~80 KB of JavaScript.
+const LIMITS = { name: 80, whatsapp: 40, address: 160, crossStreets: 120, notes: 300 } as const;
 
 export type RememberedCustomer = {
   name: string;
@@ -42,10 +34,19 @@ export function serializeCustomer(c: RememberedCustomer): string {
 export function parseCustomer(raw: string | null): RememberedCustomer | null {
   if (!raw || raw.length > MAX_RAW_LENGTH) return null;
   try {
-    const r = stored.safeParse(JSON.parse(raw));
-    if (!r.success) return null;
-    const { name, whatsapp, address, crossStreets, notes } = r.data;
-    return { name, whatsapp, address, crossStreets, notes };
+    const r: unknown = JSON.parse(raw);
+    if (typeof r !== "object" || r === null || Array.isArray(r) || (r as { v?: unknown }).v !== VERSION) return null;
+    const o = r as Record<string, unknown>;
+    for (const [field, max] of Object.entries(LIMITS)) {
+      if (typeof o[field] !== "string" || (o[field] as string).length > max) return null;
+    }
+    return {
+      name: o.name as string,
+      whatsapp: o.whatsapp as string,
+      address: o.address as string,
+      crossStreets: o.crossStreets as string,
+      notes: o.notes as string,
+    };
   } catch {
     return null;
   }

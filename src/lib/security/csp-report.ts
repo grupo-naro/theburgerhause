@@ -1,4 +1,5 @@
 import { clientIp } from "@/lib/client-ip";
+import { readCappedText } from "@/lib/http/read-capped";
 import { createRateLimiter } from "@/lib/rate-limit";
 
 /**
@@ -27,25 +28,6 @@ export function violatedDirective(body: unknown): string | null {
   return KNOWN_DIRECTIVES.has(name) ? name : null;
 }
 
-/** Reads at most `max` bytes of the body (works for chunked uploads without a Content-Length); null when longer. */
-async function readCapped(request: Request, max: number): Promise<string | null> {
-  if (!request.body) return "";
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
-
 export function createCspReportHandler(options: CspReportOptions = {}) {
   const limiter = createRateLimiter({ limit: options.perMinute ?? 30, windowMs: 60_000 });
   const log = options.log ?? ((line: string) => console.warn(line));
@@ -57,7 +39,7 @@ export function createCspReportHandler(options: CspReportOptions = {}) {
     if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return empty(413);
     let directive: string | null = null;
     try {
-      const text = await readCapped(request, MAX_BODY_BYTES);
+      const text = await readCappedText(request, MAX_BODY_BYTES);
       if (text !== null) directive = violatedDirective(JSON.parse(text));
     } catch {
       // malformed body: still counts as one report, with an unknown directive

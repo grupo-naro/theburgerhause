@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baseSecurityHeaders, contentSecurityPolicy, PERMISSIONS_POLICY, REFERRER_DEFAULT_SOURCE } from "./headers";
+import { baseSecurityHeaders, contentSecurityPolicy, CSP_ENFORCE, CSP_HEADER_NAME, PERMISSIONS_POLICY, REFERRER_DEFAULT_SOURCE } from "./headers";
 
 const map = (isDev = false) => Object.fromEntries(baseSecurityHeaders({ isDev }).map((h) => [h.key, h.value]));
 
@@ -18,10 +18,12 @@ describe("security headers", () => {
     }
   });
 
-  it("ships the CSP as Report-Only (never enforcing yet)", () => {
+  it("sends the CSP under exactly one header name, chosen by the single CSP_ENFORCE switch", () => {
     const h = map();
-    expect(h["Content-Security-Policy-Report-Only"]).toBeTruthy();
-    expect(h["Content-Security-Policy"]).toBeUndefined();
+    const [enforcing, reportOnly] = ["Content-Security-Policy", "Content-Security-Policy-Report-Only"];
+    expect(CSP_HEADER_NAME).toBe(CSP_ENFORCE ? enforcing : reportOnly);
+    expect(h[CSP_HEADER_NAME]).toBeTruthy();
+    expect(h[CSP_ENFORCE ? reportOnly : enforcing]).toBeUndefined();
   });
 
   it("CSP locks everything to the own origin and forbids framing, plugins and base/form hijacking", () => {

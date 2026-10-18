@@ -33,8 +33,10 @@ export function CartView() {
     });
   }
 
+  // min-h-svh below lg: the footer starts below the first screen, so the cart filling in after hydration
+  // (it lives in localStorage) cannot shift it into view (CLS).
   return (
-    <div className="mx-auto max-w-[1100px] px-4 pb-6 pt-6 md:pt-8">
+    <div className="mx-auto min-h-svh max-w-[1100px] px-4 pb-6 pt-6 md:pt-8 lg:min-h-[60svh]">
       <h1 className="font-display text-3xl font-extrabold text-ink md:text-4xl">Tu pedido</h1>
       <div className="mt-5" data-testid="cart-view" data-ready={cart.ready}>
         <IssuesBanner issues={cart.issues} index={index} onDismiss={cart.dismissIssues} />

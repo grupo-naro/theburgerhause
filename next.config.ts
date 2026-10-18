@@ -22,6 +22,11 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: baseSecurityHeaders({ isDev }) },
       { source: REFERRER_DEFAULT_SOURCE, headers: [REFERRER_DEFAULT] },
+      // Brand images are not content-hashed: a day of caching plus background revalidation (public/ files default to max-age=0).
+      {
+        source: "/brand/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }],
+      },
       // The order page is a capability URL (its token is the only credential): never cached, never
       // leaked through Referer, never indexed. The status route sets the same headers itself.
       {

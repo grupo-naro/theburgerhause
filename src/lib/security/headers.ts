@@ -12,6 +12,13 @@ export type HeaderEntry = { key: string; value: string };
 export const CSP_REPORT_PATH = "/api/csp-report";
 
 /**
+ * The ONE switch between observing and enforcing the CSP (docs/ops/runbook.md, "Seguridad y rendimiento"). It ships as
+ * Report-Only: browsers log violations to /api/csp-report and block nothing. After a week without violations set it to true.
+ */
+export const CSP_ENFORCE = false;
+export const CSP_HEADER_NAME = CSP_ENFORCE ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only";
+
+/**
  * Strictest policy the app satisfies today. 'unsafe-inline' for scripts is a deliberate trade-off:
  * a nonce policy forces dynamic rendering of every page and is incompatible with Partial
  * Prerender (docs: guides/content-security-policy.md), and the public menu `/` is prerendered.
@@ -54,7 +61,7 @@ export const PERMISSIONS_POLICY = [
   "interest-cohort=()",
 ].join(", ");
 
-/** Headers for every response. CSP is Report-Only until the owner switches it (docs/ops/runbook.md). */
+/** Headers for every response. The CSP is Report-Only until CSP_ENFORCE is flipped (docs/ops/runbook.md). */
 export function baseSecurityHeaders({ isDev = false }: { isDev?: boolean } = {}): HeaderEntry[] {
   return [
     { key: "X-Content-Type-Options", value: "nosniff" },
@@ -62,7 +69,7 @@ export function baseSecurityHeaders({ isDev = false }: { isDev?: boolean } = {})
     { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
     { key: "X-DNS-Prefetch-Control", value: "off" },
     { key: "Permissions-Policy", value: PERMISSIONS_POLICY },
-    { key: "Content-Security-Policy-Report-Only", value: contentSecurityPolicy({ isDev }) },
+    { key: CSP_HEADER_NAME, value: contentSecurityPolicy({ isDev }) },
   ];
 }
 
