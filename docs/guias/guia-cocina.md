@@ -4,6 +4,8 @@ Para el cocinero y el ayudante. La pantalla de cocina **reemplaza el papel**: ya
 
 ## Cómo se entra
 
+- **La pantalla de cocina es solo para cocina**: no tiene menú, ni nombre de estación, ni avisos de pedidos por aprobar. Abrila en una **pestaña o ventana aparte** (desde el menú, **Cocina** se abre en una pestaña nueva) y apretá **F11**: el tablero llena todo el monitor. Quien no es de cocina (cajera, encargada, administrador) tiene un botón **Salir** discreto arriba a la derecha que vuelve a su pantalla; mientras mira la cocina **no ve** el aviso de pedidos nuevos por aprobar, así que no la dejen como pantalla principal.
+
 - En la PC o tablet de la cocina: **Usuario** y **Contraseña** de cocina (te los da el administrador) → **Ingresar**. Entrás directo a la pantalla de cocina, sin menú. No hay que elegir estación.
 - Dejala abierta a **pantalla completa** (tecla **F11**). Si el navegador pregunta, activá el **Sonido** (botón arriba a la derecha) y tocá una vez la pantalla: sin ese toque el navegador no deja sonar el aviso.
 - Mantené la **hora del dispositivo sincronizada** (hora automática activada): los tiempos del reloj usan la hora del servidor, pero conviene que la tablet/PC no esté atrasada ni adelantada.

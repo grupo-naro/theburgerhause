@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { getDb } from "@/db/client";
 import { KitchenBoard } from "@/components/cocina/kitchen-board";
-import { StaffShell, StaffShellFallback } from "@/components/staff/staff-shell";
+import { KitchenShell } from "@/components/cocina/kitchen-shell";
 import { ToastProvider } from "@/components/ui/toast";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
 import { toKitchenCardDto } from "@/lib/cocina/card-style";
@@ -20,26 +20,25 @@ async function CocinaPage() {
   const actor = kitchenActorSectorFor(session.user.role, session.stationKind);
 
   return (
-    <StaffShell session={session}>
+    <KitchenShell session={session}>
       <ToastProvider>
         <KitchenBoard
           cards={board.map(toKitchenCardDto)}
           recent={recent.map(toKitchenCardDto)}
           serverNow={now.toISOString()}
           thresholds={kitchenThresholds(settings)}
-          ownsTitle={session.user.role === "cocina"}
           actorSector={actor.ok ? actor.sector : null}
           blockedReason={actor.ok ? null : actorRefusal(actor.code).message}
         />
       </ToastProvider>
-    </StaffShell>
+    </KitchenShell>
   );
 }
 
 /** Dynamic (cookies + DB): everything runs inside Suspense; the guard runs in the page itself. */
 export default function Page() {
   return (
-    <Suspense fallback={<StaffShellFallback />}>
+    <Suspense fallback={<div className="min-h-dvh bg-[#0b1220] p-6 text-white/80" aria-busy="true">Cargando…</div>}>
       <CocinaPage />
     </Suspense>
   );

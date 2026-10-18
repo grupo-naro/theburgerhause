@@ -20,25 +20,6 @@ import { StaffNav } from "./staff-nav";
  * inside it must not mount another. Reads request data: render it inside <Suspense>.
  */
 export async function StaffShell({ session, ownsOrderAlert = false, children }: { session: AuthSession; ownsOrderAlert?: boolean; children: ReactNode }) {
-  // The kitchen device: full screen, dark, no navigation, no station and no printer (it only cooks).
-  if (session.user.role === "cocina") {
-    return (
-      <div data-testid="kitchen-shell" className="flex min-h-dvh flex-col bg-[#0b1220] text-white">
-        <header className="flex items-center gap-4 border-b border-white/15 px-4 py-3">
-          <Image src="/brand/logo-512.webp" alt="" width={40} height={40} className="size-10 rounded-full bg-white" />
-          <p className="font-display text-2xl leading-tight font-extrabold text-cheddar-400">Cocina</p>
-          <div className="ml-auto flex items-center gap-4">
-            <LiveRefresh large dark />
-            <span data-testid="user-name" className="hidden text-base font-semibold text-white/80 md:inline">
-              {session.user.name}
-            </span>
-            <LogoutButton dark />
-          </div>
-        </header>
-        <main className="min-w-0 flex-1 p-3 sm:p-4">{children}</main>
-      </div>
-    );
-  }
   const station = session.stationId === null ? null : await getStationHeader(getDb(), session.stationId, session.user.role === "admin" ? null : session.stationKind);
   const printer = station
     ? derivePrinterStatus({ lastSeenAt: station.lastSeenAt, failedCount: station.failedCount, now: new Date() })

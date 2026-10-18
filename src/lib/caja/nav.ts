@@ -1,14 +1,14 @@
 import type { Role } from "@/lib/auth/roles";
 import type { StationKindName } from "@/lib/orders/sector";
 
-export type NavLink = { href: string; label: string };
+export type NavLink = { href: string; label: string; /** Opens in a new tab (the kitchen screen is a separate fullscreen view). */ newTab?: true };
 
 const VENTA: NavLink = { href: "/mostrador", label: "Venta" };
 const MOSTRADOR: NavLink = { href: "/mostrador/pedidos", label: "Mostrador" };
 const RETIRO: NavLink = { href: "/retiro", label: "Retiro en local" };
 const DELIVERY: NavLink = { href: "/delivery", label: "Gestión Delivery" };
 const RENDICION: NavLink = { href: "/delivery/rendicion", label: "Rendición" };
-const COCINA: NavLink = { href: "/cocina", label: "Cocina" };
+const COCINA: NavLink = { href: "/cocina", label: "Cocina", newTab: true };
 const GENERAL_CAJA: NavLink = { href: "/caja", label: "Vista general" };
 const GENERAL_DESPACHO: NavLink = { href: "/despacho", label: "Tablero general" };
 const ADMIN: NavLink = { href: "/admin", label: "Administración" };

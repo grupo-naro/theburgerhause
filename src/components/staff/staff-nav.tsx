@@ -29,6 +29,7 @@ export function StaffNav({ links, badges = {} }: { links: NavLink[]; badges?: Re
               <Link
                 href={l.href}
                 aria-current={active ? "page" : undefined}
+                {...(l.newTab ? { target: "_blank", rel: "noopener" } : {})}
                 className={`flex min-h-12 items-center rounded-full px-5 text-base font-bold whitespace-nowrap transition-colors lg:rounded-xl ${
                   active ? "bg-cheddar-400 text-ink" : "text-white/85 hover:bg-white/10 hover:text-white"
                 }`}

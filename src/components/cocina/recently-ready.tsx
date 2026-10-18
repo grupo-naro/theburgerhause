@@ -25,7 +25,7 @@ export function RecentlyReady({ cards, canAct }: Props) {
     <section
       aria-label="Recién listos"
       data-testid="recently-ready"
-      className="sticky bottom-2 z-10 mt-4 flex items-center gap-3 rounded-2xl border-2 border-white/20 bg-[#18233d] p-2 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]"
+      className="flex items-center gap-3 rounded-2xl border-2 border-white/20 bg-[#18233d] p-2 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]"
     >
       <h2 className="w-24 shrink-0 pl-2 text-base leading-tight font-extrabold tracking-wide text-white/80 uppercase">Recién listos</h2>
       {cards.length === 0 ? (

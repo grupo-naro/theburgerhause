@@ -70,10 +70,10 @@ export function KitchenCard({ card, now, thresholds, canAct, fresh }: Props) {
       data-type={card.type}
       data-age={color}
       data-leaving={busy ? "true" : undefined}
-      className={`flex max-h-[max(26rem,calc(100dvh-22rem))] min-h-0 flex-col rounded-2xl border-2 border-l-[14px] border-white/15 bg-[#121c33] p-4 transition-opacity ${ACCENT[color]} ${busy ? "opacity-60" : ""} ${fresh ? "animate-card-flash" : ""}`}
+      className={`flex max-h-[max(26rem,calc(100dvh-15rem))] min-h-0 flex-col rounded-2xl border-2 border-l-[14px] border-white/15 bg-[#121c33] p-4 transition-opacity ${ACCENT[color]} ${busy ? "opacity-60" : ""} ${fresh ? "animate-card-flash" : ""}`}
     >
       <header className="flex items-start justify-between gap-3">
-        <h2 className="font-display text-5xl leading-none font-extrabold text-white">
+        <h2 className="font-display text-5xl leading-none 2xl:text-6xl font-extrabold text-white">
           <span className="text-white/60">#</span>
           {card.number}
         </h2>
@@ -118,14 +118,14 @@ export function KitchenCard({ card, now, thresholds, canAct, fresh }: Props) {
                 {u.n}
               </span>
               <div className="min-w-0">
-                <p className="text-2xl leading-tight font-extrabold [overflow-wrap:anywhere] text-white uppercase">
+                <p className="text-2xl leading-tight font-extrabold [overflow-wrap:anywhere] text-white uppercase 2xl:text-3xl">
                   <span className="sr-only">Unidad {u.n}: </span>
                   {u.productName}
                 </p>
                 {u.lines.length > 0 && (
                   <ul className="mt-1 space-y-0.5">
                     {u.lines.map((l, i) => (
-                      <li key={i} data-testid="kitchen-line" className="text-xl leading-snug font-bold [overflow-wrap:anywhere] text-cheddar-400">
+                      <li key={i} data-testid="kitchen-line" className="text-xl leading-snug font-bold [overflow-wrap:anywhere] text-cheddar-400 2xl:text-2xl">
                         {l}
                       </li>
                     ))}

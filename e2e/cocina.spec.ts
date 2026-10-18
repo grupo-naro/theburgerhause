@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import * as s from "../src/db/schema";
-import { countEventSources, eventsOf, openDelivery, orderById, parkPendingOrders, placeCajaOrder } from "./helpers/caja";
+import { countEventSources, eventsOf, openDelivery, orderById } from "./helpers/caja";
 import { db, itemsOfOrder } from "./helpers/db";
 import {
   cleanBoard,
@@ -343,29 +343,36 @@ test.describe("cocina", () => {
 test.describe("cajera", () => {
   test.use({ storageState: authFile("cajera") });
 
-  test("opens /cocina from the navigation, acts on her own sector only", async ({ page }) => {
+  test("the Cocina link opens the kitchen screen in a NEW tab; she acts on her own sector only", async ({ page, context }) => {
     const delivery = await placeApproved({ fulfillment: "delivery" });
     const takeaway = await placeApproved({ fulfillment: "takeaway" });
     await page.goto("/mostrador");
-    await page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Cocina" }).click();
-    await expect(page).toHaveURL(/\/cocina$/);
-    await expect(kcard(page, delivery.number)).toBeVisible();
-    await expect(kcard(page, delivery.number).getByTestId("kitchen-ready")).toBeDisabled();
-    await expect(kcard(page, delivery.number).getByTestId("kitchen-ready")).toHaveText("OTRO SECTOR");
-    await kcard(page, takeaway.number).getByTestId("kitchen-ready").click();
-    await expect(kcard(page, takeaway.number)).toHaveCount(0);
+    const link = page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Cocina" });
+    await expect(link).toHaveAttribute("target", "_blank");
+    const popup = context.waitForEvent("page");
+    await link.click();
+    const kitchen = await popup;
+    await expect(kitchen).toHaveURL(/\/cocina$/);
+    await expect(kcard(kitchen, delivery.number)).toBeVisible();
+    await expect(kcard(kitchen, delivery.number).getByTestId("kitchen-ready")).toBeDisabled();
+    await expect(kcard(kitchen, delivery.number).getByTestId("kitchen-ready")).toHaveText("OTRO SECTOR");
+    await kcard(kitchen, takeaway.number).getByTestId("kitchen-ready").click();
+    await expect(kcard(kitchen, takeaway.number)).toHaveCount(0);
     expect((await orderById(takeaway.id)).status).toBe("listo_despacho");
     expect((await orderById(delivery.id)).status).toBe("en_preparacion");
-    await shot(page, "cocina-cajera");
+    // "Salir" leads back to her home, in the same tab.
+    await kitchen.getByTestId("kitchen-exit").click();
+    await expect(kitchen).toHaveURL(/\/mostrador$/);
+  });
 
-    // The new-web-order alert of her sector keeps working on this page (the kitchen board does not replace it).
-    await page.goto("/cocina"); // a fresh document: after a soft navigation Next keeps the previous page hidden in the DOM
-    await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
-    const retiro = page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Retiro en local" });
-    const incoming = await placeCajaOrder({ fulfillment: "takeaway" });
-    await expect(retiro.getByTestId("nav-badge")).toHaveAttribute("data-count", "1");
-    await expect(page.getByTestId("shell-announcer")).toHaveText(`Nuevo pedido #${incoming.number}`);
-    await parkPendingOrders();
+  test("chromeless for everyone: no sidebar, navigation, station name or shell alert at 1920x1080 and 1280x720", async ({ page }) => {
+    await placeApproved({ fulfillment: "takeaway" });
+    for (const [width, height] of [[1920, 1080], [1280, 720]]) {
+      await page.setViewportSize({ width, height });
+      await page.goto("/cocina");
+      await expect(page.getByTestId("kitchen-board")).toBeVisible();
+      await expectChromeless(page);
+    }
   });
 });
 
@@ -380,4 +387,30 @@ test.describe("admin", () => {
     await expect(kcard(page, delivery.number)).toHaveCount(0);
     expect((await orderById(delivery.id)).status).toBe("listo_despacho");
   });
+
+  test("chromeless and filling the monitor at 1920x1080 and 1280x720, with a full order wall", async ({ page }) => {
+    for (let i = 0; i < 5; i++) await placeApproved({ fulfillment: i % 2 ? "takeaway" : "delivery", single: i === 0 });
+    await counterOrder();
+    for (const [width, height] of [[1920, 1080], [1280, 720]]) {
+      await page.setViewportSize({ width, height });
+      await page.goto("/cocina");
+      await expect(page.getByTestId("kitchen-board")).toBeVisible();
+      await expect(page.getByTestId("kitchen-card").first()).toBeVisible();
+      await expectChromeless(page);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(0);
+      const shell = (await page.getByTestId("kitchen-shell").boundingBox())!;
+      expect(shell.width).toBeGreaterThanOrEqual(width - 20); // the board spans the whole monitor
+    }
+  });
 });
+
+/** The dedicated kitchen frame: nothing of the staff shell (sidebar, navigation, station label, printer, alert badge). */
+async function expectChromeless(page: Page): Promise<void> {
+  await expect(page.getByRole("navigation", { name: "Secciones" })).toHaveCount(0);
+  await expect(page.getByTestId("station-name")).toHaveCount(0);
+  await expect(page.getByTestId("shell-announcer")).toHaveCount(0);
+  await expect(page.getByText(/Estación/)).toHaveCount(0);
+  await expect(page.getByText("Cambiar estación")).toHaveCount(0);
+  await expect(page.getByTestId("kitchen-shell")).toBeVisible();
+}

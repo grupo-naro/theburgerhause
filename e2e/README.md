@@ -99,7 +99,7 @@ Volver a preparación (strip) with the audit chain; an order already called leav
 (order changed behind the screen's back) answers the friendly "ya no está en preparación"; a cancelled order disappears live; green / yellow / red
 clock from backdated `en_preparacion` events; HTML / emoji notes render as inert text; the `cocina` user is sent back to `/cocina` from every other
 URL and has no navigation; exactly one EventSource; layout at 1280 / 1024 / 768 with a 8-unit order and a long note (no horizontal overflow, nothing
-taller than the shell, LISTO / undo / sound targets >= 56 px, units scroll INSIDE the card). The cashier sees the Cocina link, can only mark her own
+taller than the shell, LISTO / undo / sound targets >= 56 px, units scroll INSIDE the card). The cashier opens it from the Cocina nav link (new tab), the screen is chromeless for every role (no sidebar / navigation / station label / shell alert at 1920x1080 and 1280x720, Salir for non-cocina), and she can only mark her own
 sector (the other cards read "OTRO SECTOR"); admin marks any. Screenshots: `test-results/shots/cocina-*.png`.
 
 ## Security (Task 9.3)

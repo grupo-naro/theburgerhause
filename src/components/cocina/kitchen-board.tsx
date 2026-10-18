@@ -16,8 +16,6 @@ type Props = {
   thresholds: KitchenThresholds;
   /** The sector the user may act in (null = any: cocina, admin). */
   actorSector: Sector | null;
-  /** True for the kitchen device: the board owns the tab title. Staff in the normal shell keep the shell alert's title. */
-  ownsTitle: boolean;
   /** Set when the user cannot act at all (e.g. a cashier with no station): the board is read-only and says why. */
   blockedReason: string | null;
 };
@@ -26,17 +24,17 @@ type Props = {
  * The kitchen screen body. It opens NO event stream: the staff shell's LiveRefresh re-renders the page with fresh
  * data (exactly one EventSource per page). Local state is only the new-card alert and the undo strip.
  */
-export function KitchenBoard({ cards, recent, serverNow, thresholds, actorSector, ownsTitle, blockedReason }: Props) {
+export function KitchenBoard({ cards, recent, serverNow, thresholds, actorSector, blockedReason }: Props) {
   const now = useServerClock(serverNow);
   const alert = useNewOrderAlert(
     cards.map((c) => ({ id: c.id, number: c.number, createdAt: c.since })),
     "Cocina",
-    { reminders: false, manageTitle: ownsTitle },
+    { reminders: false },
   );
   const canAct = (c: KitchenCardDto) => blockedReason === null && canActOn(actorSector, c.type);
 
   return (
-    <div data-testid="kitchen-board" className="rounded-3xl bg-[#0b1220] text-white">
+    <div data-testid="kitchen-board" className="flex min-h-[calc(100dvh-4.5rem)] flex-col bg-[#0b1220] text-white">
       <div className="flex flex-wrap items-center gap-3 pb-3">
         <h1 className="font-display text-3xl font-extrabold text-white">
           En preparación <span data-testid="kitchen-count" className="text-cheddar-400 tabular-nums">{cards.length}</span>
@@ -63,7 +61,7 @@ export function KitchenBoard({ cards, recent, serverNow, thresholds, actorSector
           </div>
         </div>
       ) : (
-        <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] items-start gap-4">
+        <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))] 2xl:grid-cols-[repeat(auto-fill,minmax(min(100%,24rem),1fr))] items-start gap-4">
           {cards.map((c) => (
             <li key={c.id} className="min-w-0">
               <KitchenCard card={c} now={now} thresholds={thresholds} canAct={canAct(c)} fresh={alert.freshIds.has(c.id)} />
@@ -72,7 +70,7 @@ export function KitchenBoard({ cards, recent, serverNow, thresholds, actorSector
         </ul>
       )}
 
-      <RecentlyReady cards={recent} canAct={canAct} />
+      <div className="sticky bottom-2 z-10 mt-auto pt-4"><RecentlyReady cards={recent} canAct={canAct} /></div>
     </div>
   );
 }
