@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "@/lib/zod";
 import { getDb } from "@/db/client";
 import { authenticate, roleHome, safeNextPath } from "@/lib/auth/login";
-import { checkLoginRate } from "@/lib/auth/login-rate-limit";
+import { isLoginBlocked, recordLoginFailure } from "@/lib/auth/login-rate-limit";
 import { setSessionCookie } from "@/lib/auth/session";
 import { createSession, setSessionStation } from "@/lib/auth/session-store";
 import { getStationCookie } from "@/lib/auth/station-cookie";
@@ -29,11 +29,15 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   if (!parsed.success) return { error: GENERIC_ERROR };
   const { username, password } = parsed.data;
 
-  if (!checkLoginRate(clientIp(await headers()), username).ok) return { error: RATE_LIMIT_ERROR };
+  const ip = clientIp(await headers());
+  if (isLoginBlocked(ip, username)) return { error: RATE_LIMIT_ERROR };
 
   const db = getDb();
   const user = await authenticate(db, { username, password });
-  if (!user) return { error: GENERIC_ERROR };
+  if (!user) {
+    recordLoginFailure(ip, username);
+    return { error: GENERIC_ERROR };
+  }
 
   const rawNext = formData.get("next");
   const next = typeof rawNext === "string" ? rawNext : null;

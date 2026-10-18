@@ -88,6 +88,14 @@ describe("login action", () => {
     expect(await sessions()).toHaveLength(0);
   });
 
+  it("successful logins do not consume budget (nine PCs behind one IP)", async () => {
+    for (let i = 0; i < 12; i++) {
+      jar.set("bh_station", String(fx.station));
+      expect(await redirectOf(login(prev, form({ username: "cora", password: PASSWORD })))).toBe("/mostrador");
+    }
+    expect(await login(prev, form({ username: "cora", password: "bad" }))).toEqual({ error: GENERIC });
+  });
+
   it("cannot dodge the limit by rotating the first X-Forwarded-For hop", async () => {
     for (let i = 0; i < 5; i++) {
       requestHeaders.value = new Headers({ "x-forwarded-for": `1.1.1.${i}, 10.0.0.1` });
