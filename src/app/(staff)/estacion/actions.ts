@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { z } from "zod";
+import { z } from "@/lib/zod";
 import { getDb } from "@/db/client";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
 import { roleHome, safeNextPath } from "@/lib/auth/login";

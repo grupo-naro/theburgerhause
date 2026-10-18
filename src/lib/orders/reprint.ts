@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@/lib/zod";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { ORDERS_CHANNEL } from "@/lib/events/channels";

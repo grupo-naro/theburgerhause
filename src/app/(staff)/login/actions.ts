@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { z } from "zod";
+import { z } from "@/lib/zod";
 import { getDb } from "@/db/client";
 import { authenticate, roleHome, safeNextPath } from "@/lib/auth/login";
 import { checkLoginRate } from "@/lib/auth/login-rate-limit";

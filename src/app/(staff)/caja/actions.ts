@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { z } from "zod";
+import { z } from "@/lib/zod";
 import { getDb } from "@/db/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession } from "@/lib/auth/roles";

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@/lib/zod";
 import type { Db } from "@/db/client";
 import { pgErrorCode } from "./create-order";
 import { cleanText } from "./schemas";

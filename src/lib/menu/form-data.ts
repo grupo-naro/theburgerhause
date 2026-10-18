@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@/lib/zod";
 
 const text = (fd: FormData, key: string): string => {
   const v = fd.get(key);

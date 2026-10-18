@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { users } from "@/db/schema";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { hashPassword, needsRehash, verifyPassword } from "@/lib/auth/password";
 import type { AuthUser, Role } from "@/lib/auth/roles";
 
 // Hash of a throwaway password, produced with the same scrypt parameters as real
@@ -10,6 +10,23 @@ let dummyHash: Promise<string> | undefined;
 function getDummyHash(): Promise<string> {
   dummyHash ??= hashPassword("dummy-password-for-timing-parity");
   return dummyHash;
+}
+
+/**
+ * Rewrites a hash made with weaker scrypt parameters (see password.ts) now that we hold the plain
+ * password. Best effort: a failure never fails the login (the old hash still verifies), and the
+ * WHERE on the old hash makes a concurrent password change win.
+ */
+async function upgradeHash(db: Db, userId: number, stored: string, plain: string): Promise<void> {
+  if (!needsRehash(stored)) return;
+  try {
+    await db
+      .update(users)
+      .set({ passwordHash: await hashPassword(plain) })
+      .where(and(eq(users.id, userId), eq(users.passwordHash, stored)));
+  } catch {
+    console.error("password hash upgrade failed");
+  }
 }
 
 /** Null for unknown user, wrong password or inactive user (indistinguishable to callers). */
@@ -25,6 +42,7 @@ export async function authenticate(
       .where(and(sql`lower(${users.username}) = ${username.trim().toLowerCase()}`, eq(users.active, true)));
     const ok = await verifyPassword(password, row ? row.passwordHash : await getDummyHash());
     if (!row || !ok) return null;
+    await upgradeHash(db, row.id, row.passwordHash, password);
     return { id: row.id, name: row.name, username: row.username, role: row.role };
   } catch (err) {
     // Unexpected (DB outage, bug): log fixed text + pg code only, never the error

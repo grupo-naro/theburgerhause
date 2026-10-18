@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@/lib/zod";
 import { isValidImagePath } from "@/lib/uploads/storage";
 import { slugify } from "./slug";
 

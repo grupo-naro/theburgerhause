@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@/lib/zod";
 
 const id = z.number().int().positive();
 const name = z.string().trim().min(1, "Ingresá un nombre").max(60, "Máximo 60 caracteres");

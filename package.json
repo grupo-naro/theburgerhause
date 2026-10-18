@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:security": "vitest run src/lib/security",
     "test:int": "vitest run --config vitest.int.config.mts",
     "test:deploy": "bash deploy/tests/run-all.sh",
     "db:generate": "drizzle-kit generate",

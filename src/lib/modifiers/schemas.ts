@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@/lib/zod";
 import { normalizeKitchenLabel } from "./kitchen-label";
 
 const id = z.number().int().positive();

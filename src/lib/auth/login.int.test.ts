@@ -9,7 +9,9 @@ import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { authenticate } from "@/lib/auth/login";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { scryptSync, randomBytes } from "node:crypto";
+import { eq } from "drizzle-orm";
+import { hashPassword, needsRehash, verifyPassword } from "@/lib/auth/password";
 
 const db = () => testDb();
 
@@ -53,6 +55,40 @@ describe("authenticate", () => {
   it("never throws on odd input", async () => {
     expect(await authenticate(db(), { username: "", password: "" })).toBeNull();
     expect(await authenticate(db(), { username: "%_'\"; --", password: "x".repeat(10_000) })).toBeNull();
+  });
+
+  it("upgrades a legacy-parameter hash to the current cost on a successful login (and only then)", async () => {
+    const salt = randomBytes(16);
+    const legacy = `scrypt$16384$8$1$${salt.toString("base64")}$${scryptSync("legacy-pass", salt, 64, { N: 16384, r: 8, p: 1 }).toString("base64")}`;
+    await db().insert(s.users).values({ name: "Vieja", username: "vieja", passwordHash: legacy, role: "cajera" });
+    const stored = async () => (await db().select().from(s.users).where(eq(s.users.username, "vieja")))[0].passwordHash;
+
+    expect(await authenticate(db(), { username: "vieja", password: "wrong" })).toBeNull();
+    expect(await stored()).toBe(legacy); // a failed login never rewrites
+
+    expect(await authenticate(db(), { username: "vieja", password: "legacy-pass" })).not.toBeNull();
+    const upgraded = await stored();
+    expect(upgraded).not.toBe(legacy);
+    expect(needsRehash(upgraded)).toBe(false);
+    expect(upgraded.startsWith("scrypt$32768$8$3$")).toBe(true);
+
+    // The same password keeps working with the new hash, and a current hash is not rewritten again.
+    expect(await authenticate(db(), { username: "vieja", password: "legacy-pass" })).not.toBeNull();
+    expect(await stored()).toBe(upgraded);
+  });
+
+  it("a failing hash upgrade never fails the login", async () => {
+    const salt = randomBytes(16);
+    const legacy = `scrypt$16384$8$1$${salt.toString("base64")}$${scryptSync("legacy-pass", salt, 64, { N: 16384, r: 8, p: 1 }).toString("base64")}`;
+    await db().insert(s.users).values({ name: "Vieja", username: "vieja", passwordHash: legacy, role: "cajera" });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const real = db();
+    const noWrite = new Proxy(real, {
+      get: (t, prop, recv) => (prop === "update" ? () => { throw new Error("db read only"); } : Reflect.get(t, prop, recv)),
+    });
+    expect(await authenticate(noWrite, { username: "vieja", password: "legacy-pass" })).not.toBeNull();
+    expect(spy).toHaveBeenCalledWith("password hash upgrade failed");
+    spy.mockRestore();
   });
 
   it("logs a fixed string and returns null on unexpected errors", async () => {

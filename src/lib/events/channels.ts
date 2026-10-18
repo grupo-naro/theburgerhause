@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@/lib/zod";
 import { ORDER_STATUSES } from "@/domain/order-status";
 
 /** Postgres NOTIFY channels (spec §5 "Tiempo real"). No next/* here: shared by server and tests. */

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@/lib/zod";
 
 /** localStorage key of the "remember me" data. Only name, WhatsApp and the delivery fields. */
 export const CUSTOMER_STORAGE_KEY = "bh_customer_v1";

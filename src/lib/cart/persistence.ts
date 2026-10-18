@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@/lib/zod";
 import { NOTE_MAX, normalizeLine } from "./normalize";
 import { MAX_LINES } from "./reducer";
 import type { CartLine, CartState } from "./types";

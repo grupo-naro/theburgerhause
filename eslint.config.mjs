@@ -21,6 +21,14 @@ const eslintConfig = defineConfig([
     "packages/*/dist/**",
     "packages/*/release/**",
   ]),
+  // Browser code must not construct zod schemas through the raw package: see src/lib/zod.ts (CSP-safe, no eval probe).
+  {
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    ignores: ["src/lib/zod.ts", "src/lib/env.ts", "src/lib/print/protocol.ts", "**/*.test.ts", "**/*.test.tsx"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: [{ name: "zod", message: "Import { z } from \"@/lib/zod\" (browser code must not probe eval; see src/lib/zod.ts)." }] }],
+    },
+  },
 ]);
 
 export default eslintConfig;
