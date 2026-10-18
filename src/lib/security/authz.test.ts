@@ -48,7 +48,7 @@ function loader(file: string): () => Promise<Record<string, unknown>> {
   return load;
 }
 
-const ALL_ROLES: Role[] = ["admin", "cajera", "encargada_delivery"];
+const ALL_ROLES: Role[] = ["admin", "cajera", "encargada_delivery", "cocina"];
 
 const sessionOf = (role: Role, stationKind: "mostrador" | "delivery" | null = null): AuthSession => ({
   user: { id: 1, name: "T", username: "t", role },

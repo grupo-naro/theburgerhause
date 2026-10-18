@@ -15,6 +15,8 @@ describe("parseSettings", () => {
       acceptingOrders: true,
       openingHoursText: "",
       businessDayCutoff: "06:00",
+      kdsWarnMinutes: 8,
+      kdsLateMinutes: 15,
     });
   });
   it("reads known keys and merges the rest with defaults", () => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ORDER_STATUSES,
   canTransition,
+  canUndoReady,
   nextStatuses,
   type Fulfillment,
   type OrderStatus,
@@ -71,5 +72,16 @@ describe("transition table (spec §4)", () => {
         }
       }
     }
+  });
+});
+
+describe("canUndoReady (kitchen undo: the only backwards step)", () => {
+  it("only listo_despacho goes back to en_preparacion; once called (para_retirar) or beyond it does not", () => {
+    for (const from of ORDER_STATUSES) {
+      expect(canUndoReady(from), from).toBe(from === "listo_despacho");
+    }
+  });
+  it("is not part of the forward table", () => {
+    for (const f of ["delivery", "takeaway"] as Fulfillment[]) expect(canTransition("listo_despacho", "en_preparacion", f)).toBe(false);
   });
 });

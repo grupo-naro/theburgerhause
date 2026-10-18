@@ -50,16 +50,16 @@ export type DispatchOrderData = {
   paymentStatus: "pending" | "paid";
 };
 
-const fail = (code: DispatchFailureCode, message: string, details?: DispatchFailureDetail[]): DispatchFailure =>
+export const fail = (code: DispatchFailureCode, message: string, details?: DispatchFailureDetail[]): DispatchFailure =>
   details ? { ok: false, code, message, details } : { ok: false, code, message };
-const unexpected = (op: string, err: unknown): DispatchFailure => {
+export const unexpected = (op: string, err: unknown): DispatchFailure => {
   console.error(`[dispatch] ${op} failed`, pgErrorCode(err) ?? "");
   return fail("UNEXPECTED", UNEXPECTED_MESSAGE);
 };
-const fromTransition = (f: OrderFailure): DispatchFailure =>
+export const fromTransition = (f: OrderFailure): DispatchFailure =>
   fail(f.code === "STATION_REQUIRED" ? "UNEXPECTED" : f.code, f.message);
 
-const STATE_LABEL: Record<OrderStatus, string> = {
+export const STATE_LABEL: Record<OrderStatus, string> = {
   pendiente_aprobacion: "pendiente de aprobación",
   en_preparacion: "en preparación",
   listo_despacho: "listo para despacho",

@@ -12,6 +12,8 @@ const base = {
   acceptingOrders: true,
   openingHoursText: "",
   businessDayCutoff: "06:00",
+  kdsWarnMinutes: 8,
+  kdsLateMinutes: 15,
 };
 
 describe("settingsInputSchema", () => {
@@ -61,5 +63,20 @@ describe("businessDayCutoff", () => {
   });
   it("rejects anything else", () => {
     for (const businessDayCutoff of ["", "6:00", "24:00", "06:60", "06", "ab:cd"]) expect(settingsInputSchema.safeParse({ ...base, businessDayCutoff }).success).toBe(false);
+  });
+});
+
+describe("kitchen screen thresholds", () => {
+  it("accepts whole minutes with warn < late", () => {
+    expect(settingsInputSchema.safeParse({ ...base, kdsWarnMinutes: 1, kdsLateMinutes: 2 }).success).toBe(true);
+    expect(settingsInputSchema.safeParse({ ...base, kdsWarnMinutes: 479, kdsLateMinutes: 480 }).success).toBe(true);
+  });
+  it("rejects zero, fractions, NaN, above 480 and late <= warn (error on the late field)", () => {
+    for (const over of [{ kdsWarnMinutes: 0 }, { kdsWarnMinutes: 1.5 }, { kdsWarnMinutes: Number.NaN }, { kdsLateMinutes: 481 }]) {
+      expect(settingsInputSchema.safeParse({ ...base, ...over }).success).toBe(false);
+    }
+    const r = settingsInputSchema.safeParse({ ...base, kdsWarnMinutes: 15, kdsLateMinutes: 15 });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0].path).toEqual(["kdsLateMinutes"]);
   });
 });

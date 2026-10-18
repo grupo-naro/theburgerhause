@@ -32,6 +32,15 @@ export function actorSectorFor(role: Role, stationKind: StationKindName | null):
   return { ok: true, sector: stationKind };
 }
 
+/**
+ * The sector a user acts in on the KITCHEN SCREEN (ready / undo-ready ONLY). The `cocina` role cooks every
+ * sector's orders, so it is exempt (null) and needs no station; everyone else keeps the normal rule.
+ * No other action may use this: `actorSectorFor` still refuses `cocina` everywhere else.
+ */
+export function kitchenActorSectorFor(role: Role, stationKind: StationKindName | null): ActorSector {
+  return role === "cocina" ? { ok: true, sector: null } : actorSectorFor(role, stationKind);
+}
+
 /** The Spanish refusal an action returns for a failed `actorSectorFor`. */
 export function actorRefusal(code: "STATION_REQUIRED" | "WRONG_SECTOR"): { ok: false; code: typeof code; message: string } {
   return { ok: false, code, message: code === "WRONG_SECTOR" ? WRONG_SECTOR_MESSAGE : "Elegí tu estación para trabajar" };
@@ -51,5 +60,6 @@ export function decideSector(actor: Sector | null | undefined, fulfillment: Fulf
 /** Supported role/station combinations: staff work at the station kind of their own sector (admin anywhere). */
 export function stationAllowedForRole(role: Role, kind: StationKindName): boolean {
   if (role === "admin") return true;
+  if (role === "cocina") return false; // the kitchen has no station: it only uses the kitchen screen
   return role === "cajera" ? kind === "mostrador" : kind === "delivery";
 }

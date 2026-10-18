@@ -14,6 +14,7 @@ import { cutoffMinutes, DEFAULT_BUSINESS_DAY_CUTOFF } from "@/db/order-number";
  *  delivery_fee -> deliveryFee (0, centavos)          accepting_orders -> acceptingOrders (true)
  *  opening_hours_text -> openingHoursText ("")
  *  business_day_cutoff -> businessDayCutoff ("06:00", HH:MM Buenos Aires: orders numbering and business date roll here)
+ *  kds_warn_minutes -> kdsWarnMinutes (8) / kds_late_minutes -> kdsLateMinutes (15): kitchen screen yellow / red clock
  */
 
 export type Settings = {
@@ -29,6 +30,9 @@ export type Settings = {
   openingHoursText: string;
   /** "HH:MM" (America/Argentina/Buenos_Aires): the business day and the order numbering roll over at this time. */
   businessDayCutoff: string;
+  /** Kitchen screen clock: minutes in preparation before an order turns yellow / red. */
+  kdsWarnMinutes: number;
+  kdsLateMinutes: number;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -42,6 +46,8 @@ export const DEFAULT_SETTINGS: Settings = {
   acceptingOrders: true,
   openingHoursText: "",
   businessDayCutoff: DEFAULT_BUSINESS_DAY_CUTOFF,
+  kdsWarnMinutes: 8,
+  kdsLateMinutes: 15,
 };
 
 /** DB key of each field. */
@@ -56,6 +62,8 @@ export const SETTING_KEYS = {
   acceptingOrders: "accepting_orders",
   openingHoursText: "opening_hours_text",
   businessDayCutoff: "business_day_cutoff",
+  kdsWarnMinutes: "kds_warn_minutes",
+  kdsLateMinutes: "kds_late_minutes",
 } as const satisfies Record<keyof Settings, string>;
 
 type Conn = Db | DbTransaction;
@@ -64,6 +72,7 @@ const asString = (v: unknown, fallback: string) => (typeof v === "string" ? v : 
 const asCents = (v: unknown, fallback: number) =>
   typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : fallback;
 const asCutoff = (v: unknown, fallback: string) => (typeof v === "string" && cutoffMinutes(v) !== null ? v : fallback);
+const asMinutes = (v: unknown, fallback: number) => (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 480 ? v : fallback);
 const asBool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
 
 /** Merges rows over the defaults; a missing or garbage value falls back to that key's default. */
@@ -82,6 +91,8 @@ export function parseSettings(rows: { key: string; value: unknown }[]): Settings
     acceptingOrders: asBool(raw.get(k.acceptingOrders), d.acceptingOrders),
     openingHoursText: asString(raw.get(k.openingHoursText), d.openingHoursText),
     businessDayCutoff: asCutoff(raw.get(k.businessDayCutoff), d.businessDayCutoff),
+    kdsWarnMinutes: asMinutes(raw.get(k.kdsWarnMinutes), d.kdsWarnMinutes),
+    kdsLateMinutes: asMinutes(raw.get(k.kdsLateMinutes), d.kdsLateMinutes),
   };
 }
 

@@ -27,6 +27,7 @@ export type Entry = {
 
 const ADMIN: Role[] = ["admin"];
 const STAFF3: Role[] = ["cajera", "encargada_delivery", "admin"];
+const KITCHEN: Role[] = ["cocina", "cajera", "encargada_delivery", "admin"];
 const DELIVERY: Role[] = ["encargada_delivery", "admin"];
 const COUNTER: Role[] = ["cajera", "admin"];
 
@@ -83,6 +84,16 @@ export const SURFACE: Record<string, Entry> = {
   [`action:${STAFF_DIR}/mostrador/actions.ts#createCounterOrderAction`]: staffAction(COUNTER, "POS sale (cashier and admin)."),
   [`action:${STAFF_DIR}/mostrador/actions.ts#listActivePagersAction`]: staffAction(COUNTER, "Active pager numbers."),
   [`action:${STAFF_DIR}/mostrador/actions.ts#getPrintStateAction`]: staffAction(COUNTER, "Print status of one order."),
+  [`action:${STAFF_DIR}/cocina/actions.ts#kitchenReadyAction`]: staffAction(
+    KITCHEN,
+    "Kitchen screen: order ready. The cocina role is exempt from the sector rule (only here); cashier / delivery manager keep their own sector, admin exempt.",
+    ["src/app/(staff)/cocina/actions.int.test.ts", AUTHZ_TEST],
+  ),
+  [`action:${STAFF_DIR}/cocina/actions.ts#kitchenUndoAction`]: staffAction(
+    KITCHEN,
+    "Kitchen screen: put a ready order back in preparation, only while nobody called / assigned it (audited). Same sector rule as kitchenReadyAction.",
+    ["src/app/(staff)/cocina/actions.int.test.ts", AUTHZ_TEST],
+  ),
   [`action:${STAFF_DIR}/estacion/actions.ts#selectStation`]: staffAction(
     STAFF3,
     "Bind the session to a station of the role's kind (guard: requireSessionOrRedirect).",
@@ -129,7 +140,7 @@ export const SURFACE: Record<string, Entry> = {
   },
   ["route:src/app/api/events/route.ts#GET"]: {
     access: "staff",
-    roles: STAFF3,
+    roles: KITCHEN,
     note: "SSE for staff screens: requireRole first, caps 10 per user / 200 global, session revalidated every 60 s without sliding.",
     tests: ["src/app/api/events/route.test.ts", AUTHZ_TEST],
   },

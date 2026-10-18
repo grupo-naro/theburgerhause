@@ -86,9 +86,9 @@ describe("events handler: auth and headers", () => {
     expect(connectionStats().total).toBe(0);
   });
 
-  it("asks for the three staff roles", async () => {
+  it("asks for the staff roles (kitchen included)", async () => {
     const c = await open(handlerWith());
-    expect(requireRole).toHaveBeenCalledWith("admin", "cajera", "encargada_delivery");
+    expect(requireRole).toHaveBeenCalledWith("admin", "cajera", "encargada_delivery", "cocina");
     c.ac.abort();
   });
 

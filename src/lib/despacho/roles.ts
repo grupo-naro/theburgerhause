@@ -16,6 +16,7 @@ const FULL: Capabilities = { canAssign: true, canControlDelivery: true, canRende
 const BY_ROLE: Record<Role, Capabilities> = {
   admin: FULL,
   encargada_delivery: FULL,
+  cocina: { canAssign: false, canControlDelivery: false, canRender: false, canControlCounter: false },
   cajera: { canAssign: false, canControlDelivery: false, canRender: false, canControlCounter: true },
 };
 

@@ -29,3 +29,12 @@ export function nextStatuses(from: OrderStatus, fulfillment: Fulfillment): Order
 export function canTransition(from: OrderStatus, to: OrderStatus, fulfillment: Fulfillment): boolean {
   return nextStatuses(from, fulfillment).includes(to);
 }
+
+/**
+ * The kitchen's "Deshacer": a ready order goes back to preparation, but only while nobody acted on it. `listo_despacho`
+ * is the only such state: from `para_retirar` the pager was already called (the customer was told), `en_camino` has a
+ * cadet, and later states are history. Deliberately NOT part of the forward table above.
+ */
+export function canUndoReady(from: OrderStatus): boolean {
+  return from === "listo_despacho";
+}

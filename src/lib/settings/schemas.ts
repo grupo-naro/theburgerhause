@@ -33,6 +33,12 @@ export const settingsInputSchema = z.object({
     .string()
     .trim()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Ingresá una hora entre 00:00 y 23:59 (ej. 06:00)"),
+  kdsWarnMinutes: z.number("Ingresá los minutos").int("En minutos enteros").min(1, "Mínimo 1 minuto").max(480, "Máximo 480 minutos"),
+  kdsLateMinutes: z.number("Ingresá los minutos").int("En minutos enteros").min(1, "Mínimo 1 minuto").max(480, "Máximo 480 minutos"),
+}).superRefine((v, ctx) => {
+  if (v.kdsWarnMinutes >= v.kdsLateMinutes) {
+    ctx.addIssue({ code: "custom", path: ["kdsLateMinutes"], message: "Tiene que ser mayor que el aviso amarillo" });
+  }
 });
 
 export type SettingsInput = z.input<typeof settingsInputSchema>;

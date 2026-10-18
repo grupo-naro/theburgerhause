@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
-import { canTransition, type Fulfillment, type OrderStatus } from "@/domain/order-status";
+import { canTransition, canUndoReady, type Fulfillment, type OrderStatus } from "@/domain/order-status";
 import { ORDERS_CHANNEL } from "@/lib/events/channels";
 import { notifyInTx } from "@/lib/events/notify";
 import { decideSector, type Sector } from "./sector";
@@ -55,6 +55,8 @@ export type TransitionInput = {
   sector: Sector | null;
   /** Realtime hint for the ORDERS notify (default "status"; dispatch uses "assigned"). */
   event?: "status" | "assigned";
+  /** The kitchen's undo: replaces the forward table by `canUndoReady` (only listo_despacho -> en_preparacion). */
+  undo?: boolean;
 };
 export type TransitionedOrder = {
   id: number;
@@ -80,7 +82,8 @@ export async function transitionOrder(
   const sectorOk = decideSector(input.sector, current.fulfillment);
   if (!sectorOk.ok) return failure("WRONG_SECTOR", sectorOk.message);
 
-  const allowed = canTransition(current.status, to, current.fulfillment) && (!input.from || input.from.includes(current.status));
+  const tableOk = input.undo ? to === "en_preparacion" && canUndoReady(current.status) : canTransition(current.status, to, current.fulfillment);
+  const allowed = tableOk && (!input.from || input.from.includes(current.status));
   if (!allowed) return failure("INVALID_TRANSITION", currentStateMessage(current.status));
 
   const patch: TransitionPatch = {};

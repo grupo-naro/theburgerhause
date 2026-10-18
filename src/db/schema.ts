@@ -35,7 +35,7 @@ export const paymentMethod = pgEnum("payment_method", ["cash", "transfer"]);
 export const paymentStatus = pgEnum("payment_status", ["pending", "paid"]);
 export const fulfillment = pgEnum("fulfillment", ["delivery", "takeaway"]);
 export const channel = pgEnum("channel", ["web", "counter"]);
-export const userRole = pgEnum("user_role", ["admin", "cajera", "encargada_delivery"]);
+export const userRole = pgEnum("user_role", ["admin", "cajera", "encargada_delivery", "cocina"]);
 export const printJobStatus = pgEnum("print_job_status", [
   "pending",
   "printing",
@@ -364,6 +364,7 @@ export const printJobs = pgTable(
  *  - bank_cbu        string   (transfer payments)
  *  - delivery_fee    number   (centavos)
  *  - accepting_orders boolean (false shows the "local cerrado" banner)
+ *  - kds_warn_minutes / kds_late_minutes number (kitchen screen yellow / red clock, defaults 8 / 15)
  *  - business_day_cutoff string "HH:MM" (Buenos Aires; numbering and business_date roll here, default 06:00)
  */
 export const settings = pgTable("settings", {
