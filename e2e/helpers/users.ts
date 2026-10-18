@@ -1,5 +1,5 @@
 /** Test-only users. Passwords are constants: the e2e database is disposable. */
-export type E2ERole = "admin" | "cajera" | "encargada_delivery";
+export type E2ERole = "admin" | "cajera" | "encargada_delivery" | "cocina";
 
 export type E2EUser = {
   role: E2ERole;
@@ -30,6 +30,8 @@ export const USERS = {
     station: "Delivery 1",
     home: "/delivery",
   },
+  // The kitchen device: no station, lands straight on the kitchen screen.
+  cocina: { role: "cocina", name: "Cocina E2E", username: "cocina", password: "cocina-e2e-pass-1", home: "/cocina" },
 } as const satisfies Record<string, E2EUser>;
 
 export type UserKey = keyof typeof USERS;

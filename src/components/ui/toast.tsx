@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-export type ToastAction = { label: string; href?: string; onClick?: () => void };
+export type ToastAction = { label: string; href?: string; onClick?: () => void; /** 56 px target (touch screens such as the kitchen). */ large?: boolean };
 export type ToastOptions = { message: string; action?: ToastAction; durationMs?: number };
 type ActiveToast = ToastOptions & { id: number };
 
@@ -58,7 +58,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             }}
             className="pointer-events-auto flex max-w-full animate-toast-in items-center gap-3 rounded-full bg-ink py-1.5 pl-5 pr-1.5 text-white shadow-[0_8px_24px_rgba(11,31,58,0.35)]"
           >
-            <span className="py-1.5 text-sm font-medium">{toast.message}</span>
+            <span className={`py-1.5 font-medium ${toast.action?.large ? "text-lg" : "text-sm"}`}>{toast.message}</span>
             {toast.action && <ToastActionButton action={toast.action} onDone={dismiss} />}
           </div>
         )}
@@ -68,12 +68,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 const actionClass =
-  "inline-flex min-h-11 shrink-0 items-center rounded-full bg-cheddar-400 px-4 text-sm font-bold text-ink transition-colors hover:bg-cheddar-600 focus-visible:outline-white";
+  "inline-flex shrink-0 items-center rounded-full bg-cheddar-400 px-4 text-sm font-bold text-ink transition-colors hover:bg-cheddar-600 focus-visible:outline-white";
 
 function ToastActionButton({ action, onDone }: { action: ToastAction; onDone: () => void }) {
+  const cls = `${actionClass} ${action.large ? "min-h-14 text-base" : "min-h-11"}`;
   if (action.href) {
     return (
-      <Link href={action.href} onClick={onDone} className={actionClass}>
+      <Link href={action.href} onClick={onDone} className={cls}>
         {action.label}
       </Link>
     );
@@ -81,7 +82,7 @@ function ToastActionButton({ action, onDone }: { action: ToastAction; onDone: ()
   return (
     <button
       type="button"
-      className={actionClass}
+      className={cls}
       onClick={() => {
         action.onClick?.();
         onDone();

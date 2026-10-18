@@ -13,7 +13,7 @@ export { REFRESH_DEBOUNCE_MS };
  * `router.refresh()` (trailing debounce shared with the heartbeat, so a burst refreshes once).
  * Renders the connection indicator unless `indicator={false}`.
  */
-export function LiveRefresh({ indicator = true, large = false }: { indicator?: boolean; large?: boolean }) {
+export function LiveRefresh({ indicator = true, large = false, dark = false }: { indicator?: boolean; large?: boolean; dark?: boolean }) {
   const router = useRouter();
   const refresh = useCallback(() => requestRefresh(router), [router]);
   useEffect(() => cancelRefresh, []);
@@ -28,5 +28,5 @@ export function LiveRefresh({ indicator = true, large = false }: { indicator?: b
     caughtUp.current = true;
     refresh();
   }, [state, refresh]);
-  return indicator ? <ConnectionIndicator state={state} large={large} /> : null;
+  return indicator ? <ConnectionIndicator state={state} large={large} dark={dark} /> : null;
 }

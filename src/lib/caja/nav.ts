@@ -8,6 +8,7 @@ const MOSTRADOR: NavLink = { href: "/mostrador/pedidos", label: "Mostrador" };
 const RETIRO: NavLink = { href: "/retiro", label: "Retiro en local" };
 const DELIVERY: NavLink = { href: "/delivery", label: "Gestión Delivery" };
 const RENDICION: NavLink = { href: "/delivery/rendicion", label: "Rendición" };
+const COCINA: NavLink = { href: "/cocina", label: "Cocina" };
 const GENERAL_CAJA: NavLink = { href: "/caja", label: "Vista general" };
 const GENERAL_DESPACHO: NavLink = { href: "/despacho", label: "Tablero general" };
 const ADMIN: NavLink = { href: "/admin", label: "Administración" };
@@ -32,8 +33,9 @@ export function activeNavHref(pathname: string, links: readonly NavLink[]): stri
  * still guard themselves (this is navigation, not authorization).
  */
 export function navLinksFor(role: Role, stationKind: StationKindName | null): NavLink[] {
-  if (role === "admin") return [...MOSTRADOR_WORKSPACE, ...DELIVERY_WORKSPACE, GENERAL_CAJA, GENERAL_DESPACHO, ADMIN];
+  if (role === "cocina") return [COCINA]; // the kitchen role sees only its screen (the shell hides the navigation anyway)
+  if (role === "admin") return [...MOSTRADOR_WORKSPACE, ...DELIVERY_WORKSPACE, COCINA, GENERAL_CAJA, GENERAL_DESPACHO, ADMIN];
   const own = role === "cajera" ? "mostrador" : "delivery";
   if (stationKind !== null && stationKind !== own) return [CHANGE_STATION];
-  return [...(own === "mostrador" ? MOSTRADOR_WORKSPACE : DELIVERY_WORKSPACE)];
+  return [...(own === "mostrador" ? MOSTRADOR_WORKSPACE : DELIVERY_WORKSPACE), COCINA];
 }

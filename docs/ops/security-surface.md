@@ -90,5 +90,6 @@ Every page under `src/app/(admin)/admin/**` is admin-only: the page (or, for the
 | `src/app/(staff)/mostrador/page.tsx` | staff | cajera, admin | POS (mostrador sector). | `e2e/mostrador-guards.spec.ts` |
 | `src/app/(staff)/mostrador/pedidos/page.tsx` | staff | cajera, admin | Counter orders board. | `e2e/despacho-roles.spec.ts` |
 | `src/app/(staff)/retiro/page.tsx` | staff | cajera, admin | Takeaway approval workspace. | `e2e/caja.spec.ts` |
+| `src/app/(staff)/cocina/page.tsx` | staff | cocina, cajera, encargada_delivery, admin | Kitchen screen (orders in preparation, no customer data). | `e2e/cocina.spec.ts` |
 | `src/app/(staff)/delivery/page.tsx` | staff | encargada_delivery, admin | Delivery workspace. | `e2e/delivery-workspace.spec.ts` |
 | `src/app/(staff)/delivery/rendicion/page.tsx` | staff | encargada_delivery, admin | Cadet settlement screen. | `e2e/rendicion-roles-print.spec.ts` |

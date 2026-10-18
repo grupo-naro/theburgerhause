@@ -17,7 +17,12 @@ export type SoundHint = "off" | "locked" | null;
  * Everything the cashier perceives when an order arrives: a beep (opt-in), a highlight on the new
  * card (~4 s), the tab title, and a polite live-region message. The FIRST render never alerts.
  */
-export function useNewOrderAlert(orders: Watched[], titleBase?: string) {
+/**
+ * `reminders: false` turns the soft "something has been waiting" beep off (the kitchen screen has its own
+ * colour clock and must not beep every minute on a busy night).
+ */
+export function useNewOrderAlert(orders: Watched[], titleBase?: string, opts: { reminders?: boolean } = {}) {
+  const reminders = opts.reminders ?? true;
   const soundOn = useSoundPreference();
   const beeper = useRef<Beeper | null>(null);
   const seen = useRef<Set<number> | null>(null);
@@ -92,14 +97,14 @@ export function useNewOrderAlert(orders: Watched[], titleBase?: string) {
 
   // Soft reminder while something has been waiting more than 5 minutes.
   useEffect(() => {
-    if (!soundOn) return;
+    if (!soundOn || !reminders) return;
     const id = window.setInterval(() => {
       const t = Date.now();
       const stale = latest.current.some((o) => t - Date.parse(o.createdAt) > WARNING_AFTER_MS);
       if (stale) getBeeper().play("reminder");
     }, REMINDER_MS);
     return () => window.clearInterval(id);
-  }, [soundOn, getBeeper]);
+  }, [soundOn, reminders, getBeeper]);
 
   const toggleSound = useCallback(async () => {
     if (soundRef.current) {

@@ -25,7 +25,7 @@ export function useCardAction() {
   }, []);
 
   const exec = useCallback(
-    <T,>(call: () => Promise<ActionResult<T>>, onOk?: (data: T) => void) =>
+    <T,>(call: () => Promise<ActionResult<T>>, onOk?: (data: T) => void, onFail?: (failure: Extract<ActionResult<T>, { ok: false }>) => void) =>
       run(call, {
         lockOnSuccess: true,
         onOk: (data) => {
@@ -40,7 +40,8 @@ export function useCardAction() {
           );
         },
         onFail: (f) => {
-          if (f.code === "INVALID_TRANSITION" || f.code === "NOT_FOUND") router.refresh();
+          if (f.code === "INVALID_TRANSITION" || f.code === "NOT_FOUND" || f.code === "NOT_IN_PREPARATION") router.refresh();
+          onFail?.(f);
         },
       }),
     [run, router, release],

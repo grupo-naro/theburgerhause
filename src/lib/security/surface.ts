@@ -187,6 +187,7 @@ export const SURFACE: Record<string, Entry> = {
   ["page:src/app/(staff)/mostrador/page.tsx"]: { access: "staff", roles: COUNTER, note: "POS (mostrador sector).", tests: ["e2e/mostrador-guards.spec.ts"] },
   ["page:src/app/(staff)/mostrador/pedidos/page.tsx"]: { access: "staff", roles: COUNTER, note: "Counter orders board.", tests: ["e2e/despacho-roles.spec.ts"] },
   ["page:src/app/(staff)/retiro/page.tsx"]: { access: "staff", roles: COUNTER, note: "Takeaway approval workspace.", tests: ["e2e/caja.spec.ts"] },
+  ["page:src/app/(staff)/cocina/page.tsx"]: { access: "staff", roles: KITCHEN, note: "Kitchen screen (orders in preparation, no customer data).", tests: ["e2e/cocina.spec.ts"] },
   ["page:src/app/(staff)/delivery/page.tsx"]: { access: "staff", roles: DELIVERY, note: "Delivery workspace.", tests: ["e2e/delivery-workspace.spec.ts"] },
   ["page:src/app/(staff)/delivery/rendicion/page.tsx"]: { access: "staff", roles: DELIVERY, note: "Cadet settlement screen.", tests: ["e2e/rendicion-roles-print.spec.ts"] },
 };
