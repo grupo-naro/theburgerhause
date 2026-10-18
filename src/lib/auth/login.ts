@@ -1,11 +1,11 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { users } from "@/db/schema";
-import { hashPassword, needsRehash, verifyPassword } from "@/lib/auth/password";
+import { hashPassword, needsRehash, verifyPasswordUniformCost } from "@/lib/auth/password";
 import type { AuthUser, Role } from "@/lib/auth/roles";
 
-// Hash of a throwaway password, produced with the same scrypt parameters as real
-// ones. Verifying against it for unknown users keeps response time comparable.
+// Hash of a throwaway password with the CURRENT scrypt parameters; verifyPasswordUniformCost pads the other
+// accepted sets so unknown users, current hashes and legacy hashes all cost the same time.
 let dummyHash: Promise<string> | undefined;
 function getDummyHash(): Promise<string> {
   dummyHash ??= hashPassword("dummy-password-for-timing-parity");
@@ -40,7 +40,7 @@ export async function authenticate(
       .select()
       .from(users)
       .where(and(sql`lower(${users.username}) = ${username.trim().toLowerCase()}`, eq(users.active, true)));
-    const ok = await verifyPassword(password, row ? row.passwordHash : await getDummyHash());
+    const ok = await verifyPasswordUniformCost(password, row ? row.passwordHash : await getDummyHash());
     if (!row || !ok) return null;
     await upgradeHash(db, row.id, row.passwordHash, password);
     return { id: row.id, name: row.name, username: row.username, role: row.role };

@@ -97,4 +97,10 @@ describe("scanner", () => {
     expect(names.find((n) => n.name === "a")?.kind).toBe("async-function");
     expect(names.find((n) => n.name === "d")?.kind).toBe("other");
   });
+  it("sees re-exports from other modules (they can not be classified, so they surface as non-async exports)", () => {
+    const src = ["export * from \"./x\";", "export * as ns from \"./y\";", "export { z as act } from \"./z\";", "export type * from \"./t\";"].join("\n");
+    const names = exportsOf(src);
+    expect(names.map((n) => n.name).sort()).toEqual(["*", "*", "act", "ns"]);
+    expect(names.every((n) => n.kind === "other")).toBe(true);
+  });
 });

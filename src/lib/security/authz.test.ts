@@ -201,8 +201,14 @@ describe("Route Handlers", () => {
       expect((await POST(sameOriginPost())).status).toBe(403);
     }
     state.session = sessionOf("admin");
-    expect((await POST(sameOriginPost({ origin: "https://evil.example" }))).status).toBeGreaterThanOrEqual(400);
+    expect((await POST(sameOriginPost({ origin: "https://evil.example" }))).status).toBe(403);
+    expect((await POST(sameOriginPost({ origin: "" }))).status).toBe(403); // a missing Origin is refused too
     expect(state.dbCalls).toBe(0);
+    // Positive control: same-origin admin passes the origin check and the role check (the bogus multipart body then
+    // fails later with 400, which is exactly what tells the two refusals apart).
+    const res = await POST(sameOriginPost());
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: expect.stringMatching(/form|file/) });
   });
 
   it("agent routes: no, malformed, query-string or unknown tokens are 401 and never reach a write", async () => {

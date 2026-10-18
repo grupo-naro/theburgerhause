@@ -55,6 +55,8 @@ export function exportsOf(src: string): Export[] {
       if (name) found.push({ name, kind: "other" });
     }
   }
+  // `export * from "./x"` hides what is exported, so it can not be classified: it surfaces as an unknown export.
+  for (const m of code.matchAll(/^export\s+(?:type\s+)?\*\s*(?:as\s+(\w+)\s+)?from\b/gm)) found.push({ name: m[1] ?? "*", kind: "other" });
   if (/^export\s+default\b/m.test(code)) found.push({ name: "default", kind: "other" });
   return found;
 }

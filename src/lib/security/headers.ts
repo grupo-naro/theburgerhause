@@ -77,5 +77,5 @@ export function baseSecurityHeaders({ isDev = false }: { isDev?: boolean } = {})
  * Referrer policy for everything except the capability URLs (/pedido, /api/pedido), which keep
  * their own `no-referrer`. A negative-lookahead source keeps the two rules disjoint.
  */
-export const REFERRER_DEFAULT_SOURCE = "/((?!pedido|api/pedido).*)";
+export const REFERRER_DEFAULT_SOURCE = "/((?!pedido$|pedido/|api/pedido$|api/pedido/).*)";
 export const REFERRER_DEFAULT: HeaderEntry = { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" };

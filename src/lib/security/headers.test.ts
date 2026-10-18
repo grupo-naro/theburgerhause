@@ -59,6 +59,9 @@ describe("security headers", () => {
     expect(re.test("/carrito")).toBe(true);
     expect(re.test("/api/health")).toBe(true);
     expect(re.test("/pedido/abc")).toBe(false);
+    expect(re.test("/pedido")).toBe(false);
+    expect(re.test("/pedidos-x")).toBe(true);
+    expect(re.test("/api/pedido-x")).toBe(true);
     expect(re.test("/api/pedido/abc/status")).toBe(false);
   });
 });

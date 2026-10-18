@@ -52,3 +52,21 @@ export async function verifyPassword(plain: string, stored: string): Promise<boo
     return false;
   }
 }
+
+/** Parameter sets whose cost a verification of `stored` does NOT pay on its own (see verifyPasswordUniformCost). */
+export function paddingSets(stored: string): ReadonlyArray<{ N: number; r: number; p: number }> {
+  const parts = stored.split("$");
+  const own = parts.length === 6 && parts[0] === "scrypt" ? ACCEPTED.find((a) => a.N === Number(parts[1]) && a.r === Number(parts[2]) && a.p === Number(parts[3])) : undefined;
+  return ACCEPTED.filter((a) => a !== own);
+}
+
+/**
+ * `verifyPassword` plus a throwaway derivation with every OTHER accepted parameter set, run concurrently. A
+ * login for an unknown user (target-cost dummy hash), a current hash and a legacy hash therefore all take about
+ * the cost of the most expensive set, so response time does not reveal which usernames still have legacy hashes.
+ */
+export async function verifyPasswordUniformCost(plain: string, stored: string): Promise<boolean> {
+  const pad = paddingSets(stored).map((a) => derive(plain, Buffer.alloc(SALT_BYTES), a.N, a.r, a.p).catch(() => null));
+  const [ok] = await Promise.all([verifyPassword(plain, stored), ...pad]);
+  return ok;
+}

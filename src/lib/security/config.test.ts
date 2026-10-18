@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import nextConfig from "../../../next.config";
-import { CSP_HEADER_NAME } from "./headers";
+import { CSP_HEADER_NAME, REFERRER_DEFAULT_SOURCE } from "./headers";
 
 type Rule = { source: string; headers: { key: string; value: string }[] };
 
@@ -26,6 +26,6 @@ describe("next.config.ts", () => {
     expect(pedido.headers).toEqual(expect.arrayContaining([{ key: "Referrer-Policy", value: "no-referrer" }, { key: "Cache-Control", value: "private, no-store" }]));
     // No rule other than /pedido may set a conflicting Referrer-Policy on it.
     const referrer = rules.filter((r) => r.headers.some((h) => h.key === "Referrer-Policy"));
-    expect(referrer.map((r) => r.source).sort()).toEqual(["/((?!pedido|api/pedido).*)", "/pedido/:path*"].sort());
+    expect(referrer.map((r) => r.source).sort()).toEqual([REFERRER_DEFAULT_SOURCE, "/pedido/:path*"].sort());
   });
 });

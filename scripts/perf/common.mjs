@@ -18,6 +18,24 @@ function testDatabaseUrl(serverUrl) {
   url.pathname = `/${TEST_DB_NAME}`;
   return url.toString();
 }
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/**
+ * The perf scripts WIPE the test database and spawn servers: refuse to run against anything but this machine
+ * unless the operator says so explicitly (--allow-remote). Throws with a message that names the host.
+ */
+export function assertLocalDatabase(serverUrl, allowRemote = false) {
+  let host;
+  try {
+    host = new URL(serverUrl).hostname.toLowerCase();
+  } catch {
+    throw new Error("DATABASE_URL is not a valid URL");
+  }
+  if (!allowRemote && !LOCAL_HOSTS.has(host)) {
+    throw new Error(`refusing to run the perf scripts against the remote database host '${host}' (they wipe the test database). Pass --allow-remote if that is really intended.`);
+  }
+}
+
 export const PERF_DIR = path.join(ROOT, "perf-reports");
 export const SESSION_SECRET = "perf-only-session-secret-0123456789abcdef";
 
@@ -30,6 +48,7 @@ export function loadEnv() {
   }
   const serverUrl = process.env.E2E_SERVER_DATABASE_URL ?? process.env.DATABASE_URL;
   if (!serverUrl) throw new Error("DATABASE_URL is not set (needed to reach the Postgres server)");
+  assertLocalDatabase(serverUrl, process.argv.includes("--allow-remote"));
   const port = Number(process.env.PERF_PORT ?? 3100);
   return {
     serverUrl,
@@ -40,8 +59,11 @@ export function loadEnv() {
   };
 }
 
+/** Variables the spawned build/server needs from the operator's shell; everything else (tokens, cloud keys...) stays out. */
+const PASSTHROUGH = ["PATH", "Path", "PATHEXT", "SystemRoot", "SYSTEMROOT", "ComSpec", "TEMP", "TMP", "TMPDIR", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "LANG", "TZ"];
+
 export const serverEnv = (env) => ({
-  ...process.env,
+  ...Object.fromEntries(PASSTHROUGH.filter((k) => process.env[k] !== undefined).map((k) => [k, process.env[k]])),
   NODE_ENV: "production",
   DATABASE_URL: env.testUrl,
   E2E_SERVER_DATABASE_URL: env.serverUrl,
