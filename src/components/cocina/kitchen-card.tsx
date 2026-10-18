@@ -70,7 +70,7 @@ export function KitchenCard({ card, now, thresholds, canAct, fresh }: Props) {
       data-type={card.type}
       data-age={color}
       data-leaving={busy ? "true" : undefined}
-      className={`flex max-h-[36rem] min-h-0 flex-col rounded-2xl border-2 border-l-[14px] border-white/15 bg-[#121c33] p-4 transition-opacity ${ACCENT[color]} ${busy ? "opacity-60" : ""} ${fresh ? "animate-card-flash" : ""}`}
+      className={`flex max-h-[max(26rem,calc(100dvh-22rem))] min-h-0 flex-col rounded-2xl border-2 border-l-[14px] border-white/15 bg-[#121c33] p-4 transition-opacity ${ACCENT[color]} ${busy ? "opacity-60" : ""} ${fresh ? "animate-card-flash" : ""}`}
     >
       <header className="flex items-start justify-between gap-3">
         <h2 className="font-display text-5xl leading-none font-extrabold text-white">
@@ -110,7 +110,7 @@ export function KitchenCard({ card, now, thresholds, canAct, fresh }: Props) {
         role="region"
         aria-label={`Productos del pedido ${card.number}`}
         data-testid="kitchen-units"
-        className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 focus-visible:outline-cheddar-400"
+        className="relative mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 focus-visible:outline-cheddar-400"
       >
         <ol className="space-y-3">
           {card.units.map((u) => (

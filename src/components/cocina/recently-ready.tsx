@@ -25,17 +25,17 @@ export function RecentlyReady({ cards, canAct }: Props) {
     <section
       aria-label="Recién listos"
       data-testid="recently-ready"
-      className="sticky bottom-2 z-10 mt-5 rounded-2xl border-2 border-white/20 bg-[#18233d] p-3 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]"
+      className="sticky bottom-2 z-10 mt-4 flex items-center gap-3 rounded-2xl border-2 border-white/20 bg-[#18233d] p-2 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]"
     >
-      <h2 className="mb-2 px-1 text-lg font-extrabold tracking-wide text-white/80 uppercase">Recién listos</h2>
+      <h2 className="w-24 shrink-0 pl-2 text-base leading-tight font-extrabold tracking-wide text-white/80 uppercase">Recién listos</h2>
       {cards.length === 0 ? (
-        <p data-testid="recently-ready-empty" className="px-1 py-2 text-lg text-white/70">
+        <p data-testid="recently-ready-empty" className="min-w-0 flex-1 py-2 text-lg text-white/70">
           Todavía no marcaste ningún pedido como listo.
         </p>
       ) : (
-        <ul className="flex gap-3 overflow-x-auto pb-1">
+        <ul className="flex min-w-0 flex-1 gap-3 overflow-x-auto">
           {cards.map((c) => (
-            <li key={c.id} data-testid="recent-item" data-order-number={c.number} className="flex shrink-0 items-center gap-3 rounded-xl bg-[#0b1220] py-2 pr-2 pl-4">
+            <li key={c.id} data-testid="recent-item" data-order-number={c.number} className="flex shrink-0 items-center gap-3 rounded-xl bg-[#0b1220] py-1.5 pr-1.5 pl-4">
               <span className="font-display text-3xl font-extrabold text-white">
                 <span className="text-white/60">#</span>
                 {c.number}

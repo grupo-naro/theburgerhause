@@ -260,6 +260,9 @@ test.describe("cocina", () => {
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     await waitForStablePage(page);
+    // Nothing hangs out below the dark shell (a screen-reader-only span inside a scroller once stretched the document).
+    const extra = await page.evaluate(() => document.documentElement.scrollHeight - document.body.getBoundingClientRect().bottom - scrollY);
+    expect(extra, "document taller than the kitchen shell").toBeLessThanOrEqual(2);
     await shot(page, "cocina-1280-full");
   });
 });
