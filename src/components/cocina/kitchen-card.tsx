@@ -96,15 +96,6 @@ export function KitchenCard({ card, now, thresholds, canAct, fresh }: Props) {
         )}
       </div>
 
-      {card.note !== null && (
-        <p
-          data-testid="kitchen-note"
-          className="mt-3 rounded-lg bg-cheddar-400 px-3 py-2 text-xl leading-snug font-extrabold [overflow-wrap:anywhere] whitespace-pre-line text-ink"
-        >
-          NOTA: {card.note}
-        </p>
-      )}
-
       <div
         tabIndex={0}
         role="region"
@@ -112,6 +103,14 @@ export function KitchenCard({ card, now, thresholds, canAct, fresh }: Props) {
         data-testid="kitchen-units"
         className="relative mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 focus-visible:outline-cheddar-400"
       >
+        {card.note !== null && (
+          <p
+            data-testid="kitchen-note"
+            className="mb-3 rounded-lg bg-cheddar-400 px-3 py-2 text-xl leading-snug font-extrabold [overflow-wrap:anywhere] whitespace-pre-line text-ink"
+          >
+            NOTA: {card.note}
+          </p>
+        )}
         <ol className="space-y-3">
           {card.units.map((u) => (
             <li key={u.n} data-testid="kitchen-unit" className="flex gap-3">

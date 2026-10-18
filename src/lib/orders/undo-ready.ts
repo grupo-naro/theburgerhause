@@ -30,6 +30,7 @@ export async function undoReady(db: Db, raw: { orderId: number; userId: number }
       if (!o) return fail("NOT_FOUND", "El pedido no existe");
       const sectorOk = decideSector(raw.sector, o.fulfillment);
       if (!sectorOk.ok) return fail("WRONG_SECTOR", sectorOk.message);
+      if (o.status === "en_preparacion") return fail("ALREADY_IN_PREPARATION", "Ese pedido ya está en preparación.");
       if (o.status === "para_retirar") {
         return fail("INVALID_TRANSITION", `El pedido #${o.number} ya fue avisado para retirar: no se puede volver a preparación.`);
       }

@@ -29,6 +29,8 @@ export type DispatchFailureCode =
   | "CADET_NOT_FOUND"
   | "NOT_DELIVERY"
   | "WRONG_SECTOR"
+  /** Kitchen undo on an order that is already back in preparation (a second screen got there first). */
+  | "ALREADY_IN_PREPARATION"
   | "UNEXPECTED";
 export type DispatchFailureDetail = { orderId: number; orderNumber: number | null; reason: string };
 export type DispatchFailure = {

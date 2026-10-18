@@ -50,9 +50,18 @@ describe("undoReady", () => {
     expect((await orderRow(o.id)).status).toBe("para_retirar");
   });
 
-  it("is refused when en_camino, entregado, cancelado or still en_preparacion; nothing is written", async () => {
+  it("an order already back in preparation (undone from another screen) answers ALREADY_IN_PREPARATION, nothing is written", async () => {
+    const o = await preparingWebOrder(fx);
+    const events = (await orderEventsOf(o.id)).length;
+    const r = await undo(o.id);
+    expect(r).toMatchObject({ ok: false, code: "ALREADY_IN_PREPARATION" });
+    expect(r.ok ? "" : r.message).toMatch(/ya está en preparación/);
+    expect(await orderEventsOf(o.id)).toHaveLength(events);
+  });
+
+  it("is refused when en_camino, entregado or cancelado; nothing is written", async () => {
     const cadet = await makeCadet();
-    for (const status of ["en_camino", "entregado", "cancelado", "en_preparacion"] as const) {
+    for (const status of ["en_camino", "entregado", "cancelado"] as const) {
       const o = await preparingWebOrder(fx, { fulfillment: "delivery" });
       await db()
         .update(s.orders)

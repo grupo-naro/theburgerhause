@@ -160,6 +160,16 @@ describe("kitchenUndoAction", () => {
     expect(await orderEventsOf(o.id)).toHaveLength(events);
   });
 
+  it("undo from a second screen when the order is already back in preparation: friendly ALREADY_IN_PREPARATION", async () => {
+    as("cocina");
+    const o = await preparingWebOrder(fx);
+    await kitchenReadyAction({ orderId: o.id });
+    await kitchenUndoAction({ orderId: o.id });
+    const r = (await kitchenUndoAction({ orderId: o.id })) as { ok: boolean; code: string; message: string };
+    expect(r).toMatchObject({ ok: false, code: "ALREADY_IN_PREPARATION" });
+    expect(r.message).toBe("Ese pedido ya está en preparación.");
+  });
+
   it("the cashier at Mostrador cannot undo a delivery order", async () => {
     as("cocina");
     const o = await preparingWebOrder(fx, { fulfillment: "delivery" });

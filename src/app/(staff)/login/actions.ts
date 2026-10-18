@@ -48,8 +48,9 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   await setSessionCookie(token);
 
   let destination: string;
-  if (user.role === "admin") {
-    destination = safeNextPath(next, "/admin");
+  if (user.role === "admin" || user.role === "cocina") {
+    // Admin and the kitchen device need no station: straight to their home.
+    destination = safeNextPath(next, roleHome(user.role));
   } else {
     const stationId = await getStationCookie();
     const station = stationId === null ? null : await findStation(db, stationId);

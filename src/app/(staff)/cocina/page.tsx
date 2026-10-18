@@ -20,13 +20,14 @@ async function CocinaPage() {
   const actor = kitchenActorSectorFor(session.user.role, session.stationKind);
 
   return (
-    <StaffShell session={session} ownsOrderAlert>
+    <StaffShell session={session}>
       <ToastProvider>
         <KitchenBoard
           cards={board.map(toKitchenCardDto)}
           recent={recent.map(toKitchenCardDto)}
           serverNow={now.toISOString()}
           thresholds={kitchenThresholds(settings)}
+          ownsTitle={session.user.role === "cocina"}
           actorSector={actor.ok ? actor.sector : null}
           blockedReason={actor.ok ? null : actorRefusal(actor.code).message}
         />

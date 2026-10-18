@@ -21,7 +21,7 @@ export type SoundHint = "off" | "locked" | null;
  * `reminders: false` turns the soft "something has been waiting" beep off (the kitchen screen has its own
  * colour clock and must not beep every minute on a busy night).
  */
-export function useNewOrderAlert(orders: Watched[], titleBase?: string, opts: { reminders?: boolean } = {}) {
+export function useNewOrderAlert(orders: Watched[], titleBase?: string, opts: { reminders?: boolean; manageTitle?: boolean } = {}) {
   const reminders = opts.reminders ?? true;
   const soundOn = useSoundPreference();
   const beeper = useRef<Beeper | null>(null);
@@ -70,7 +70,7 @@ export function useNewOrderAlert(orders: Watched[], titleBase?: string, opts: { 
       document.removeEventListener("visibilitychange", seenIt);
     };
   }, []);
-  useDocumentTitle(orders.length, titleAlert, titleBase);
+  useDocumentTitle(orders.length, titleAlert, titleBase, opts.manageTitle ?? true);
 
   // A stored "on" needs one user gesture per page load before the browser lets us play.
   useEffect(() => {

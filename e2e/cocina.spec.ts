@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import * as s from "../src/db/schema";
-import { countEventSources, eventsOf, openDelivery, orderById } from "./helpers/caja";
+import { countEventSources, eventsOf, openDelivery, orderById, parkPendingOrders, placeCajaOrder } from "./helpers/caja";
 import { db, itemsOfOrder } from "./helpers/db";
 import {
   cleanBoard,
@@ -16,7 +16,7 @@ import {
 } from "./helpers/despacho";
 import { staffContext } from "./helpers/journey";
 import { shot, shotViewport, waitForStablePage } from "./helpers/shots";
-import { authFile } from "./helpers/users";
+import { authFile, USERS } from "./helpers/users";
 
 /**
  * Kitchen screen (KDS) at /cocina: the cook sees every order in preparation as a card and marks LISTO with one tap.
@@ -265,6 +265,79 @@ test.describe("cocina", () => {
     expect(extra, "document taller than the kitchen shell").toBeLessThanOrEqual(2);
     await shot(page, "cocina-1280-full");
   });
+
+  test("a long order with a note on EVERY unit keeps LISTO inside the card and on screen at 1280, 1024 and 768", async ({ page }) => {
+    const big = await placeApproved({ single: false });
+    const items = await itemsOfOrder(big.id);
+    for (let i = 0; i < 7; i++) {
+      const src = items[i % items.length];
+      await db().insert(s.orderItems).values({ orderId: big.id, productId: src.productId, nameSnapshot: src.nameSnapshot, unitPriceSnapshot: src.unitPriceSnapshot, notes: null });
+    }
+    const note = (n: number) => `Unidad ${n}: sin sal, bien cocida, cortar al medio, extra salsa aparte, sin pepinillos, avisar si falta algo, empacar separado`;
+    const all = await itemsOfOrder(big.id);
+    expect(all.length).toBe(10);
+    for (const [i, item] of all.entries()) await db().update(s.orderItems).set({ notes: note(i + 1).slice(0, 140) }).where(eq(s.orderItems.id, item.id));
+    await openKitchen(page);
+    const card = kcard(page, big.number);
+    await expect(card).toBeVisible();
+    for (const width of [1280, 1024, 768]) {
+      await page.setViewportSize({ width, height: 800 });
+      await waitForStablePage(page);
+      const cardBox = (await card.boundingBox())!;
+      const ready = (await card.getByTestId("kitchen-ready").boundingBox())!;
+      expect(ready.y, `LISTO inside the card at ${width}`).toBeGreaterThanOrEqual(cardBox.y);
+      expect(ready.y + ready.height, `LISTO inside the card at ${width}`).toBeLessThanOrEqual(cardBox.y + cardBox.height + 1);
+      await expect(card.getByTestId("kitchen-ready")).toBeInViewport();
+      const units = card.getByTestId("kitchen-units");
+      expect(await units.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+      await units.evaluate((el) => (el.scrollTop = el.scrollHeight));
+      await expect(card.getByTestId("kitchen-unit").last()).toBeInViewport();
+      await units.evaluate((el) => (el.scrollTop = 0));
+    }
+    await shotViewport(page, "cocina-long-notes-768");
+  });
+
+  test("the age keeps growing when the device clock is hours behind the server", async ({ page }) => {
+    const o = await placeApproved({});
+    await setStatusClock(o.id, "en_preparacion", new Date(Date.now() - 20 * 60_000));
+    await page.clock.install({ time: new Date(Date.now() - 3 * 3_600_000) }); // the tablet thinks it is 3 hours earlier
+    await page.goto("/cocina");
+    const clock = kcard(page, o.number).getByTestId("kitchen-clock");
+    await expect(clock).toHaveText("hace 20 min");
+    await page.clock.fastForward(5 * 60_000);
+    await expect(clock).toHaveText("hace 25 min");
+    await expect(clock).toHaveAttribute("data-color", "red");
+  });
+
+  test("login through the form: no station hop, straight to /cocina", async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: test.info().project.use.extraHTTPHeaders });
+    try {
+      const page = await context.newPage();
+      const visited: string[] = [];
+      page.on("framenavigated", (f) => f.parentFrame() === null && visited.push(new URL(f.url()).pathname));
+      await page.goto("/login");
+      await page.getByLabel("Usuario").fill(USERS.cocina.username);
+      await page.getByLabel("Contraseña").fill(USERS.cocina.password);
+      await page.getByRole("button", { name: "Ingresar" }).click();
+      await expect(page).toHaveURL(/\/cocina$/);
+      await expect(page.getByTestId("kitchen-board")).toBeVisible();
+      expect(visited).not.toContain("/estacion");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("undo from a second screen when the order is already back in preparation: friendly message", async ({ page }) => {
+    await openKitchen(page);
+    const o = await placeApproved({});
+    await kcard(page, o.number).getByTestId("kitchen-ready").click();
+    await expect(recent(page, o.number)).toBeVisible();
+    // Another screen undoes it first, behind this one's back (no realtime hint).
+    await db().update(s.orders).set({ status: "en_preparacion" }).where(eq(s.orders.id, o.id));
+    await recent(page, o.number).getByTestId("recent-undo").click();
+    await expect(page.getByTestId("toast")).toContainText("Ese pedido ya está en preparación");
+    await expect(kcard(page, o.number)).toBeVisible();
+  });
 });
 
 test.describe("cajera", () => {
@@ -284,6 +357,15 @@ test.describe("cajera", () => {
     expect((await orderById(takeaway.id)).status).toBe("listo_despacho");
     expect((await orderById(delivery.id)).status).toBe("en_preparacion");
     await shot(page, "cocina-cajera");
+
+    // The new-web-order alert of her sector keeps working on this page (the kitchen board does not replace it).
+    await page.goto("/cocina"); // a fresh document: after a soft navigation Next keeps the previous page hidden in the DOM
+    await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
+    const retiro = page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Retiro en local" });
+    const incoming = await placeCajaOrder({ fulfillment: "takeaway" });
+    await expect(retiro.getByTestId("nav-badge")).toHaveAttribute("data-count", "1");
+    await expect(page.getByTestId("shell-announcer")).toHaveText(`Nuevo pedido #${incoming.number}`);
+    await parkPendingOrders();
   });
 });
 

@@ -80,6 +80,15 @@ describe("login action", () => {
     expect(await redirectOf(login(prev, form({ username: "cora", password: PASSWORD, next })))).toBe("/mostrador");
   });
 
+  it("the kitchen user goes straight to /cocina (or a safe next), no station hop, even with a stale station cookie", async () => {
+    const { hashPassword } = await import("@/lib/auth/password");
+    await testDb().insert(s.users).values({ name: "Coco", username: "coco", passwordHash: await hashPassword(PASSWORD), role: "cocina" });
+    expect(await redirectOf(login(prev, form({ username: "coco", password: PASSWORD })))).toBe("/cocina");
+    jar.set("bh_station", String(fx.deliveryStation));
+    expect(await redirectOf(login(prev, form({ username: "coco", password: PASSWORD })))).toBe("/cocina");
+    expect((await sessions()).every((r) => r.stationId === null)).toBe(true);
+  });
+
   it("rate-limits the 6th attempt for the same ip|username", async () => {
     for (let i = 0; i < 5; i++) {
       expect(await login(prev, form({ username: "cora", password: "bad" }))).toEqual({ error: GENERIC });

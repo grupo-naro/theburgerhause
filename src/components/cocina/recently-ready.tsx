@@ -30,7 +30,7 @@ export function RecentlyReady({ cards, canAct }: Props) {
       <h2 className="w-24 shrink-0 pl-2 text-base leading-tight font-extrabold tracking-wide text-white/80 uppercase">Recién listos</h2>
       {cards.length === 0 ? (
         <p data-testid="recently-ready-empty" className="min-w-0 flex-1 py-2 text-lg text-white/70">
-          Todavía no marcaste ningún pedido como listo.
+          No hay pedidos listos esperando: acá aparecen los que se marcaron LISTO y todavía nadie tomó.
         </p>
       ) : (
         <ul className="flex min-w-0 flex-1 gap-3 overflow-x-auto">

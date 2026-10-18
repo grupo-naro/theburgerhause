@@ -2,7 +2,7 @@
 
 import { SoundHintBanner, SoundToggle } from "@/components/caja/sound-controls";
 import { useNewOrderAlert } from "@/components/caja/use-new-order-alert";
-import { useNow } from "@/components/caja/use-now";
+import { useServerClock } from "./use-server-clock";
 import { canActOn, type KitchenCardDto } from "@/lib/cocina/card-style";
 import type { KitchenThresholds } from "@/lib/orders/kitchen-age";
 import type { Sector } from "@/lib/orders/sector";
@@ -16,6 +16,8 @@ type Props = {
   thresholds: KitchenThresholds;
   /** The sector the user may act in (null = any: cocina, admin). */
   actorSector: Sector | null;
+  /** True for the kitchen device: the board owns the tab title. Staff in the normal shell keep the shell alert's title. */
+  ownsTitle: boolean;
   /** Set when the user cannot act at all (e.g. a cashier with no station): the board is read-only and says why. */
   blockedReason: string | null;
 };
@@ -24,12 +26,12 @@ type Props = {
  * The kitchen screen body. It opens NO event stream: the staff shell's LiveRefresh re-renders the page with fresh
  * data (exactly one EventSource per page). Local state is only the new-card alert and the undo strip.
  */
-export function KitchenBoard({ cards, recent, serverNow, thresholds, actorSector, blockedReason }: Props) {
-  const now = useNow(serverNow);
+export function KitchenBoard({ cards, recent, serverNow, thresholds, actorSector, ownsTitle, blockedReason }: Props) {
+  const now = useServerClock(serverNow);
   const alert = useNewOrderAlert(
     cards.map((c) => ({ id: c.id, number: c.number, createdAt: c.since })),
     "Cocina",
-    { reminders: false },
+    { reminders: false, manageTitle: ownsTitle },
   );
   const canAct = (c: KitchenCardDto) => blockedReason === null && canActOn(actorSector, c.type);
 
