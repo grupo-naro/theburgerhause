@@ -3,6 +3,7 @@
 import { markPickupAction } from "@/app/(staff)/despacho/actions";
 import type { DispatchOrder } from "@/lib/orders/dispatch-queries";
 import { AgeBadge, BigButton, CardError, ItemsSummary, OrderNumber, PaymentBadge, Total, urgencyAccent } from "./card-parts";
+import { CancelOrderControl } from "./cancel-dialog";
 import { useCardAction } from "./use-card-action";
 
 type Props = { order: DispatchOrder; now: number; fresh: boolean; canControl: boolean };
@@ -66,6 +67,7 @@ export function CounterReadyCard({ order, now, fresh, canControl }: Props) {
           >
             Llamar / Para retirar
           </BigButton>
+          <CancelOrderControl order={order} disabled={busy} />
         </div>
       )}
     </article>

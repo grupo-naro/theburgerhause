@@ -16,6 +16,7 @@ import {
   type DispatchFailure,
   type DispatchOrderData,
 } from "@/lib/orders/dispatch";
+import { cancelOrder, type CancelOrderData } from "@/lib/orders/cancel-order";
 import { MAX_ASSIGN_ORDERS } from "@/lib/orders/dispatch-schemas";
 import { actorRefusal, actorSectorFor, type Sector } from "@/lib/orders/sector";
 
@@ -48,6 +49,7 @@ const orderId = z.number().int().positive().max(2_147_483_647);
 const orderSchema = z.object({ orderId });
 const deliveredSchema = z.object({ orderId, collected: z.boolean().optional() });
 const returnSchema = z.object({ orderId, reason: z.string() });
+const cancelSchema = z.object({ orderId, reason: z.string() });
 const assignSchema = z.object({
   orderIds: z.array(orderId).min(1).max(MAX_ASSIGN_ORDERS),
   cadetId: orderId,
@@ -126,6 +128,23 @@ export async function returnToDispatchAction(input: unknown): Promise<ActionResu
   return run(() =>
     returnToDispatch(getDb(), { sector, orderId: parsed.data.orderId, userId: session.user.id, reason: parsed.data.reason }),
   );
+}
+
+/**
+ * Cancel / void an order after approval (en_preparacion, listo_despacho, para_retirar) with a mandatory
+ * reason. The sector rule decides who: the delivery manager cancels delivery orders, the cashier
+ * takeaway and counter ones, admin all of them.
+ */
+export async function cancelOrderAction(input: unknown): Promise<ActionResult<CancelOrderData>> {
+  const auth = await authorize(ORDER_ROLES);
+  if ("result" in auth) return auth.result;
+  const parsed = cancelSchema.safeParse(input);
+  if (!parsed.success) return invalid();
+  const { session, sector } = auth;
+  return run(async () => {
+    const r = await cancelOrder(getDb(), { sector, orderId: parsed.data.orderId, userId: session.user.id, reason: parsed.data.reason });
+    return r.ok ? r : { ok: false as const, code: r.code === "STATION_REQUIRED" ? ("UNEXPECTED" as const) : r.code, message: r.message };
+  });
 }
 
 export async function assignCadetAction(input: unknown): Promise<ActionResult<AssignCadetData>> {

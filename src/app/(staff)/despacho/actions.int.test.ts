@@ -26,6 +26,7 @@ import { makeCadet, preparingWebOrder } from "@/test-support/dispatch";
 import { seedMenuAndStaff, type Fx } from "@/test-support/orders";
 import {
   assignCadetAction,
+  cancelOrderAction,
   markDeliveredAction,
   markPickupAction,
   markReadyAction,
@@ -262,6 +263,7 @@ describe("module shape", () => {
     }
     expect(Object.keys(mod).sort()).toEqual([
       "assignCadetAction",
+      "cancelOrderAction",
       "markDeliveredAction",
       "markPickupAction",
       "markReadyAction",
@@ -327,5 +329,38 @@ describe("role/station-kind mismatch is refused before the core", () => {
     expect(await markReadyAction({ orderId: o.id })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
     expect(dispatch.markReady).not.toHaveBeenCalled();
     expect((await row(o.id)).status).toBe("en_preparacion");
+  });
+});
+
+describe("cancelOrderAction", () => {
+  it("anonymous -> /login; forbidden role -> generic error", async () => {
+    vi.mocked(requireRole).mockRejectedValue(new AuthError("UNAUTHENTICATED"));
+    expect(await redirectOf(cancelOrderAction({ orderId: 1, reason: "motivo" }))).toBe("/login");
+    vi.mocked(requireRole).mockRejectedValue(new AuthError("FORBIDDEN"));
+    expect(await cancelOrderAction({ orderId: 1, reason: "motivo" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
+  });
+
+  it("requires cajera, encargada_delivery or admin and a valid payload", async () => {
+    as("admin");
+    expect(await cancelOrderAction({ orderId: "x", reason: "motivo" })).toMatchObject({ ok: false, code: "VALIDATION" });
+    expect(await cancelOrderAction({ orderId: 1 })).toMatchObject({ ok: false, code: "VALIDATION" });
+    await cancelOrderAction({ orderId: 1, reason: "motivo" });
+    expect(vi.mocked(requireRole).mock.calls.at(-1)).toEqual(["cajera", "encargada_delivery", "admin"]);
+  });
+
+  it("the cashier cancels takeaway orders, the delivery manager delivery ones; the other sector is refused; reason mandatory", async () => {
+    const tk = await preparingWebOrder(fx, { fulfillment: "takeaway" });
+    const del = await preparingWebOrder(fx, { fulfillment: "delivery" });
+
+    as("cajera");
+    expect(await cancelOrderAction({ orderId: del.id, reason: "Cliente canceló" })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(await cancelOrderAction({ orderId: tk.id, reason: "  " })).toMatchObject({ ok: false, code: "VALIDATION" });
+    expect((await row(tk.id)).status).toBe("en_preparacion");
+    expect(await cancelOrderAction({ orderId: tk.id, reason: "Cliente canceló", userId: 999 })).toMatchObject({ ok: true, data: { status: "cancelado" } });
+    expect((await events(tk.id)).at(-1)).toMatchObject({ toStatus: "cancelado", userId: fx.userId, note: "Cliente canceló" });
+
+    as("encargada_delivery", fx.otherUserId);
+    expect(await cancelOrderAction({ orderId: del.id, reason: "No hay cadete" })).toMatchObject({ ok: true });
+    expect((await events(del.id)).at(-1)).toMatchObject({ userId: fx.otherUserId });
   });
 });

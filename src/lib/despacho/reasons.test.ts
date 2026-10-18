@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RETURN_QUICK_REASONS, isReturnReasonValid } from "./reasons";
+import { CANCEL_QUICK_REASONS, RETURN_QUICK_REASONS, isReturnReasonValid } from "./reasons";
 
 describe("return reasons", () => {
   it("offers the four quick reasons", () => {
@@ -9,5 +9,12 @@ describe("return reasons", () => {
     expect(isReturnReasonValid("  ab ")).toBe(false);
     expect(isReturnReasonValid("abc")).toBe(true);
     expect(isReturnReasonValid("x".repeat(201))).toBe(false);
+  });
+});
+
+describe("cancel reasons", () => {
+  it("offers quick chips that are all valid reasons", () => {
+    expect(CANCEL_QUICK_REASONS.length).toBeGreaterThanOrEqual(3);
+    for (const r of CANCEL_QUICK_REASONS) expect(isReturnReasonValid(r)).toBe(true);
   });
 });

@@ -12,9 +12,15 @@ describe("canTransition", () => {
     expect(canTransition("pendiente_aprobacion", "en_preparacion", "delivery")).toBe(true);
     expect(canTransition("pendiente_aprobacion", "en_preparacion", "takeaway")).toBe(true);
   });
-  it("permite rechazar solo desde pendiente", () => {
-    expect(canTransition("pendiente_aprobacion", "cancelado", "delivery")).toBe(true);
-    expect(canTransition("en_preparacion", "cancelado", "delivery")).toBe(false);
+  it("permite cancelar antes de la entrega (pendiente, en preparación, listo, para retirar)", () => {
+    for (const from of ["pendiente_aprobacion", "en_preparacion", "listo_despacho", "para_retirar"] as const) {
+      expect(canTransition(from, "cancelado", "delivery"), from).toBe(true);
+      expect(canTransition(from, "cancelado", "takeaway"), from).toBe(true);
+    }
+  });
+  it("no se puede cancelar en camino (primero vuelve a despacho) ni lo ya entregado", () => {
+    expect(canTransition("en_camino", "cancelado", "delivery")).toBe(false);
+    expect(canTransition("entregado", "cancelado", "delivery")).toBe(false);
   });
   it("delivery va a en_camino, takeaway a para_retirar", () => {
     expect(canTransition("listo_despacho", "en_camino", "delivery")).toBe(true);
@@ -38,10 +44,10 @@ describe("canTransition", () => {
 describe("transition table (spec §4)", () => {
   const EXPECTED: Record<OrderStatus, Record<Fulfillment, OrderStatus[]>> = {
     pendiente_aprobacion: { delivery: ["en_preparacion", "cancelado"], takeaway: ["en_preparacion", "cancelado"] },
-    en_preparacion: { delivery: ["listo_despacho"], takeaway: ["listo_despacho"] },
-    listo_despacho: { delivery: ["en_camino"], takeaway: ["para_retirar"] },
+    en_preparacion: { delivery: ["listo_despacho", "cancelado"], takeaway: ["listo_despacho", "cancelado"] },
+    listo_despacho: { delivery: ["en_camino", "cancelado"], takeaway: ["para_retirar", "cancelado"] },
     en_camino: { delivery: ["entregado", "listo_despacho"], takeaway: [] },
-    para_retirar: { delivery: ["entregado"], takeaway: ["entregado"] },
+    para_retirar: { delivery: ["entregado", "cancelado"], takeaway: ["entregado", "cancelado"] },
     entregado: { delivery: [], takeaway: [] },
     cancelado: { delivery: [], takeaway: [] },
   };

@@ -5,6 +5,7 @@ import { markDeliveredAction } from "@/app/(staff)/despacho/actions";
 import { needsCollection } from "@/lib/despacho/cash";
 import type { DispatchOrder } from "@/lib/orders/dispatch-queries";
 import { AgeBadge, BigButton, CardError, OrderNumber, PaymentBadge, Total, urgencyAccent } from "./card-parts";
+import { CancelOrderControl } from "./cancel-dialog";
 import { CollectDialog } from "./collect-dialog";
 import { CallSign } from "./counter-ready-card";
 import { useCardAction } from "./use-card-action";
@@ -59,6 +60,7 @@ export function PickupCard({ order, now, canControl }: Props) {
           >
             Entregado
           </BigButton>
+          <CancelOrderControl order={order} disabled={busy} />
         </div>
       )}
       {collecting && (

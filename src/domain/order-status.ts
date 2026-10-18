@@ -13,13 +13,13 @@ export type Fulfillment = "delivery" | "takeaway";
 
 const COMMON: Partial<Record<OrderStatus, readonly OrderStatus[]>> = {
   pendiente_aprobacion: ["en_preparacion", "cancelado"],
-  en_preparacion: ["listo_despacho"],
-  para_retirar: ["entregado"],
+  en_preparacion: ["listo_despacho", "cancelado"],
+  para_retirar: ["entregado", "cancelado"],
 };
 
 const BY_FULFILLMENT: Record<Fulfillment, Partial<Record<OrderStatus, readonly OrderStatus[]>>> = {
-  delivery: { listo_despacho: ["en_camino"], en_camino: ["entregado", "listo_despacho"] },
-  takeaway: { listo_despacho: ["para_retirar"] },
+  delivery: { listo_despacho: ["en_camino", "cancelado"], en_camino: ["entregado", "listo_despacho"] },
+  takeaway: { listo_despacho: ["para_retirar", "cancelado"] },
 };
 
 export function nextStatuses(from: OrderStatus, fulfillment: Fulfillment): OrderStatus[] {

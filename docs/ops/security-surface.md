@@ -45,6 +45,7 @@ Staff actions on orders additionally apply the sector rule server side (a cashie
 | `src/app/(staff)/despacho/actions.ts#markPickupAction` | staff | cajera, encargada_delivery, admin | Order to pickup (own sector). | `src/lib/security/authz.test.ts` |
 | `src/app/(staff)/despacho/actions.ts#markDeliveredAction` | staff | cajera, encargada_delivery, admin | Order delivered, optional cash collected (own sector). | `src/lib/security/authz.test.ts` |
 | `src/app/(staff)/despacho/actions.ts#returnToDispatchAction` | staff | cajera, encargada_delivery, admin | Return an order to dispatch with a reason (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/despacho/actions.ts#cancelOrderAction` | staff | cajera, encargada_delivery, admin | Cancel/void an order after approval with a mandatory reason (own sector: delivery manager cancels delivery, cashier takeaway and counter; admin all). | `src/lib/security/authz.test.ts` |
 | `src/app/(staff)/despacho/actions.ts#assignCadetAction` | staff | encargada_delivery, admin | Assign orders to a cadet (delivery manager and admin only). | `src/lib/security/authz.test.ts` |
 | `src/app/(staff)/delivery/rendicion/actions.ts#settleCadetAction` | staff | encargada_delivery, admin | Settle a cadet's cash (delivery sector; admin exempt). | `src/lib/security/authz.test.ts` |
 | `src/app/(staff)/mostrador/actions.ts#createCounterOrderAction` | staff | cajera, admin | POS sale (cashier and admin). | `src/lib/security/authz.test.ts` |

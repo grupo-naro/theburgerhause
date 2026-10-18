@@ -78,8 +78,9 @@ const SAME_KIND = `${jobKind('"later"."type"')} = ${jobKind('"print_jobs"."type"
  * A failed job is "handled" once a LATER job of the same type for the same station was queued
  * (pending/printing) or printed (done): a reprint superseded it. Only unhandled failures alert. Legacy types
  * count as their successors, so a reprint also clears a failure recorded before the ticket redesign.
+ * Failures of a CANCELLED order never alert (cancelOrder fails its unclaimed jobs on purpose).
  */
-export const UNHANDLED_FAILED = `"print_jobs"."status" = 'failed' and not exists (select 1 from "print_jobs" "later" where "later"."order_id" = "print_jobs"."order_id" and "later"."station_id" = "print_jobs"."station_id" and ${SAME_KIND} and "later"."id" > "print_jobs"."id" and "later"."status" in ('pending','printing','done'))`;
+export const UNHANDLED_FAILED = `"print_jobs"."status" = 'failed' and not exists (select 1 from "print_jobs" "later" where "later"."order_id" = "print_jobs"."order_id" and "later"."station_id" = "print_jobs"."station_id" and ${SAME_KIND} and "later"."id" > "print_jobs"."id" and "later"."status" in ('pending','printing','done')) and not exists (select 1 from "orders" "o_cancelled" where "o_cancelled"."id" = "print_jobs"."order_id" and "o_cancelled"."status" = 'cancelado')`;
 
 const jobCount = (filter: string) =>
   sql<number>`(select count(*)::int from "print_jobs" where "print_jobs"."order_id" = "orders"."id" and ${sql.raw(filter)})`;
@@ -228,6 +229,7 @@ export async function listFailedPrintJobs(db: Db, stationId?: number, scope: Sec
     .where(
       and(
         eq(s.printJobs.status, "failed"),
+        ne(s.orders.status, "cancelado"), // a cancelled order never prints: its failed jobs are no alert
         notExists(
           db
             .select({ one: sql`1` })

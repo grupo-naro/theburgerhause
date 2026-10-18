@@ -77,6 +77,7 @@ export const SURFACE: Record<string, Entry> = {
   [`action:${STAFF_DIR}/despacho/actions.ts#markPickupAction`]: staffAction(STAFF3, "Order to pickup (own sector)."),
   [`action:${STAFF_DIR}/despacho/actions.ts#markDeliveredAction`]: staffAction(STAFF3, "Order delivered, optional cash collected (own sector)."),
   [`action:${STAFF_DIR}/despacho/actions.ts#returnToDispatchAction`]: staffAction(STAFF3, "Return an order to dispatch with a reason (own sector)."),
+  [`action:${STAFF_DIR}/despacho/actions.ts#cancelOrderAction`]: staffAction(STAFF3, "Cancel/void an order after approval with a mandatory reason (own sector: delivery manager cancels delivery, cashier takeaway and counter; admin all)."),
   [`action:${STAFF_DIR}/despacho/actions.ts#assignCadetAction`]: staffAction(DELIVERY, "Assign orders to a cadet (delivery manager and admin only)."),
   [`action:${STAFF_DIR}/delivery/rendicion/actions.ts#settleCadetAction`]: staffAction(DELIVERY, "Settle a cadet's cash (delivery sector; admin exempt)."),
   [`action:${STAFF_DIR}/mostrador/actions.ts#createCounterOrderAction`]: staffAction(COUNTER, "POS sale (cashier and admin)."),

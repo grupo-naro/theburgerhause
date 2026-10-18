@@ -2,6 +2,7 @@
 
 import { CheckIcon, PinIcon } from "@/components/menu/icons";
 import type { DispatchOrder } from "@/lib/orders/dispatch-queries";
+import { CancelOrderControl } from "./cancel-dialog";
 import { AgeBadge, ItemsSummary, OrderNumber, PaymentBadge, Total, urgencyAccent } from "./card-parts";
 
 type Props = {
@@ -10,9 +11,11 @@ type Props = {
   fresh: boolean;
   /** Present only when the role may assign: the card becomes one big selection target. */
   selectable?: { selected: boolean; onToggle: () => void };
+  /** The role may cancel the order (a button inside the card, independent of the selection). */
+  canCancel?: boolean;
 };
 
-function Body({ order, now, reserve }: { order: DispatchOrder; now: number; reserve: boolean }) {
+function Body({ order, now, reserve, canCancel }: { order: DispatchOrder; now: number; reserve: boolean; canCancel: boolean }) {
   return (
     <>
       <header className={`flex items-start justify-between gap-2 ${reserve ? "pr-14" : ""}`}>
@@ -38,12 +41,13 @@ function Body({ order, now, reserve }: { order: DispatchOrder; now: number; rese
       <div className="mt-3 border-t border-line pt-3">
         <ItemsSummary items={order.items} />
       </div>
+      {canCancel && <CancelOrderControl order={order} />}
     </>
   );
 }
 
 /** Ready delivery order. With `selectable` the whole card is a checkbox label (Space toggles when focused). */
-export function DeliveryReadyCard({ order, now, fresh, selectable }: Props) {
+export function DeliveryReadyCard({ order, now, fresh, selectable, canCancel = false }: Props) {
   const base = `block rounded-2xl border border-line border-l-8 bg-surface p-4 shadow-sm transition-colors ${urgencyAccent(order, "ready", now)} ${
     fresh ? "animate-card-flash ring-4 ring-cheddar-400" : ""
   }`;
@@ -57,7 +61,7 @@ export function DeliveryReadyCard({ order, now, fresh, selectable }: Props) {
   if (!selectable) {
     return (
       <article {...common} className={base}>
-        <Body order={order} now={now} reserve={false} />
+        <Body order={order} now={now} reserve={false} canCancel={canCancel} />
       </article>
     );
   }
@@ -76,7 +80,7 @@ export function DeliveryReadyCard({ order, now, fresh, selectable }: Props) {
         className="peer absolute top-2 right-2 size-12 cursor-pointer appearance-none rounded-xl border-2 border-ink-muted bg-surface checked:border-brand-600 checked:bg-brand-600"
       />
       <CheckIcon className="pointer-events-none absolute top-2 right-2 size-12 p-2.5 text-white opacity-0 peer-checked:opacity-100" />
-      <Body order={order} now={now} reserve />
+      <Body order={order} now={now} reserve canCancel={canCancel} />
     </label>
   );
 }

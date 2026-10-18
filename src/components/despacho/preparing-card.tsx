@@ -5,6 +5,7 @@ import { Chip } from "@/components/caja/chips";
 import { FULFILLMENT_LABEL } from "@/lib/caja/labels";
 import type { DispatchOrder } from "@/lib/orders/dispatch-queries";
 import { AgeBadge, BigButton, CardError, ItemsSummary, OrderNumber, urgencyAccent } from "./card-parts";
+import { CancelOrderControl } from "./cancel-dialog";
 import { useCardAction } from "./use-card-action";
 
 type Props = { order: DispatchOrder; now: number; canMark: boolean };
@@ -66,6 +67,7 @@ export function PreparingCard({ order, now, canMark }: Props) {
           >
             Listo
           </BigButton>
+          <CancelOrderControl order={order} disabled={busy} />
         </div>
       )}
     </article>

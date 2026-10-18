@@ -164,6 +164,7 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
           order={o}
           now={now}
           fresh={freshIds.has(o.id)}
+          canCancel={caps.canControlDelivery}
           selectable={caps.canAssign ? { selected: selection.has(o.id), onToggle: () => dispatch({ type: "toggle", id: o.id }) } : undefined}
         />
       ))}
