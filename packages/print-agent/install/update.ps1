@@ -12,12 +12,15 @@
 param(
     [string]$InstallDir = 'C:\BurgerHouseAgent',
     [string]$TaskName = 'BurgerHouseAgent',
-    [string]$ReleaseDir = $PSScriptRoot,
+    [string]$ReleaseDir,
     [string]$NodeExe,
     [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
+# $PSScriptRoot is not reliable as a param() default (it came out empty with -File); resolve it here.
+if (-not $ReleaseDir) { $ReleaseDir = $PSScriptRoot }
+if (-not $ReleaseDir) { $ReleaseDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
 . (Join-Path $PSScriptRoot 'common.ps1')
 
 function Get-AgentVersion([string]$NodePath, [string]$Cjs, [string]$WorkDir) {
