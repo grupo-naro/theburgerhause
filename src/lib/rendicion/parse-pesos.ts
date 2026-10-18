@@ -10,7 +10,7 @@ export const INT4_MAX = 2_147_483_647;
 export type ParseFailure = "empty" | "invalid" | "negative" | "too_big";
 export type ParseResult = { ok: true; cents: number } | { ok: false; reason: ParseFailure };
 
-const AMOUNT = /^(\d{1,3}(?:\.\d{3})+|\d+)?(?:,(\d{0,2}))?$/;
+const AMOUNT = /^([1-9]\d{0,2}(?:\.\d{3})+|\d+)?(?:,(\d{0,2}))?$/;
 
 export function parsePesosToCents(input: string): ParseResult {
   const text = input.trim().replace(/^\$\s*/, "");

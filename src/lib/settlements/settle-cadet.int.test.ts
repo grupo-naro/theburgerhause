@@ -70,6 +70,7 @@ describe("settleCadet: happy path", () => {
     expect(st).toMatchObject({ id: r.data.settlementId, cadetId: cadet.id, amount: owed, settledBy: fx.userId, note: "Todo ok" });
     const so = await db().select().from(s.settlementOrders).orderBy(s.settlementOrders.orderId);
     expect(so).toHaveLength(3);
+    expect(r.data.createdAt).toBe(st.createdAt.toISOString()); // the receipt prints the server's clock
     for (const row of so) expect(row).toMatchObject({ settlementId: st.id, amount: await sumTotals([row.orderId]) });
     for (const o of [a, b, c]) {
       expect(await orderRow(o.id)).toMatchObject({ status: "entregado", paymentStatus: "paid", cadetId: cadet.id });

@@ -81,8 +81,14 @@ test("exact settlement: dialog repeats the numbers, receipt, DB and live updates
   await expect(page.getByTestId("owed-amount")).toHaveText(formatARS(owed));
   await expect(page.getByTestId("owed-table-total")).toHaveText(formatARS(owed));
   await expect(page.getByTestId("inroute-row")).toHaveCount(1);
-  await expect(page.getByTestId("received-input")).toHaveValue(formatPesosInput(owed));
+  const received = page.getByTestId("received-input");
+  await expect(received).toHaveValue(formatPesosInput(owed));
   await expect(page.getByTestId("diff-line")).toContainText("Exacto");
+  // Focusing the prefilled amount selects it all, so typing the real figure replaces it.
+  await received.focus();
+  const len = formatPesosInput(owed).length;
+  expect(await received.evaluate((el) => [(el as HTMLInputElement).selectionStart, (el as HTMLInputElement).selectionEnd])).toEqual([0, len]);
+  await page.getByTestId("owed-amount").click();
   await shot(page, "rendicion-detail-exact");
 
   await page.getByTestId("confirm-settlement").click();
@@ -98,6 +104,7 @@ test("exact settlement: dialog repeats the numbers, receipt, DB and live updates
   await expect(page.getByTestId("receipt-title")).toHaveText(/^Rendición #\d+$/);
   await expect(page.getByTestId("receipt-expected")).toHaveText(formatARS(owed));
   await expect(page.getByTestId("receipt-received")).toHaveText(formatARS(owed));
+  await expect(page.getByTestId("receipt-shortage")).toHaveText("Sin faltante");
   await expect(page.getByTestId("receipt-order-numbers")).toContainText(`#${delivered[0].number}`);
   await expect(page.getByTestId("owed-amount")).toHaveText(formatARS(0));
   await shot(page, "rendicion-receipt");
@@ -160,6 +167,8 @@ test("shortage: note required (chip fills it), over-amount refused, DB records t
   await dialog.getByTestId("confirm-yes").click();
   await expect(page.getByTestId("receipt-title")).toBeVisible();
   await expect(page.getByTestId("receipt-shortage")).toHaveText(/\$\s*250/);
+  await expect(page.getByTestId("receipt-expected")).toHaveText(formatARS(owed));
+  await expect(page.getByTestId("receipt-received")).toHaveText(formatARS(owed - missing));
 
   const [st] = await settlementsOf(cadet.id);
   expect(st).toMatchObject({ amount: owed, receivedAmount: owed - missing, note: "Gastó en nafta" });
@@ -218,6 +227,37 @@ test("race: a new delivery while the dialog is open closes it, shows the mismatc
   await expect(page.getByTestId("owed-amount")).toHaveText(formatARS(now));
   await shot(page, "rendicion-mismatch-banner");
   expect((await settlementsOf(cadet.id)).length).toBe(0);
+});
+
+test("server AMOUNT_MISMATCH: confirming a stale figure shows antes/ahora, resets the input and settles nothing", async ({ browser }) => {
+  const cadet = await newCadet(`Servidor ${tag()}`);
+  const first = await deliveredFor(cadet.id);
+  const admin = await browser.newContext({ storageState: authFile("admin") });
+  try {
+    // The tab never hears about the new delivery (live stream cut), so only the SERVER can refuse the stale amount.
+    await admin.route("**/api/events", (r) => r.abort());
+    const stale = await admin.newPage();
+    await stale.goto(`/delivery/rendicion?cadet=${cadet.id}`);
+    await expect(stale.getByTestId("cadet-detail")).toBeVisible();
+    await expect(stale.getByTestId("owed-amount")).toHaveText(formatARS(first.total));
+    await stale.getByTestId("confirm-settlement").click();
+    await expect(stale.getByTestId("confirm-dialog")).toBeVisible();
+
+    const second = await deliveredFor(cadet.id);
+    const now = first.total + second.total;
+    await stale.getByTestId("confirm-yes").click();
+
+    const banner = stale.getByTestId("mismatch-banner");
+    await expect(banner).toContainText("El saldo cambió");
+    await expect(banner).toContainText(`antes ${formatARS(first.total)}`);
+    await expect(banner).toContainText(`ahora ${formatARS(now)}`);
+    await expect(stale.getByTestId("confirm-dialog")).toHaveCount(0);
+    await expect(stale.getByTestId("received-input")).toHaveValue(formatPesosInput(now));
+    await expect(stale.getByTestId("owed-amount")).toHaveText(formatARS(now));
+    expect((await settlementsOf(cadet.id)).length).toBe(0);
+  } finally {
+    await admin.close();
+  }
 });
 
 test("double click on 'Sí, confirmar' settles once", async ({ page }) => {

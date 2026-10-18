@@ -58,6 +58,11 @@ test.describe("encargada", () => {
     await expect(page.getByTestId("owed-table")).toHaveCount(0);
     await expect(page.getByTestId("history")).toBeHidden();
     expect(await display("receipt")).not.toBe("none");
+    // The sheet is white (no dark nav or tinted page behind the receipt) wherever the paper is painted.
+    const bg = (sel: string) => page.evaluate((q) => getComputedStyle(document.querySelector(q)!).backgroundColor, sel);
+    expect(await bg("body")).toBe("rgb(255, 255, 255)");
+    expect(["rgba(0, 0, 0, 0)", "rgb(255, 255, 255)"]).toContain(await bg("html"));
+    expect(await page.getByTestId("receipt").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(255, 255, 255)");
     await shot(page, "rendicion-print");
     await page.emulateMedia({ media: "screen" });
     await expect(nav(page)).toBeVisible();

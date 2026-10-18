@@ -56,14 +56,18 @@ async function RendicionPage({ searchParams }: PageProps<"/delivery/rendicion">)
       content = <NotFound />;
     } else {
       const all = sp.historial === "todas";
-      const recent = all ? await listSettlements(db, { cadetId: detail.cadet.id, limit: HISTORY_ALL }) : detail.recentSettlements;
+      // One row more than a page tells whether "Ver todas" has anything to show.
+      const fetched = await listSettlements(db, { cadetId: detail.cadet.id, limit: all ? HISTORY_ALL : HISTORY_PAGE + 1 });
+      const hasMore = !all && fetched.length > HISTORY_PAGE;
+      const recent = hasMore ? fetched.slice(0, HISTORY_PAGE) : fetched;
       content = (
         <CadetDetail
           detail={{ ...detail, recentSettlements: recent }}
           serverNow={now.toISOString()}
           settledByName={session.user.name}
           historyAll={all}
-          historyHasMore={!all && recent.length >= HISTORY_PAGE}
+          historyHasMore={hasMore}
+          historyCapped={all && recent.length >= HISTORY_ALL}
         />
       );
     }

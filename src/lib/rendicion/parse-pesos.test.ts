@@ -32,6 +32,9 @@ describe("parsePesosToCents", () => {
     ["12a", "invalid"],
     ["1.5", "invalid"], // a dot is only a thousands separator
     ["1.00", "invalid"],
+    ["0.123", "invalid"], // a leading zero group is not a thousands group
+    ["0.000", "invalid"],
+    ["00.500", "invalid"],
     ["12.34.567", "invalid"],
     [".500", "invalid"],
     ["1,234,5", "invalid"],

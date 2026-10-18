@@ -103,7 +103,7 @@ pnpm e2e:ui          # runner interactivo
 pnpm perf:lighthouse # Lighthouse móvil (build de producción, base de test): reportes en perf-reports/
 pnpm loadtest        # prueba de carga del pico realista (30 clientes, 10 pedidos/min, 9 pantallas SSE, 9 agentes)
 pnpm verify:fast     # lint + unitarios + typecheck del agente + build
-pnpm verify          # TODO: lint, unitarios, typecheck del agente, integración, build y e2e (ver abajo)
+pnpm verify          # lint, unitarios, typecheck del agente, integración, build y e2e (ver abajo)
 ```
 
 - `pnpm test:int` y `pnpm e2e` comparten la base `burgerhause_test` (se crea sola) y no pueden correr a la vez.

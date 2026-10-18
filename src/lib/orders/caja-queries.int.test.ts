@@ -193,6 +193,22 @@ describe("failed jobs that were handled (superseded)", () => {
     }
   });
 
+  it("legacy failed 'kitchen'/'ticket' jobs are handled by a later delivery/customer job (their successors)", async () => {
+    const o = await placeWebOrder(fx);
+    await approve(o.id);
+    const legacy = (type: "kitchen" | "ticket") =>
+      db().insert(s.printJobs).values({ orderId: o.id, stationId: fx.otherStationId, type, payload: {}, status: "failed", error: "sin papel", attempts: 3 }).returning();
+    const [kitchen] = await legacy("kitchen");
+    const [ticket] = await legacy("ticket");
+    expect((await listFailedPrintJobs(db(), fx.otherStationId)).map((f) => f.jobId).sort()).toEqual([kitchen.id, ticket.id].sort());
+    await newJob(o.id, "customer", fx.otherStationId, "done"); // clears the legacy ticket only
+    expect((await listFailedPrintJobs(db(), fx.otherStationId)).map((f) => f.jobId)).toEqual([kitchen.id]);
+    await newJob(o.id, "delivery", fx.otherStationId, "pending"); // and now the legacy kitchen one
+    expect(await listFailedPrintJobs(db(), fx.otherStationId)).toEqual([]);
+    const [row] = await listRecentProcessed(db());
+    expect(row.printState.failed).toBe(0);
+  });
+
   it("a different type, a different station or a later FAILED job do not handle it", async () => {
     const o = await placeWebOrder(fx);
     await approve(o.id);

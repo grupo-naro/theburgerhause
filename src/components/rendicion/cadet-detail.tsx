@@ -23,15 +23,17 @@ type Props = {
   settledByName: string;
   historyAll: boolean;
   historyHasMore: boolean;
+  /** "Ver todas" is showing its maximum: older settlements exist beyond it. */
+  historyCapped?: boolean;
 };
 
-type Done = { data: SettleData; note: string; at: string };
+type Done = { data: SettleData; note: string };
 
 /** Everything of one cadet: hero amount, the orders, the "Recibí el efectivo" panel, history. */
-export function CadetDetail({ detail, serverNow, settledByName, historyAll, historyHasMore }: Props) {
+export function CadetDetail({ detail, serverNow, settledByName, historyAll, historyHasMore, historyCapped = false }: Props) {
   const router = useRouter();
   const now = useMemo(() => new Date(serverNow), [serverNow]);
-  const { run, pending, error } = useGuardedAction();
+  const { run, pending, error, clearError } = useGuardedAction();
   const failure = useRef<{ expected: number; actual: number; orderCount: number } | null>(null);
 
   const [done, setDone] = useState<Done | null>(null);
@@ -74,7 +76,7 @@ export function CadetDetail({ detail, serverNow, settledByName, historyAll, hist
         lockOnSuccess: true,
         onOk: (data) => {
           setBanner(null);
-          setDone({ data, note, at: new Date().toISOString() });
+          setDone({ data, note });
           router.refresh();
         },
         onFail: (f) => {
@@ -104,7 +106,7 @@ export function CadetDetail({ detail, serverNow, settledByName, historyAll, hist
         orders: done.data.orders,
         settledByName,
         note: done.note || null,
-        createdAt: done.at,
+        createdAt: done.data.createdAt,
       })
     : null;
 
@@ -190,8 +192,8 @@ export function CadetDetail({ detail, serverNow, settledByName, historyAll, hist
               orderCount={detail.orders.length}
               busy={pending}
               error={error}
+              onCancel={clearError}
               onSubmit={submit}
-              onCancelConfirm={() => undefined}
             />
           ) : (
             <p data-testid="nothing-to-settle" className="rounded-2xl border-2 border-green-600 bg-green-50 px-5 py-6 text-lg font-bold text-green-900">
@@ -208,7 +210,7 @@ export function CadetDetail({ detail, serverNow, settledByName, historyAll, hist
             <OwedOrdersTable orders={detail.orders} total={expected} now={now} />
           </section>
           <InRouteList orders={detail.inRoute} />
-          <History records={history} now={now} cadetId={cadetId} showingAll={historyAll} hasMore={historyHasMore} />
+          <History records={history} now={now} cadetId={cadetId} showingAll={historyAll} hasMore={historyHasMore} capped={historyCapped} />
         </div>
       </div>
     </div>

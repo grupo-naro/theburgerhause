@@ -16,11 +16,12 @@ type Props = {
   busy: boolean;
   error: string | null;
   onSubmit: (v: { received: number; note: string }) => void;
-  onCancelConfirm: () => void;
+  /** The manager closed the confirmation: drop the error of the failed attempt. */
+  onCancel: () => void;
 };
 
 /** "Recibí el efectivo": amount input, live difference, shortage note and the confirmation dialog. */
-export function SettlePanel({ cadetName, expected, orderCount, busy, error, onSubmit, onCancelConfirm }: Props) {
+export function SettlePanel({ cadetName, expected, orderCount, busy, error, onSubmit, onCancel }: Props) {
   const amountId = useId();
   const noteId = useId();
   const noteRef = useRef<HTMLTextAreaElement>(null);
@@ -40,7 +41,7 @@ export function SettlePanel({ cadetName, expected, orderCount, busy, error, onSu
   };
   const cancel = () => {
     setConfirmAt(null);
-    onCancelConfirm();
+    onCancel();
   };
 
   const form = (
@@ -72,6 +73,7 @@ export function SettlePanel({ cadetName, expected, orderCount, busy, error, onSu
             disabled={busy}
             aria-invalid={!parsed.ok || diff?.kind === "over"}
             aria-describedby={`${amountId}-diff`}
+            onFocus={(e) => e.currentTarget.select()}
             onChange={(e) => setText(e.target.value)}
             onBlur={() => {
               const p = parsePesosToCents(text);

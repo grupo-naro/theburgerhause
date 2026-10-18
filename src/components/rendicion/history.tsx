@@ -35,10 +35,10 @@ function ReceiptModal({ record, onClose }: { record: SettlementRecord; onClose: 
   );
 }
 
-type Props = { records: SettlementRecord[]; now: Date; cadetId: number; showingAll: boolean; hasMore: boolean };
+type Props = { records: SettlementRecord[]; now: Date; cadetId: number; showingAll: boolean; hasMore: boolean; capped?: boolean };
 
 /** Past settlements of the cadet (newest first), each with its receipt. */
-export function History({ records, now, cadetId, showingAll, hasMore }: Props) {
+export function History({ records, now, cadetId, showingAll, hasMore, capped = false }: Props) {
   const [open, setOpen] = useState<SettlementRecord | null>(null);
   return (
     <section data-testid="history" aria-labelledby="history-h" className="space-y-3">
@@ -85,9 +85,14 @@ export function History({ records, now, cadetId, showingAll, hasMore }: Props) {
         </ul>
       )}
       {hasMore && !showingAll && (
-        <Link href={`/despacho/rendicion?cadet=${cadetId}&historial=todas`} data-testid="history-all" className="inline-flex min-h-12 items-center text-base font-bold text-brand-600 underline underline-offset-4">
+        <Link href={`/delivery/rendicion?cadet=${cadetId}&historial=todas`} data-testid="history-all" className="inline-flex min-h-12 items-center text-base font-bold text-brand-600 underline underline-offset-4">
           Ver todas
         </Link>
+      )}
+      {capped && (
+        <p data-testid="history-capped" className="text-sm text-ink-muted">
+          Se muestran las últimas {records.length} rendiciones.
+        </p>
       )}
       {open && <ReceiptModal record={open} onClose={() => setOpen(null)} />}
     </section>

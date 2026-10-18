@@ -33,6 +33,8 @@ export type SettleFailure = {
 };
 export type SettleData = {
   settlementId: number;
+  /** Server time of the settlement (ISO), what the receipt prints. */
+  createdAt: string;
   /** Centavos of debt cleared (sum of the settled orders). */
   amount: number;
   /** Centavos the cadet actually handed over. */
@@ -105,7 +107,7 @@ export async function settleCadet(
       const [settlement] = await tx
         .insert(s.settlements)
         .values({ cadetId, amount: actual, receivedAmount, settledBy: userId, note: note ?? null })
-        .returning({ id: s.settlements.id });
+        .returning({ id: s.settlements.id, createdAt: s.settlements.createdAt });
       await tx
         .insert(s.settlementOrders)
         .values(rows.map((o) => ({ settlementId: settlement.id, orderId: o.id, amount: o.total })));
@@ -135,6 +137,7 @@ export async function settleCadet(
         ok: true,
         data: {
           settlementId: settlement.id,
+          createdAt: settlement.createdAt.toISOString(),
           amount: actual,
           receivedAmount,
           shortage: actual - receivedAmount,

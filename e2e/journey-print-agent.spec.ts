@@ -6,6 +6,7 @@ import { PrintError, type PrinterBackend, type PrintContext } from "../packages/
 import { freshStationToken, resetStationAgentState, settleStationJobs } from "./helpers/agent";
 import { openRetiro, orderCard, parkPendingOrders, placeRetiroOrder, printJobsOf, recentRow } from "./helpers/caja";
 import { db } from "./helpers/db";
+import { cleanBoard, runCleanups } from "./helpers/despacho";
 import { cleanupAgents, latin1, launchAgent, printedFiles, readPrinted, tempDir } from "./helpers/journey";
 import { authFile } from "./helpers/users";
 
@@ -15,6 +16,8 @@ test.use({ storageState: authFile("cajera") });
 test.afterEach(async () => {
   await cleanupAgents();
   await settleStationJobs(STATION);
+  await runCleanups();
+  await cleanBoard();
 });
 test.afterAll(() => resetStationAgentState(STATION));
 
