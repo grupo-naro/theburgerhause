@@ -26,6 +26,8 @@ Diseño y plan (leer primero):
 - `docs/superpowers/specs/2026-10-14-the-burger-hause-ux-design.md`: diseño de la interfaz.
 - `docs/superpowers/plans/2026-10-14-mvp-roadmap.md`: plan por sprints.
 
+Guías para el personal y la salida a producción (capacitación, prueba de aceptación, contingencia, operación en paralelo, checklist de salida, carga del menú): **`docs/guias/README.md`**.
+
 ## Puesta en marcha local
 
 Requisitos: Node.js 20 o superior (se desarrolla con 24), pnpm 10 y Docker.
@@ -185,6 +187,7 @@ deploy/           producción: nginx/, systemd/, scripts/ (deploy, backup, resto
 e2e/              Playwright: specs, journeys y helpers
 docs/
   ops/            runbook de producción, realtime, protocolo e instalación del agente
+  guias/          guías por rol, tarjeta Primer día, UAT, contingencia, operación en paralelo, checklist de salida, carga del menú
   superpowers/    specs y plan del MVP
 ```
 
