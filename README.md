@@ -5,7 +5,7 @@ para aprobar y cobrar, impresión automática de tickets, despacho con cadetes y
 
 El ciclo completo que cubre (criterio de éxito del MVP): pedido del cliente → aprobación en caja → tickets
 impresos solos en la impresora USB de la PC correspondiente (Delivery: ticket de delivery + ticket del cliente con logo;
-Mostrador: ticket del cliente; sin comanda de cocina hasta la pantalla KDS) → despacho → cadete → rendición del efectivo.
+Mostrador: ticket del cliente; sin comanda de cocina: la cocina lee la pantalla `/cocina`) → cocina marca LISTO → despacho → cadete → rendición del efectivo.
 
 ## Arquitectura
 
@@ -58,7 +58,7 @@ Se validan al arrancar (`src/lib/env.ts`).
 
 ## Roles y pantallas
 
-Roles de staff: `admin`, `cajera`, `encargada_delivery`. El cliente final no tiene cuenta. El login es en `/login`;
+Roles de staff: `admin`, `cajera`, `encargada_delivery`, `cocina` (solo ve `/cocina`, sin estación). El cliente final no tiene cuenta. El login es en `/login`;
 cajera y encargada eligen su **estación** (por ejemplo "Mostrador 1", "Delivery 1") en `/estacion`: de esa estación
 salen las impresiones.
 
@@ -74,6 +74,7 @@ salen las impresiones.
 | `/retiro` (**Retiro en local**) | cajera, admin | Pedidos web **de retiro**: por aprobar (verificación de transferencia / rechazo con motivo), en preparación, listos, para retirar con cobro al entregar, recientes, alerta de impresión fallida y reimpresión. |
 | `/delivery` (**Gestión Delivery**) | encargada, admin | Pedidos web **de delivery** en pestañas: Por aprobar · En preparación · Listos / Despacho (asignar 1..N pedidos a un cadete) · En camino · Recientes. |
 | `/delivery/rendicion` (**Rendición**) | encargada, admin | Saldo de cada cadete y rendición del efectivo (con faltante y comprobante). `/despacho/rendicion` redirige acá. |
+| `/cocina` (**Cocina**) | cocina, cajera, encargada, admin | Pantalla de cocina (KDS): una tarjeta por pedido en preparación (tipo DELIVERY / MOSTRADOR / RETIRO, reloj verde-amarillo-rojo, unidades numeradas con sus cambios, nota, llamador), **LISTO** con un toque, **Deshacer** y franja **Recién listos**. El rol `cocina` queda en pantalla completa sin menú; cajera y encargada solo marcan los pedidos de su sector. |
 | `/caja`, `/despacho` (**Vista general**, **Tablero general**) | admin | Vistas de solo lectura/gestión de todos los sectores. El resto del personal que entra por estas URLs viejas va a su espacio de trabajo. |
 
 **Un espacio de trabajo por sector.** Los pedidos web se reparten por tipo: los de *delivery* solo aparecen (y solo se
@@ -85,7 +86,7 @@ de Mostrador y la encargada de Delivery. La aprobación imprime en la estación 
 | `/admin/menu`, `/admin/modificadores` | admin | Productos, categorías, grupos de modificadores. |
 | `/admin/usuarios`, `/admin/cadetes` | admin | Cuentas de staff y cadetes. |
 | `/admin/estaciones` | admin | Estaciones y tokens del Print Agent. |
-| `/admin/ajustes` | admin | Datos del local, costo de envío, datos bancarios, pedidos abiertos/cerrados. |
+| `/admin/ajustes` | admin | Datos del local, costo de envío, datos bancarios, pedidos abiertos/cerrados, cierre del día, tiempos del reloj de la cocina. |
 
 API (no es para uso humano): `/api/events` (SSE del staff), `/api/pedido/[token]/status`, `/api/uploads`,
 `/uploads/...` (fotos) y `/api/agent/stream`, `/api/agent/heartbeat`, `/api/agent/jobs/[id]/ack` (Print Agent, con

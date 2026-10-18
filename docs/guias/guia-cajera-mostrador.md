@@ -35,7 +35,7 @@ Para quien trabaja en una PC de **Mostrador** (Mostrador 1 a 4). Las capturas us
    **Esperando la impresora…** esperá unos segundos; si dice **Falló la impresión**, revisá papel/cable y apretá **Reimprimir**.
    Para la próxima venta apretá **Nuevo pedido** (o Enter).
 
-> No sale comanda de cocina impresa. **DEFINIR POR EL DUEÑO:** cómo se entera la cocina de cada pedido (pantalla, papel, aviso de voz u otro): todavía no hay una decisión tomada.
+> No sale comanda de cocina impresa: la cocina lee cada pedido en su **pantalla de cocina** y toca **LISTO** (ver [Guía de cocina](guia-cocina.md)). Si la cocina se olvida de tocarlo, vos también podés apretar **Listo** en **Mostrador** o en **Retiro en local**. Desde el menú tenés el enlace **Cocina** para mirar esa pantalla (solo marcás los pedidos de tu sector).
 
 Otros atajos: `Alt+L` limpiar el ticket, `Esc` cerrar.
 

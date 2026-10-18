@@ -66,6 +66,20 @@ Roles: **C** cajera (PC Mostrador), **E** encargada (PC Delivery), **A** adminis
 | A6 | Token rotado | **Estaciones → Rotar token** de una estación de prueba (sin agente en producción) y reinstalar con el nuevo. | El agente anterior deja de imprimir; el nuevo vuelve a **Impresora lista**. | [ ] OK  [ ] FALLÓ |
 | A7 | Vistas generales | Entrar a **Vista general** y **Tablero general**. | Se ven los pedidos de todos los sectores. | [ ] OK  [ ] FALLÓ |
 
+## Parte 4b: Cocina (O)
+
+Con un usuario de rol **Cocina** en el dispositivo de la cocina (sin estación).
+
+| N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |
+| --- | --- | --- | --- | --- |
+| O1 | El pedido llega solo | Con la pantalla de cocina abierta, E aprueba un pedido de **delivery** (2 unidades, una con **Sin cheddar**, con nota) y C aprueba uno de **retiro**. | Aparecen sin recargar, con el cartel **DELIVERY** / **RETIRO**, cada unidad numerada con sus cambios en mayúsculas y la nota resaltada. Suena el aviso si el sonido está activado. | [ ] OK  [ ] FALLÓ |
+| O2 | Venta de mostrador | C hace una venta de mostrador (llamador 7). | Aparece con **MOSTRADOR** y **LLAMADOR 7**. | [ ] OK  [ ] FALLÓ |
+| O3 | Reloj de colores | Dejar un pedido sin marcar más de 8 y de 15 minutos. | El reloj pasa de verde a amarillo y a rojo; el más viejo está primero. | [ ] OK  [ ] FALLÓ |
+| O4 | LISTO | El cocinero toca **LISTO** en el de delivery y en el de mostrador. | Desaparecen de la cocina; el de delivery aparece en **Listos / Despacho** de E y el de mostrador en **Listos** de C, sin recargar. Queda el aviso **Deshacer** unos segundos. | [ ] OK  [ ] FALLÓ |
+| O5 | Deshacer | Tocar **Deshacer** en el aviso, o **Volver a preparación** en la franja **Recién listos**. | El pedido vuelve a la cocina. Si C ya llamó al llamador o E ya lo asignó a un cadete, no se puede deshacer y lo dice. | [ ] OK  [ ] FALLÓ |
+| O6 | Pedido cancelado | E cancela (con motivo) un pedido que está en la cocina. | Desaparece de la pantalla de cocina sin recargar. | [ ] OK  [ ] FALLÓ |
+| O7 | Un solo usuario de cocina | Con el usuario **Cocina** intentar abrir Caja, Retiro, Delivery o Administración. | Solo se ve la pantalla de cocina; ninguna otra. | [ ] OK  [ ] FALLÓ |
+
 ## Parte 5: Fallas (S con el local)
 
 | N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |

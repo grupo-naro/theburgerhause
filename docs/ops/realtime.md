@@ -37,7 +37,7 @@ los datos reales al servidor. `notifyInTx` rechaza payloads de 7000 bytes o más
 
 ## Protocolo SSE (`GET /api/events`)
 
-Requiere sesión de staff (`admin`, `cajera`, `encargada_delivery`): 401 sin sesión, 403 con otro rol.
+Requiere sesión de staff (`admin`, `cajera`, `encargada_delivery`, `cocina`): 401 sin sesión, 403 con otro rol.
 
 1. `retry: 3000` (el navegador reconecta solo a los 3 s)
 2. `event: hello` con `{ serverTime, connectionId }`

@@ -856,7 +856,7 @@ administrador a `https://<TU_DOMINIO>/admin`:
    **modificadores** (Admin → Modificadores: quitar ingredientes, agregados, cambios) asociados a cada producto.
 7. **Instalar los agentes de impresión** en las 9 PCs (`docs/ops/print-agent-install.md`) y hacer un ticket de
    prueba en cada una (tiene que salir el **logo** arriba y "GRACIAS POR TU COMPRA"; si no, el agente es viejo: `update.ps1`).
-   Delivery imprime ticket de delivery + ticket del cliente; Mostrador imprime solo el del cliente; no hay comanda de cocina impresa. **DEFINIR POR EL DUEÑO:** cómo se entera la cocina de cada pedido (pantalla, papel, aviso de voz u otro): todavía no hay una decisión tomada.
+   Delivery imprime ticket de delivery + ticket del cliente; Mostrador imprime solo el del cliente; no hay comanda de cocina impresa: la cocina usa la **pantalla de cocina** (`/cocina`). Crear en Admin → Usuarios un usuario con rol **Cocina** (sin estación) para esa PC o tablet, abrir `/cocina` a pantalla completa (F11) y activar **Sonido** (el navegador pide un toque en la pantalla por carga). Los tiempos del reloj (amarillo / rojo, por defecto 8 y 15 minutos) se cambian en Admin → Ajustes → Pantalla de cocina. Guía: `docs/guias/guia-cocina.md`.
 8. **Pedido de prueba completo**: hacer un pedido desde el celular, aprobarlo en la pantalla del sector (un pedido de
    **delivery** se aprueba en **Gestión Delivery**; uno de **retiro** en **Retiro en local**), ver que imprime en la
    estación que lo aprobó y cobrarlo. Comprobar también que el de delivery NO aparece en el mostrador y viceversa. Después anularlo/borrarlo según el procedimiento del local.
@@ -880,7 +880,7 @@ Principio: **el local nunca deja de vender porque falle el sistema.** El procedi
 
 | Situación | Qué hace el local | Qué hacés vos |
 | --- | --- | --- |
-| **Falla una impresora** | La Caja avisa en rojo y reintenta sola. Resolver papel/cable/tapa y apretar **Reimprimir**. Mientras, el pedido sigue en la pantalla (no hay comanda impresa; **DEFINIR POR EL DUEÑO:** cómo se entera la cocina de cada pedido (pantalla, papel, aviso de voz u otro): todavía no hay una decisión tomada) | Sección 5.3 |
+| **Falla una impresora** | La Caja avisa en rojo y reintenta sola. Resolver papel/cable/tapa y apretar **Reimprimir**. Mientras, el pedido sigue en la pantalla (no hay comanda impresa; la pantalla de cocina no depende de la impresora) | Sección 5.3 |
 | **Se cae el sistema (502/503)** | Tomar pedidos **a mano** en un block (número correlativo, hora, productos, aclaraciones, dirección/teléfono, forma de pago, total) y pasarlos a cocina en papel | Diagnóstico: sección 9 (502). Si no se resuelve en 15 minutos: `sudo systemctl restart burgerhause`; si fue un deploy: `deploy.sh rollback`; si es la base: sección 4.5. Avisar al local el estado cada 15 minutos |
 | **Se cae internet en el local** | Igual: pedidos a mano. Las pantallas y los agentes reconectan solos al volver internet; los pedidos aprobados durante la caída se imprimen en orden, una sola vez cada uno | Nada en el servidor; verificar luego `/api/health` |
 | **Se cae la VPS entera** | Pedidos a mano. Los clientes que piden por la web no pueden entrar: avisar por WhatsApp/redes | Reiniciar desde el panel de Contabo; si no vuelve, reconstruir con 4.5 ("si se perdió la VPS entera") |

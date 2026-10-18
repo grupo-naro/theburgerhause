@@ -90,10 +90,11 @@ Datos a completar: dominio `__________`, IP de la VPS `__________`, responsable 
 
 ## 11. Capacitación y papeles
 
-- [ ] Cajeras y encargada capacitadas con su guía de una página (`guia-cajera-mostrador.md`, `guia-encargada-delivery.md`); administrador con `guia-administrador.md`.
+- [ ] Cajeras y encargada capacitadas con su guía de una página (`guia-cajera-mostrador.md`, `guia-encargada-delivery.md`, `guia-cocina.md`); administrador con `guia-administrador.md`.
 - [ ] Tarjeta **Primer día** impresa y pegada en cada PC, con teléfonos completados.
 - [ ] **Block de contingencia** en cada puesto; plan de contingencia entregado; simulacro hecho (UAT F5).
 - [ ] Rol de cada persona confirmado: ¿cajera en estación Mostrador? ¿encargada en Delivery?
+- [ ] **Dispositivo de cocina** (PC o tablet): usuario con rol **Cocina** creado (Admin → Usuarios), `/cocina` abierta a pantalla completa, **Sonido** activado, un pedido de prueba aparece solo y **LISTO** lo pasa a Listos; guía `guia-cocina.md` leída por el cocinero. **(SIN VERIFICAR: dispositivo real: tamaño, sonido y pantalla completa del navegador.)**
 
 ## 12. UAT y operación en paralelo
 

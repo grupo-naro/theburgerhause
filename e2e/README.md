@@ -17,8 +17,8 @@ if you changed code); in CI it is always started fresh.
 
 1. Creates/migrates the test DB (reuses `src/db/global-setup.int.ts`).
 2. Truncates every table and runs the menu seed.
-3. Creates users `admin`, `cajera`, `encargada` (credentials in `e2e/helpers/users.ts`, test-only).
-4. Logs each one in THROUGH THE LOGIN FORM (cashier picks "Mostrador 1", encargada "Delivery 1")
+3. Creates users `admin`, `cajera`, `encargada`, `cocina` (credentials in `e2e/helpers/users.ts`, test-only).
+4. Logs each one in THROUGH THE LOGIN FORM (cashier picks "Mostrador 1", encargada "Delivery 1", the kitchen user has no station and lands on `/cocina`)
    and saves cookies to `e2e/.auth/<role>.json` (git-ignored).
 
 Specs opt into a role with `test.use({ storageState: authFile("admin") })`; for anonymous flows use
@@ -89,6 +89,18 @@ Measure or photograph only a settled document: `shot()` and `waitForStablePage()
 
 Helpers: `openRetiro`, `openDelivery(page, tab?)`, `openPedidos`, `openDespacho` (admin board), `openCaja` (admin general view). `placeApproved` approves
 delivery orders as the encargada at Delivery 1 and takeaway ones as the cajera at Mostrador 1.
+
+## Kitchen screen (KDS)
+
+`cocina.spec.ts` (storage state `cocina`, plus cajera and admin blocks): a delivery order approved at Delivery appears LIVE on `/cocina` with the
+exact unit / kitchen-label text (compared with the stored snapshots), the note and the DELIVERY tag; LISTO moves it to the Delivery "Listos" lane
+live (second browser context as the encargada); takeaway (RETIRO) and counter sales (MOSTRADOR + LLAMADOR) likewise; Deshacer (toast) and
+Volver a preparación (strip) with the audit chain; an order already called leaves the strip; double tap = ONE `listo_despacho` event; a stale card
+(order changed behind the screen's back) answers the friendly "ya no está en preparación"; a cancelled order disappears live; green / yellow / red
+clock from backdated `en_preparacion` events; HTML / emoji notes render as inert text; the `cocina` user is sent back to `/cocina` from every other
+URL and has no navigation; exactly one EventSource; layout at 1280 / 1024 / 768 with a 8-unit order and a long note (no horizontal overflow, nothing
+taller than the shell, LISTO / undo / sound targets >= 56 px, units scroll INSIDE the card). The cashier sees the Cocina link, can only mark her own
+sector (the other cards read "OTRO SECTOR"); admin marks any. Screenshots: `test-results/shots/cocina-*.png`.
 
 ## Security (Task 9.3)
 

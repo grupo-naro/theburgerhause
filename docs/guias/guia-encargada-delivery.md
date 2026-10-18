@@ -10,7 +10,7 @@ Para quien trabaja en una PC de **Delivery** (Delivery 1 a 5). Las capturas usan
 
 En esta PC entran **solo** los pedidos web de **delivery**. Al aprobar, **esta estación imprime dos papeles**: el **ticket de delivery**
 (el que viaja con el cadete: número, cliente, teléfono, dirección, productos, cuánto cobrar) y el **ticket del cliente** (con logo
-y "GRACIAS POR TU COMPRA"). No sale comanda de cocina impresa. **DEFINIR POR EL DUEÑO:** cómo se entera la cocina de cada pedido (pantalla, papel, aviso de voz u otro): todavía no hay una decisión tomada.
+y "GRACIAS POR TU COMPRA"). No sale comanda de cocina impresa: la cocina lee cada pedido en su **pantalla de cocina** y toca **LISTO** (ver [Guía de cocina](guia-cocina.md)).
 
 ## 1. Gestión Delivery: cinco pestañas
 
@@ -30,7 +30,7 @@ y "GRACIAS POR TU COMPRA"). No sale comanda de cocina impresa. **DEFINIR POR EL 
 
 ### En preparación
 
-Cuando la cocina termina, tocá **Listo** en ese pedido. Pasa a **Listos / Despacho**.
+Cuando la cocina termina, toca **LISTO** en su pantalla y el pedido pasa solo a **Listos / Despacho** (lo ves aparecer sin recargar). Si la cocina se olvida, tocá **Listo** vos en ese pedido. Si la cocina se equivoca y lo marca antes de tiempo, puede **deshacerlo** mientras no lo hayas asignado a un cadete.
 
 ### Listos / Despacho: asignar al cadete
 
