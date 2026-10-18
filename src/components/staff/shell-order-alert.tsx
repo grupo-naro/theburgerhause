@@ -16,7 +16,7 @@ export function ShellOrderAlert({ orders }: { orders: { id: number; number: numb
   const alert = useNewOrderAlert(orders, base);
   return (
     <>
-      <SoundToggle on={alert.soundOn} onToggle={alert.toggleSound} />
+      <SoundToggle compact on={alert.soundOn} onToggle={alert.toggleSound} />
       <p aria-live="polite" role="status" data-testid="shell-announcer" className="sr-only">
         {alert.announcement}
       </p>

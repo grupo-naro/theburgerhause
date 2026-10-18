@@ -49,7 +49,7 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
           {printer && <PrinterIndicator status={printer} />}
           <LiveRefresh large />
           <PrinterHeartbeatRefresh />
-          <span data-testid="user-name" className="hidden text-base font-semibold text-ink sm:inline">
+          <span data-testid="user-name" className="hidden text-base font-semibold text-ink xl:inline">
             {session.user.name}
           </span>
           <LogoutButton />

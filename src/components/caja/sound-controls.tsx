@@ -2,19 +2,22 @@
 
 import type { SoundHint } from "./use-new-order-alert";
 
-export function SoundToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+/** `compact` (the shell header) shows just "Sonido" and a status dot: the full state stays in aria-label / title. */
+export function SoundToggle({ on, onToggle, compact = false }: { on: boolean; onToggle: () => void; compact?: boolean }) {
   return (
     <button
       type="button"
       data-testid="sound-toggle"
       aria-pressed={on}
+      aria-label={compact ? `Sonido: ${on ? "activado" : "desactivado"}` : undefined}
+      title={compact ? `Sonido de pedidos nuevos: ${on ? "activado" : "desactivado"}` : undefined}
       onClick={onToggle}
-      className={`inline-flex min-h-12 items-center gap-2 rounded-full border-2 px-5 font-bold transition-colors ${
+      className={`inline-flex min-h-12 items-center gap-2 rounded-full border-2 ${compact ? "px-3" : "px-5"} font-bold transition-colors ${
         on ? "border-green-700 bg-green-50 text-green-800" : "border-line bg-surface text-ink hover:bg-brand-50"
       }`}
     >
       <span aria-hidden="true" className={`size-2.5 rounded-full ${on ? "bg-green-600" : "bg-slate-400"}`} />
-      Sonido: {on ? "activado" : "desactivado"}
+      {compact ? "Sonido" : `Sonido: ${on ? "activado" : "desactivado"}`}
     </button>
   );
 }
