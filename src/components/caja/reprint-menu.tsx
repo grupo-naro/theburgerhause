@@ -42,7 +42,7 @@ export function ReprintMenu({
   }, [open]);
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className="relative ml-auto">
       <button
         type="button"
         aria-haspopup="true"

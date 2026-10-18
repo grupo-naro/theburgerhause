@@ -363,6 +363,7 @@ test.describe("new web orders outside the workspace page", () => {
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
     await page.mouse.click(5, 5); // a gesture unlocks the audio
     await expect.poll(() => audioContexts(page)).toBe(1);
+    await expect(page.getByTestId("sound-toggle")).toHaveAttribute("aria-pressed", "true"); // same stored preference as Retiro
     const retiro = page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Retiro en local" });
     await expect(retiro.getByTestId("nav-badge")).toHaveCount(0);
     const before = await beeps(page);
@@ -380,6 +381,7 @@ test.describe("new web orders outside the workspace page", () => {
     await page.goto("/retiro");
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
     await expect(page.getByTestId("shell-announcer")).toHaveCount(0);
+    await expect(page.getByTestId("sound-toggle")).toHaveCount(1); // the board's own, not a second one
     await expect(page.getByTestId("caja-announcer")).toHaveCount(1);
     await page.mouse.click(5, 5);
     await expect.poll(() => audioContexts(page)).toBe(1);

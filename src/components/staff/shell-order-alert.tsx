@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SoundToggle } from "@/components/caja/sound-controls";
 import { useNewOrderAlert } from "@/components/caja/use-new-order-alert";
 
 /**
@@ -14,8 +15,11 @@ export function ShellOrderAlert({ orders }: { orders: { id: number; number: numb
   const [base] = useState(() => (typeof document === "undefined" ? undefined : document.title));
   const alert = useNewOrderAlert(orders, base);
   return (
-    <p aria-live="polite" role="status" data-testid="shell-announcer" className="sr-only">
-      {alert.announcement}
-    </p>
+    <>
+      <SoundToggle on={alert.soundOn} onToggle={alert.toggleSound} />
+      <p aria-live="polite" role="status" data-testid="shell-announcer" className="sr-only">
+        {alert.announcement}
+      </p>
+    </>
   );
 }

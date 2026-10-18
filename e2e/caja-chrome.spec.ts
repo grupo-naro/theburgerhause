@@ -262,6 +262,49 @@ test.describe("delivery manager reprint", () => {
   });
 });
 
+test.describe("reprint menu layout", () => {
+  test.use({ storageState: authFile("encargada") });
+
+  for (const [label, viewport] of [
+    ["1280", { width: 1280, height: 800 }],
+    ["1024", { width: 1024, height: 768 }],
+    ["768", { width: 768, height: 1024 }],
+  ] as const) {
+    test(`Reimprimir stays inside its card even when it wraps to its own line (${label})`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await parkPendingOrders();
+      const o = await placeDeliveryOrder({ paymentMethod: "cash" });
+      // A long name makes the header line wrap: the button drops to its own line.
+      await db().update(s.orders).set({ customerName: "Maria de los Angeles Fernandez de Kirchner Gonzalez Pereyra" }).where(eq(s.orders.id, o.id));
+      await openDelivery(page);
+      await orderCard(page, o.number).getByTestId("approve").click();
+      await expect(orderCard(page, o.number)).toHaveCount(0);
+      await page.getByTestId("tab-recent").click();
+      const mostrar = page.getByRole("button", { name: "Mostrar" });
+      if (await mostrar.isVisible()) await mostrar.click();
+      const row = recentRow(page, o.number);
+      await expect(row).toBeVisible();
+      try {
+        const button = row.getByRole("button", { name: `Reimprimir pedido #${o.number}` });
+        await button.click();
+        const menu = row.getByRole("group", { name: "Qué reimprimir" });
+        await expect(menu).toBeVisible();
+        const [r, b, m] = await Promise.all([row.boundingBox(), button.boundingBox(), menu.boundingBox()]);
+        expect(r && b && m).toBeTruthy();
+        // Button and menu never poke out of the card's left or right edge.
+        expect(b!.x).toBeGreaterThanOrEqual(r!.x);
+        expect(m!.x).toBeGreaterThanOrEqual(r!.x);
+        expect(b!.x + b!.width).toBeLessThanOrEqual(r!.x + r!.width);
+        expect(m!.x + m!.width).toBeLessThanOrEqual(r!.x + r!.width);
+        expect(await noHorizontalOverflow(page)).toBe(true);
+        await shot(page, `reprint-menu-${label}`);
+      } finally {
+        await markJobsDone(o.id);
+      }
+    });
+  }
+});
+
 test.describe("admin", () => {
   test.use({ storageState: authFile("admin") });
 

@@ -45,6 +45,7 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
           </Link>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+          {sector !== null && !ownsOrderAlert && <ShellOrderAlert orders={waiting.map((o) => ({ id: o.id, number: o.number, createdAt: o.createdAt }))} />}
           {printer && <PrinterIndicator status={printer} />}
           <LiveRefresh large />
           <PrinterHeartbeatRefresh />
@@ -55,7 +56,6 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
         </div>
       </header>
       <StaffNav links={navLinksFor(session.user.role, session.stationKind)} badges={badges} />
-      {sector !== null && !ownsOrderAlert && <ShellOrderAlert orders={waiting.map((o) => ({ id: o.id, number: o.number, createdAt: o.createdAt }))} />}
       <main className="min-w-0 px-4 py-6 sm:px-6 lg:col-start-2 lg:row-start-2">{children}</main>
     </div>
   );
