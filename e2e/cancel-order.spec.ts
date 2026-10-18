@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import * as s from "../src/db/schema";
 import { formatARS } from "../src/domain/money";
 import { listCadetBalances } from "../src/lib/settlements/queries";
-import { eventsOf, openDelivery, orderById, printJobsOf } from "./helpers/caja";
+import { eventsOf, openDelivery, openRetiro, orderById, printJobsOf } from "./helpers/caja";
 import { db } from "./helpers/db";
 import {
   assignInDb,
@@ -70,6 +70,19 @@ test.describe("cajera (mostrador)", () => {
     await page.getByTestId("cancel-confirm").click();
     await expect(dcard(page, pos.number)).toHaveCount(0);
     expect((await orderById(pos.orderId)).status).toBe("cancelado");
+  });
+});
+
+test.describe("cajera (retiro en local)", () => {
+  test.use({ storageState: authFile("cajera") });
+
+  test("cancels a web takeaway order that is being prepared, from Retiro", async ({ page }) => {
+    const o = await placeApproved({ fulfillment: "takeaway", paymentMethod: "cash" });
+    await openRetiro(page);
+    await cancelFromCard(page, o.number, "Cliente canceló");
+    await page.getByTestId("cancel-confirm").click();
+    await expect(dcard(page, o.number)).toHaveCount(0);
+    expect((await orderById(o.id)).status).toBe("cancelado");
   });
 });
 
