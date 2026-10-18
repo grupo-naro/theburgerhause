@@ -8,7 +8,7 @@ import { db, findStation } from "./helpers/db";
 import { cleanBoard, dcard, lane, openPedidos, placeApproved, populateBoard, runCleanups, tag } from "./helpers/despacho";
 import { staffContext } from "./helpers/journey";
 import { deliveredFor, ensureCadet, openList, retireCadets } from "./helpers/rendicion";
-import { shot } from "./helpers/shots";
+import { shot, waitForStablePage } from "./helpers/shots";
 import { authFile } from "./helpers/users";
 
 // One workspace per sector (Task 10.1): web orders are distributed BY ORDER TYPE. Delivery orders live on the
@@ -311,6 +311,7 @@ test.describe("layout of each workspace", () => {
       for (const size of SIZES) {
         await page.setViewportSize({ width: size.width, height: size.height });
         await openDelivery(page);
+        await waitForStablePage(page); // measure the settled document, never one that is still navigating
         const nav = page.getByRole("navigation", { name: "Secciones" });
         await expect(nav.getByRole("link")).toHaveText(["Gestión Delivery", "Rendición"]);
         for (const link of await nav.getByRole("link").all()) await expectTarget(link, "nav link");
@@ -341,6 +342,7 @@ test.describe("layout of each workspace", () => {
         await expect(page.getByTestId("lane-ready-counter")).toHaveCount(0);
 
         await openList(page);
+        await waitForStablePage(page);
         expect(await noHorizontalOverflow(page), `rendicion overflow at ${size.name}`).toBe(true);
         await shot(page, `sector-rendicion-${size.name}`);
       }

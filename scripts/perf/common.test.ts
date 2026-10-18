@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-// @ts-expect-error plain .mjs helper without declarations
 import { assertLocalDatabase, serverEnv } from "./common.mjs";
 
 describe("perf scripts host guard", () => {
@@ -16,7 +15,7 @@ describe("perf scripts host guard", () => {
   it("the spawned server gets an allow-listed environment, not the whole shell", () => {
     process.env.SOME_CLOUD_SECRET = "leak";
     try {
-      const env = serverEnv({ testUrl: "t", serverUrl: "s", uploadDir: "u", port: 3100 });
+      const env: Record<string, string | undefined> = serverEnv({ testUrl: "t", serverUrl: "s", uploadDir: "u", port: 3100 });
       expect(env.SOME_CLOUD_SECRET).toBeUndefined();
       expect(env.DATABASE_URL).toBe("t");
       expect(env.NODE_ENV).toBe("production");

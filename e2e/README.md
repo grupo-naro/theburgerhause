@@ -84,6 +84,10 @@ The saved logins land on `/mostrador` (cajera, station Mostrador 1) and `/delive
 | `caja.spec.ts`, `caja-chrome.spec.ts` | The cashier approval flow runs on `/retiro` with takeaway orders (`placeRetiroOrder`); the delivery manager's visual checks on `/delivery` (`placeDeliveryOrder`). |
 | `despacho-flow/layout/safety.spec.ts` | The full dispatch board (every lane + counters) as **admin** on `/despacho`; `despacho-roles.spec.ts` covers cashier (`/mostrador/pedidos`), encargada (`/delivery`) and admin. |
 
+Staff screens that are not the workspace itself (Venta, Mostrador, Rendición) carry a shell-level alert for new web orders of the user's sector: nav badge on Retiro / Gestión Delivery, tab title, announcer (`shell-announcer`), beep and the shared sound toggle. The workspace pages keep CajaBoard's own alert, so there is never a double beep (covered in `sector-workspaces.spec.ts`).
+
+Measure or photograph only a settled document: `shot()` and `waitForStablePage()` (`helpers/shots.ts`) wait for `load` plus a quiet window with no main-frame navigation, because a `page.evaluate` that overlaps a navigation dies with "Execution context was destroyed".
+
 Helpers: `openRetiro`, `openDelivery(page, tab?)`, `openPedidos`, `openDespacho` (admin board), `openCaja` (admin general view). `placeApproved` approves
 delivery orders as the encargada at Delivery 1 and takeaway ones as the cajera at Mostrador 1.
 
