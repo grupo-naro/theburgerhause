@@ -289,14 +289,17 @@ OUT="$(SOURCE_DIR="$(mig ok "$M0")" bash "$DEPLOY_SH" 2>&1)"; RC=$?
 expect "first deploy (no previous release) skips the check: exit 0 (got $RC)" eq "$RC" 0
 OUT="$(SOURCE_DIR="$(mig ok "$M0" "$M1")" bash "$DEPLOY_SH" 2>&1)"; RC=$?
 expect "additive migration passes: exit 0 (got $RC)" eq "$RC" 0
+OUT="$(SOURCE_DIR="$(mig ok "$M0" "$M1" '0002_x.sql:ALTER TABLE t ADD COLUMN e integer NOT NULL DEFAULT 0;' '0003_y.sql:ALTER TABLE t
+  ADD COLUMN f text;')" bash "$DEPLOY_SH" 2>&1)"; RC=$?
+expect "ADD COLUMN ... NOT NULL DEFAULT (and a multi-line additive statement) passes: exit 0 (got $RC)" eq "$RC" 0
 R_PREV="$(cur)"
-for bad in 'ALTER TABLE t DROP COLUMN c;' 'ALTER TABLE t RENAME COLUMN c TO e;' 'ALTER TABLE t ALTER COLUMN c SET NOT NULL;'; do
-  OUT="$(SOURCE_DIR="$(mig ok "$M0" "$M1" "0002_x.sql:$bad")" bash "$DEPLOY_SH" 2>&1)"; RC=$?
+for bad in 'ALTER TABLE t DROP COLUMN c;' 'ALTER TABLE t RENAME COLUMN c TO e;' 'ALTER TABLE t ALTER COLUMN c SET NOT NULL;' 'ALTER TABLE t ADD COLUMN e integer NOT NULL;' 'ALTER TABLE t ALTER COLUMN c SET DATA TYPE integer;' 'ALTER TABLE t ALTER COLUMN c TYPE integer;' 'TRUNCATE TABLE t;' 'TRUNCATE t, u;'; do
+  OUT="$(SOURCE_DIR="$(mig ok "$M0" "$M1" "0004_bad.sql:$bad")" bash "$DEPLOY_SH" 2>&1)"; RC=$?
   expect "'$bad' refused: exit 1 (got $RC)" eq "$RC" 1
   expect "  loud warning about unsafe rollback" bash -c 'grep -q "ALLOW_DESTRUCTIVE_MIGRATION" <<<"$1" && grep -qi "rollback" <<<"$1"' _ "$OUT"
   expect "  live release untouched" eq "$(cur)" "$R_PREV"
 done
-OUT="$(ALLOW_DESTRUCTIVE_MIGRATION=1 SOURCE_DIR="$(mig ok "$M0" "$M1" '0002_x.sql:ALTER TABLE t DROP COLUMN c;')" bash "$DEPLOY_SH" 2>&1)"; RC=$?
+OUT="$(ALLOW_DESTRUCTIVE_MIGRATION=1 SOURCE_DIR="$(mig ok "$M0" "$M1" '0004_bad.sql:ALTER TABLE t DROP COLUMN c;')" bash "$DEPLOY_SH" 2>&1)"; RC=$?
 expect "with ALLOW_DESTRUCTIVE_MIGRATION=1 it proceeds: exit 0 (got $RC)" eq "$RC" 0
 
 echo "== 19. retention with KEEP_RELEASES=2 keeps current and the previous OK release"
@@ -305,6 +308,16 @@ for _ in 1 2 3 4; do KEEP_RELEASES=2 run_deploy ok; done
 expect "2 releases kept (got $(nreleases))" eq "$(nreleases)" 2
 out="$(bash "$DEPLOY_SH" rollback 2>&1)"; rc=$?
 expect "rollback still possible (exit $rc)" eq "$rc" 0
+
+echo "== 20. an automatic rollback needs a previous release that passed its health check"
+reset_world
+run_deploy ok
+R1="$(cur)"
+rm -f "$APP_ROOT/releases/$R1/.deployed-ok"
+HEALTH_TIMEOUT=3 run_deploy bad
+expect "unhealthy deploy over an UNMARKED previous release: exit 4 needs a human (got $RC)" eq "$RC" 4
+expect "it says why it did not roll back" bash -c 'grep -q "never passed" <<<"$1"' _ "$OUT"
+expect "the unmarked release was not made current again" bash -c '[ "$(basename "$(readlink -f "$1/current")")" != "$2" ]' _ "$APP_ROOT" "$R1"
 
 echo
 if [ "$FAILS" -ne 0 ]; then echo "deploy scenarios: $FAILS FAILED"; exit 1; fi

@@ -22,4 +22,7 @@ t "non-default port is never socket mode" "env" "$PG_MODE"
 pg_resolve burgerhause
 t "bare name" "name burgerhause 0" "$PG_MODE $PG_DBNAME ${#PG_ENV[@]}"
 t "redact hides the password" "postgres://u:***@h/db failed" "$(redact 'postgres://u:secret@h/db failed')"
+# log must not kill a `set -e` script when the terminal vanished (EIO/EBADF on the pty after an ssh drop)
+( set -e; exec >&-; log "nobody is listening" ) 2>/dev/null; rc=$?
+t "log survives a closed stdout under set -e" 0 "$rc"
 [ "$FAILS" = 0 ] && echo "lib tests: all passed" || { echo "lib tests: $FAILS FAILED"; exit 1; }

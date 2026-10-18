@@ -15,7 +15,8 @@
 # fails the live release keeps running untouched and the half-built release is deleted.
 # Migrations must therefore be backward compatible with the previous release (add columns/tables first,
 # remove things in a LATER release), otherwise an automatic rollback would run old code on a new schema.
-# New migrations containing DROP / RENAME / SET NOT NULL are refused unless ALLOW_DESTRUCTIVE_MIGRATION=1.
+# New migrations containing DROP / RENAME / SET NOT NULL / ADD COLUMN ... NOT NULL (no DEFAULT) / ALTER COLUMN ... TYPE /
+# TRUNCATE are refused unless ALLOW_DESTRUCTIVE_MIGRATION=1.
 #
 # Layout:  $APP_ROOT/releases/<YYYYmmddHHMMSS>/   one directory per deploy; the file .deployed-ok inside marks a
 #                                                 release that was deployed AND passed the health check. Only
@@ -39,7 +40,7 @@
 #   RESTART_CMD="systemctl restart burgerhause"
 #   HEALTH_URL=http://127.0.0.1:3000/api/health   HEALTH_TIMEOUT=60   HEALTH_INTERVAL=2
 #   KEEP_RELEASES=5     SKIP_BACKUP=1 (skip the pre-deploy backup)     DRY_RUN=1 (print the plan, change nothing)
-#   ALLOW_DESTRUCTIVE_MIGRATION=1       accept new migrations with DROP / RENAME / SET NOT NULL
+#   ALLOW_DESTRUCTIVE_MIGRATION=1       accept new migrations with the destructive statements listed above
 #   NO_LOGGER=1         do not write to the system journal
 set -euo pipefail
 
@@ -282,6 +283,17 @@ cleanup_old() { # keep the newest KEEP_RELEASES GOOD releases; never the current
   done <<<"$all"
 }
 
+# unsafe_statements <migration.sql>: one line per statement an OLD release cannot live with (DROP, RENAME, SET NOT NULL,
+# ADD COLUMN ... NOT NULL without DEFAULT, ALTER COLUMN ... TYPE, TRUNCATE). Statements are split on ';' so a multi-line one is seen whole.
+unsafe_statements() {
+  local stmts
+  stmts="$(tr '\n\r' '  ' <"$1" | tr ';' '\n')"
+  {
+    printf '%s\n' "$stmts" | grep -iE 'drop |rename |set not null|truncate |alter column +("[^"]+"|[^ ]+) +(set data +)?type ' || true
+    printf '%s\n' "$stmts" | grep -iE 'add column' | grep -iE 'not null' | grep -ivE 'default|generated' || true
+  } | sed -E 's/^ +//; s/ +/ /g'
+}
+
 check_migrations() { # refuse new destructive migrations unless explicitly allowed
   local prev="$1" f base found="" hits
   [ -n "$prev" ] || return 0 # first deploy: nothing to roll back to
@@ -290,14 +302,14 @@ check_migrations() { # refuse new destructive migrations unless explicitly allow
     [ -f "$f" ] || continue
     base="$(basename "$f")"
     [ -f "$RELEASES/$prev/$MIGRATIONS_SUBDIR/$base" ] && continue # already part of the running release
-    hits="$(grep -inE 'drop |rename |set not null' "$f" || true)"
+    hits="$(unsafe_statements "$f")"
     if [ -n "$hits" ]; then
       found="$found\n  $base: $(printf '%s' "$hits" | head -n 3 | tr '\n' ' ')"
     fi
   done
   [ -n "$found" ] || return 0
   log "WARNING ----------------------------------------------------------------------------------"
-  log "WARNING: the NEW migrations contain destructive statements (DROP / RENAME / SET NOT NULL):"
+  log "WARNING: the NEW migrations contain destructive statements (DROP / RENAME / SET NOT NULL / NOT NULL without DEFAULT / TYPE change / TRUNCATE):"
   printf '%b\n' "$found"
   log "WARNING: an automatic rollback would run the OLD code on the NEW schema and may fail or corrupt data."
   log "WARNING: prefer additive migrations (nullable columns or columns with DEFAULT), removals in a later release."
@@ -433,7 +445,7 @@ do_deploy() {
     log ">>> backup skipped (SKIP_BACKUP=1)"
   else
     log ">>> pre-deploy backup"
-    as_app "$HERE/backup.sh" || fail_before_swap "pre-deploy backup (fix the backup or set SKIP_BACKUP=1 knowingly)"
+    as_app "$HERE/backup.sh" 9>&- || fail_before_swap "pre-deploy backup (fix the backup or set SKIP_BACKUP=1 knowingly)"
   fi
 
   # 3. install, check migrations, migrate, build - all BEFORE touching the running version
@@ -461,6 +473,12 @@ do_deploy() {
   if [ -z "$prev" ] || [ ! -d "$RELEASES/$prev" ]; then
     PHASE="decided"
     log "ERROR: there is no previous release to go back to (first deploy?). Look at: journalctl -u $SERVICE_NAME -n 100"
+    exit 4
+  fi
+  if [ ! -f "$RELEASES/$prev/$OK_MARKER" ]; then
+    PHASE="decided"
+    log "ERROR: the previous release $prev never passed a health check (no $OK_MARKER): not a safe rollback target."
+    log "ERROR: needs a human: journalctl -u $SERVICE_NAME -n 100, then deploy.sh status / rollback <good release>"
     exit 4
   fi
   swap_to "$prev"

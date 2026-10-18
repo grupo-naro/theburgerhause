@@ -14,6 +14,7 @@ Group=burgerhause
 EnvironmentFile=/etc/burgerhause/burgerhause.env
 # Dump over the UNIX socket with peer authentication as User=burgerhause (the Postgres role has the same name):
 # no password ever reaches a command line. DATABASE_URL (with its password) stays in the environment only.
+# MUST be the database name of DATABASE_URL (and the Postgres role/OS user must match); backup.sh warns when they differ.
 Environment=BACKUP_DB=burgerhause
 # ssh looks for ~/.ssh/known_hosts and the key here (see the runbook, "copiar los backups fuera de la VPS").
 Environment=HOME=/var/lib/burgerhause

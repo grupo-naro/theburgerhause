@@ -10,7 +10,8 @@
 # Environment (all optional; defaults are for the production layout):
 #   ENV_FILE         /etc/burgerhause/burgerhause.env  (read for DATABASE_URL / UPLOAD_DIR if unset)
 #   DATABASE_URL     postgres://user:pass@127.0.0.1:5432/db
-#   BACKUP_DB        bare database name to dump (default: taken from DATABASE_URL). With a bare name the script adds no
+#   BACKUP_DB        bare database name to dump (default: taken from DATABASE_URL; the systemd unit sets it to 'burgerhause':
+#                    change it there if your database has another name - a mismatch with DATABASE_URL is warned about). With a bare name the script adds no
 #                    connection settings: libpq defaults apply (UNIX socket + peer auth as the service user).
 #
 # The database password is NEVER put on a command line: a local URL whose user equals the OS user connects over the
@@ -58,6 +59,11 @@ split_cmd RSYNC "$RSYNC_CMD"
 pg_resolve "$BACKUP_DB"
 DB_NAME="$PG_DBNAME"
 [ -n "$DB_NAME" ] || die "cannot work out the database name" 1
+# The systemd unit pins BACKUP_DB to a bare name; if the app's database is called otherwise the backup would silently
+# cover the wrong database (or none): say so loudly.
+if [ -n "${DATABASE_URL:-}" ] && [ "$BACKUP_DB" != "$DATABASE_URL" ] && [ "$(db_name_of "$DATABASE_URL")" != "$DB_NAME" ]; then
+  log "WARNING: BACKUP_DB ($DB_NAME) differs from the database in DATABASE_URL ($(db_name_of "$DATABASE_URL")): is that intended?"
+fi
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 DB_DIR="$BACKUP_DIR/db"
 UP_DIR="$BACKUP_DIR/uploads"

@@ -98,6 +98,9 @@ if grep -q '^ARGV' "$SPY_LOG" && ! grep -E '://|ignored' "$SPY_LOG" | grep -q AR
 # (c) explicit bare name (what the systemd unit sets)
 BACKUP_DIR="$T/bk-c" BACKUP_DB=burgerhause DATABASE_URL='postgres://x:topsecret@127.0.0.1:1/burgerhause' PGDUMP_CMD="$SPY" "$SCRIPTS/backup.sh" >/dev/null
 if ! grep -qE '://|topsecret|ENV_SET' "$SPY_LOG"; then ok "BACKUP_DB name mode: no URL, no password, no PG* variables"; else bad "name mode leaked: $(cat "$SPY_LOG")"; fi
+# (c2) a bare BACKUP_DB that is not the database of DATABASE_URL is flagged (the unit hardcodes the name)
+OUT_C2="$(BACKUP_DIR="$T/bk-c2" BACKUP_DB=otherdb DATABASE_URL='postgres://x:topsecret@127.0.0.1:1/burgerhause' PGDUMP_CMD="$SPY" "$SCRIPTS/backup.sh" 2>&1)"
+if grep -q 'differs from the database in DATABASE_URL' <<<"$OUT_C2" && ! grep -q topsecret <<<"$OUT_C2"; then ok "BACKUP_DB different from DATABASE_URL: warning, no password printed"; else bad "no mismatch warning: $OUT_C2"; fi
 # (d) the dump taken through the spy is a valid archive (the pipeline still works end to end)
 [ -n "$(ls "$T"/bk-a/db/*.dump 2>/dev/null)" ] && ok "dump produced in env mode" || bad "no dump in env mode"
 

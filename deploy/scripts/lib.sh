@@ -6,7 +6,8 @@
 
 # log <message...>: timestamped line on stdout (systemd captures it in journald for the timer/service).
 log() {
-  printf '%s [%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$SCRIPT_TAG" "$*"
+  # A vanished terminal (ssh/pty gone: EIO) must not abort a script running under set -e.
+  printf '%s [%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$SCRIPT_TAG" "$*" || true
 }
 
 # journal <message...>: also write to the system journal when `logger` exists (skipped with NO_LOGGER=1).
