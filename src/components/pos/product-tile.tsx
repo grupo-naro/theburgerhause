@@ -10,6 +10,8 @@ type Props = {
   pulse: number;
   onAdd: (product: PublicProduct) => void;
   onCustomize: (product: PublicProduct, opener: HTMLElement) => void;
+  /** The server said this drink ran out: the tile is disabled and says "Sin stock". */
+  soldOut?: boolean;
 };
 
 /**
@@ -17,21 +19,23 @@ type Props = {
  * products with modifier groups get a separate "Personalizar" strip so the customized flow is never
  * reached by accident.
  */
-export function ProductTile({ product, pulse, onAdd, onCustomize }: Props) {
+export function ProductTile({ product, pulse, onAdd, onCustomize, soldOut = false }: Props) {
   const customizable = product.modifierGroups.length > 0;
   const price = formatARS(product.price);
   return (
     <li
       data-testid="pos-tile"
       data-product-id={product.id}
-      className="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm"
+      data-sold-out={soldOut || undefined}
+      className={`flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm${soldOut ? " opacity-60" : ""}`}
     >
       <button
         type="button"
         data-tile-main
         onClick={() => onAdd(product)}
-        aria-label={`Agregar ${product.name}, ${price}`}
-        className="group relative flex min-h-32 flex-1 flex-col text-left transition-colors hover:bg-brand-50/60 active:bg-brand-50"
+        disabled={soldOut}
+        aria-label={soldOut ? `${product.name}: sin stock` : `Agregar ${product.name}, ${price}`}
+        className="group relative flex min-h-32 flex-1 flex-col text-left transition-colors hover:bg-brand-50/60 active:bg-brand-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
       >
         <span className="relative block aspect-[16/10] w-full overflow-hidden bg-brand-50 [&_img[width='96']]:size-12 md:[&_img[width='96']]:size-12">
           <ProductImage product={product} sizes="(min-width: 1280px) 160px, 180px" />
@@ -48,10 +52,16 @@ export function ProductTile({ product, pulse, onAdd, onCustomize }: Props) {
         </span>
         <span className="flex flex-1 flex-col justify-between gap-1 px-2.5 pb-2.5 pt-2">
           <span className="line-clamp-3 text-base leading-tight font-semibold text-ink">{product.name}</span>
-          <span className="font-display text-xl leading-none font-extrabold text-brand-600">{price}</span>
+          {soldOut ? (
+            <span data-testid="tile-sold-out" className="font-display text-base leading-none font-extrabold text-state-error">
+              Sin stock
+            </span>
+          ) : (
+            <span className="font-display text-xl leading-none font-extrabold text-brand-600">{price}</span>
+          )}
         </span>
       </button>
-      {customizable && (
+      {customizable && !soldOut && (
         <button
           type="button"
           data-testid="tile-customize"

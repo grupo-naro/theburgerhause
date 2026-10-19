@@ -1,5 +1,6 @@
 import { z } from "@/lib/zod";
 import type { Db } from "@/db/client";
+import { returnStockForOrder } from "@/lib/stock/sales";
 import { pgErrorCode } from "./create-order";
 import { cleanText } from "./schemas";
 import type { Sector } from "./sector";
@@ -21,7 +22,12 @@ const id = z.number().int().positive().max(2_147_483_647);
 const inputSchema = z.object({ orderId: id, userId: id });
 
 export type RejectOrderInput = { orderId: number; userId: number; reason: string; sector: Sector | null };
-export type RejectOrderData = { orderId: number; status: "cancelado" };
+export type RejectOrderData = {
+  orderId: number;
+  status: "cancelado";
+  /** Set when returning the drinks lifted a stock pause: the caller refreshes the cached menu. */
+  menuChanged?: true;
+};
 
 export async function rejectOrder(db: Db, raw: RejectOrderInput): Promise<OrderResult<RejectOrderData>> {
   const ids = inputSchema.safeParse(raw);
@@ -40,7 +46,13 @@ export async function rejectOrder(db: Db, raw: RejectOrderInput): Promise<OrderR
         note: reason.data,
       });
       if (!moved.ok) return moved;
-      return { ok: true, data: { orderId: ids.data.orderId, status: "cancelado" } };
+      // The drinks reserved when the order was created go back (once: the row lock + the
+      // cancelado state make a second reject/cancel fail before reaching this line).
+      const stock = await returnStockForOrder(tx, { orderId: ids.data.orderId, userId: ids.data.userId });
+      return {
+        ok: true,
+        data: { orderId: ids.data.orderId, status: "cancelado", ...(stock.pauseChanged ? { menuChanged: true as const } : {}) },
+      };
     });
   } catch (err) {
     console.error("[orders] rejectOrder failed", pgErrorCode(err) ?? "");

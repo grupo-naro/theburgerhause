@@ -25,6 +25,7 @@ export type Confirmation = {
   payment: PaymentMethod;
 };
 
+const EMPTY_IDS: ReadonlySet<number> = new Set();
 const NETWORK_MESSAGE = "No pudimos conectarnos. Revisá la conexión y probá de nuevo: el ticket sigue intacto.";
 const KEY_STORAGE_PREFIX = "bh_pos_key_v1:";
 
@@ -64,6 +65,12 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
   /** Signature of a sale whose answer was LOST: its own order may already hold the pager, so a retry is allowed. */
   const [retrySig, setRetrySig] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  /**
+   * Products the server answered OUT_OF_STOCK for: their tiles show "Sin stock" and cannot be added.
+   * Kept for the current menu only (a fresh menu, e.g. after a refill, starts clean).
+   */
+  const [soldOut, setSoldOut] = useState<{ index: typeof index; ids: ReadonlySet<number> }>({ index, ids: new Set() });
+  const soldOutIds = soldOut.index === index ? soldOut.ids : EMPTY_IDS;
   const [, startTransition] = useTransition();
   /** Synchronous guard: a double click / double Ctrl+Enter in the same tick must reach the server once. */
   const inFlight = useRef(false);
@@ -186,6 +193,13 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
             router.refresh();
             break;
           }
+          case "OUT_OF_STOCK": {
+            // The cashier takes the drink off the ticket; its tile is disabled meanwhile.
+            const ids = new Set(r.productIds ?? []);
+            setSoldOut((prev) => ({ index: cur.index, ids: new Set<number>([...(prev.index === cur.index ? prev.ids : []), ...ids]) }));
+            setMessage(r.message);
+            break;
+          }
           case "STATION_REQUIRED":
             setStationMissing(true);
             break;
@@ -238,6 +252,7 @@ export function useCounterSale({ pagers, refreshPagers, stationId }: Args) {
     unitMessages,
     dismissUnitMessages: () => setUnitMessages(null),
     stationMissing,
+    soldOut: soldOutIds,
     confirmation,
     submit,
     newSale,

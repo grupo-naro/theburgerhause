@@ -90,6 +90,8 @@ export function useCheckout(deliveryFee: number) {
   const [serverMessage, setServerMessage] = useState<string | null>(null);
   const [unitMessages, setUnitMessages] = useState<string[] | null>(null);
   const [unitsRemoved, setUnitsRemoved] = useState(false);
+  /** OUT_OF_STOCK: "Se agotó …" (the customer removes the drink from the cart and confirms again). */
+  const [outOfStock, setOutOfStock] = useState<string | null>(null);
   const [remembered, setRemembered] = useState(saved !== null);
   const [placed, setPlaced] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -168,6 +170,8 @@ export function useCheckout(deliveryFee: number) {
       }
       // Options / combinations need the reconcile against a fresh menu.
       if (issues.some((i) => i.code !== "PRODUCT_UNAVAILABLE")) router.refresh();
+    } else if (result.code === "OUT_OF_STOCK") {
+      setOutOfStock(result.message);
     } else {
       // A tripped honeypot (autofilled by a form-filler) must never lock the customer out: clear it.
       if (result.code === "HONEYPOT") setForm((f) => ({ ...f, bh_ref: "" }));
@@ -179,6 +183,7 @@ export function useCheckout(deliveryFee: number) {
     if (inFlight.current || !cart.ready || !ordersOpen || cart.count === 0) return;
     setServerMessage(null);
     setUnitMessages(null);
+    setOutOfStock(null);
     const sentLines = cart.lines;
     const units = toOrderUnits(sentLines);
     keyHolder.current ??= createKeyHolder(session());
@@ -212,6 +217,7 @@ export function useCheckout(deliveryFee: number) {
     serverMessage,
     unitMessages,
     unitsRemoved,
+    outOfStock,
     remembered,
     placed,
     pending,

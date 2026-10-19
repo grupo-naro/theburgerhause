@@ -4,15 +4,19 @@ vi.mock("next/headers", async () => {
   const m = await import("@/test-support/next-mocks");
   return { headers: m.nextHeadersMock.headers, cookies: m.nextHeadersMock.cookies };
 });
+vi.mock("@/lib/menu/cache", () => ({ invalidateMenu: vi.fn(), MENU_CACHE_TAG: "menu" }));
 vi.mock("@/lib/orders/create-order", async (importOriginal) => {
   const m = await importOriginal<typeof import("@/lib/orders/create-order")>();
   return { ...m, createOrder: vi.fn(m.createOrder) };
 });
 
+import { eq } from "drizzle-orm";
 import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
+import { invalidateMenu } from "@/lib/menu/cache";
 import { createOrder } from "@/lib/orders/create-order";
+import { setInitialStock } from "@/lib/stock/movements";
 import { resetOrderRateLimit } from "@/lib/orders/order-rate-limit";
 import { jar, requestHeaders, resetNextMocks } from "@/test-support/next-mocks";
 import { createOrderAction } from "./actions";
@@ -39,6 +43,7 @@ beforeEach(async () => {
   resetNextMocks();
   resetOrderRateLimit();
   vi.mocked(createOrder).mockClear();
+  vi.mocked(invalidateMenu).mockClear();
   const [cat] = await db().insert(s.categories).values({ name: "B", slug: "b" }).returning();
   const [p] = await db().insert(s.products).values({ categoryId: cat.id, name: "Ranchita", price: 850000 }).returning();
   productId = p.id;
@@ -215,6 +220,39 @@ describe("createOrderAction", () => {
       await createOrderAction(payload());
       expect(spy.mock.calls[0]).toEqual(["[createOrderAction] unexpected error", "unknown"]);
       spy.mockRestore();
+    });
+  });
+
+  describe("drink stock", () => {
+    async function linkDrink(units: number) {
+      const [u] = await db().insert(s.users).values({ name: "E", username: "e", passwordHash: "x", role: "encargado" }).returning();
+      const [item] = await db().insert(s.stockItems).values({ name: "Coca 500", kind: "bebida", unit: "u", minQty: 0 }).returning();
+      await db().update(s.products).set({ stockItemId: item.id }).where(eq(s.products.id, productId));
+      const r = await setInitialStock(db(), { itemId: item.id, userId: u.id, milli: units * 1000 });
+      if (!r.ok) throw new Error(r.message);
+      vi.mocked(invalidateMenu).mockClear();
+    }
+
+    it("OUT_OF_STOCK comes back with the message and the products; no order", async () => {
+      await linkDrink(0);
+      const r = await createOrderAction(payload());
+      expect(r).toEqual({
+        ok: false,
+        code: "OUT_OF_STOCK",
+        message: "Se agotó Ranchita. Sacala del pedido para continuar.",
+        productIds: [productId],
+        names: ["Ranchita"],
+      });
+      expect(await orderCount()).toBe(0);
+      expect(invalidateMenu).not.toHaveBeenCalled();
+    });
+
+    it("selling the last unit refreshes the cached menu (the drink is now stock-paused)", async () => {
+      await linkDrink(2);
+      expect(await createOrderAction(payload())).toMatchObject({ ok: true });
+      expect(invalidateMenu).not.toHaveBeenCalled();
+      expect(await createOrderAction(payload())).toMatchObject({ ok: true });
+      expect(invalidateMenu).toHaveBeenCalledTimes(1);
     });
   });
 });

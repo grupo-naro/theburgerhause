@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "@/lib/zod";
 import { getDb } from "@/db/client";
+import { invalidateMenu } from "@/lib/menu/cache";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession, type Role } from "@/lib/auth/roles";
 import { pgErrorCode } from "@/lib/orders/create-order";
@@ -25,8 +26,8 @@ import { actorRefusal, actorSectorFor, type Sector } from "@/lib/orders/sector";
  *  1. authorizes first (`requireRole`), 2. re-validates the client payload with zod (unknown keys
  *  are stripped: `userId` can only come from the verified session), 3. calls the core and returns
  *  a serializable result. Expected failures are returned, never thrown; unexpected ones become a
- *  fixed generic message. No cache invalidation: staff pages are dynamic and the SSE event drives
- *  the refresh.
+ *  fixed generic message. Staff pages are dynamic and the SSE event drives the refresh; only the
+ *  cached menu is invalidated, when a drink's stock pause flips.
  *
  * Roles: the four order-level actions are open to the cashier (she calls takeaway pagers and
  * hands over orders), the delivery manager and the admin. Assigning cadets is `encargada_delivery`
@@ -143,6 +144,8 @@ export async function cancelOrderAction(input: unknown): Promise<ActionResult<Ca
   const { session, sector } = auth;
   return run(async () => {
     const r = await cancelOrder(getDb(), { sector, orderId: parsed.data.orderId, userId: session.user.id, reason: parsed.data.reason });
+    // Returning the drinks lifted a stock pause: the (cached) menu shows the drink again.
+    if (r.ok && r.data.menuChanged) invalidateMenu();
     return r.ok ? r : { ok: false as const, code: r.code === "STATION_REQUIRED" ? ("UNEXPECTED" as const) : r.code, message: r.message };
   });
 }

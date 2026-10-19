@@ -7,6 +7,7 @@ vi.mock("@/lib/orders/create-counter-order", async (importOriginal) => {
   const m = await importOriginal<typeof import("@/lib/orders/create-counter-order")>();
   return { ...m, createCounterOrder: vi.fn(m.createCounterOrder) };
 });
+vi.mock("@/lib/menu/cache", () => ({ invalidateMenu: vi.fn(), MENU_CACHE_TAG: "menu" }));
 vi.mock("@/lib/orders/print-state", async (importOriginal) => {
   const m = await importOriginal<typeof import("@/lib/orders/print-state")>();
   return { ...m, getOrderPrintState: vi.fn(m.getOrderPrintState) };
@@ -21,7 +22,9 @@ import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession, type Role } from "@/lib/auth/roles";
+import { invalidateMenu } from "@/lib/menu/cache";
 import { createCounterOrder } from "@/lib/orders/create-counter-order";
+import { setInitialStock } from "@/lib/stock/movements";
 import { listActivePagers } from "@/lib/orders/pagers";
 import { getOrderPrintState } from "@/lib/orders/print-state";
 import { redirectOf } from "@/test-support/next-mocks";
@@ -260,6 +263,41 @@ describe("getPrintStateAction", () => {
     vi.mocked(getOrderPrintState).mockRejectedValueOnce(Object.assign(new Error("secret SELECT"), { code: "XX000" }));
     expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: false, code: "UNEXPECTED", message: GENERIC });
     expect(JSON.stringify(log.mock.calls)).not.toContain("secret");
+  });
+});
+
+describe("drink stock", () => {
+  async function linkDrink(units: number) {
+    const [item] = await testDb().insert(s.stockItems).values({ name: "Coca 500", kind: "bebida", unit: "u", minQty: 0 }).returning();
+    await testDb().update(s.products).set({ stockItemId: item.id }).where(eq(s.products.id, fx.melt));
+    const r = await setInitialStock(testDb(), { itemId: item.id, userId: fx.userId, milli: units * 1000 });
+    if (!r.ok) throw new Error(r.message);
+    return item.id;
+  }
+  const drink = () => body({ units: [{ productId: fx.melt, modifierIds: [], note: "" }] });
+
+  it("OUT_OF_STOCK is returned with the products to disable; nothing is sold", async () => {
+    as("cajera");
+    await linkDrink(0);
+    expect(await createCounterOrderAction(drink())).toEqual({
+      ok: false,
+      code: "OUT_OF_STOCK",
+      message: "Se agotó Melt simple. Sacala del pedido para continuar.",
+      productIds: [fx.melt],
+      names: ["Melt simple"],
+    });
+    expect(await orders()).toHaveLength(0);
+    expect(await jobs()).toHaveLength(0);
+    expect(invalidateMenu).not.toHaveBeenCalled();
+  });
+
+  it("selling the last unit refreshes the cached menu", async () => {
+    as("cajera");
+    const itemId = await linkDrink(1);
+    expect(await createCounterOrderAction(drink())).toMatchObject({ ok: true });
+    expect(invalidateMenu).toHaveBeenCalledTimes(1);
+    const [row] = await testDb().select({ q: s.stockItems.quantity }).from(s.stockItems).where(eq(s.stockItems.id, itemId));
+    expect(row.q).toBe(0);
   });
 });
 

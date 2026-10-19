@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", async () => (await import("@/test-support/next-mocks")).nextNavigationMock);
 vi.mock("@/lib/auth/require-role", () => ({ requireRole: vi.fn() }));
+vi.mock("@/lib/menu/cache", () => ({ invalidateMenu: vi.fn(), MENU_CACHE_TAG: "menu" }));
 vi.mock("@/lib/orders/dispatch", async (importOriginal) => {
   const m = await importOriginal<typeof import("@/lib/orders/dispatch")>();
   return {
@@ -20,7 +21,9 @@ import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession, type Role } from "@/lib/auth/roles";
+import { invalidateMenu } from "@/lib/menu/cache";
 import * as dispatch from "@/lib/orders/dispatch";
+import { setInitialStock } from "@/lib/stock/movements";
 import { redirectOf } from "@/test-support/next-mocks";
 import { makeCadet, preparingWebOrder } from "@/test-support/dispatch";
 import { seedMenuAndStaff, type Fx } from "@/test-support/orders";
@@ -362,5 +365,28 @@ describe("cancelOrderAction", () => {
     as("encargada_delivery", fx.otherUserId);
     expect(await cancelOrderAction({ orderId: del.id, reason: "No hay cadete" })).toMatchObject({ ok: true });
     expect((await events(del.id)).at(-1)).toMatchObject({ userId: fx.otherUserId });
+  });
+});
+
+async function linkMeltDrink(units: number) {
+  const [item] = await testDb().insert(s.stockItems).values({ name: "Coca 500", kind: "bebida", unit: "u", minQty: 0 }).returning();
+  await testDb().update(s.products).set({ stockItemId: item.id }).where(eq(s.products.id, fx.melt));
+  const r = await setInitialStock(testDb(), { itemId: item.id, userId: fx.userId, milli: units * 1000 });
+  if (!r.ok) throw new Error(r.message);
+  return item.id;
+}
+const qtyOf = async (itemId: number) => (await testDb().select({ q: s.stockItems.quantity }).from(s.stockItems).where(eq(s.stockItems.id, itemId)))[0].q;
+
+describe("cancelOrderAction gives the drinks back", () => {
+  it("returns the drink of an approved order and refreshes the cached menu", async () => {
+    const itemId = await linkMeltDrink(1);
+    const o = await preparingWebOrder(fx, { fulfillment: "takeaway" });
+    expect(await qtyOf(itemId)).toBe(0);
+    as("cajera");
+    expect(await cancelOrderAction({ orderId: o.id, reason: "Cliente canceló" })).toMatchObject({ ok: true });
+    expect(await qtyOf(itemId)).toBe(1000);
+    expect(invalidateMenu).toHaveBeenCalledTimes(1);
+    expect(await cancelOrderAction({ orderId: o.id, reason: "Cliente canceló" })).toMatchObject({ ok: false });
+    expect(await qtyOf(itemId)).toBe(1000);
   });
 });

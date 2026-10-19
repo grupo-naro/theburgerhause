@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
+import { returnStockForOrder } from "@/lib/stock/sales";
 import { pgErrorCode } from "./create-order";
 import { rejectReasonSchema } from "./reject-order";
 import type { Sector } from "./sector";
@@ -21,7 +22,12 @@ export const CANCELLABLE_STATUSES = ["en_preparacion", "listo_despacho", "para_r
 export const CANCELLED_BEFORE_PRINT_ERROR = "pedido cancelado";
 
 export type CancelOrderInput = { orderId: number; userId: number; reason: string; sector: Sector | null };
-export type CancelOrderData = { orderId: number; status: "cancelado" };
+export type CancelOrderData = {
+  orderId: number;
+  status: "cancelado";
+  /** Set when returning the drinks lifted a stock pause: the caller refreshes the cached menu. */
+  menuChanged?: true;
+};
 
 export async function cancelOrder(db: Db, raw: CancelOrderInput): Promise<OrderResult<CancelOrderData>> {
   if (!isId(raw.orderId) || !isId(raw.userId)) return failure("VALIDATION", "Solicitud inválida");
@@ -43,7 +49,12 @@ export async function cancelOrder(db: Db, raw: CancelOrderInput): Promise<OrderR
         .update(s.printJobs)
         .set({ status: "failed", error: CANCELLED_BEFORE_PRINT_ERROR, updatedAt: new Date() })
         .where(and(eq(s.printJobs.orderId, raw.orderId), eq(s.printJobs.status, "pending")));
-      return { ok: true, data: { orderId: raw.orderId, status: "cancelado" } };
+      // Reserved / sold drinks go back exactly once (see returnStockForOrder).
+      const stock = await returnStockForOrder(tx, { orderId: raw.orderId, userId: raw.userId });
+      return {
+        ok: true,
+        data: { orderId: raw.orderId, status: "cancelado", ...(stock.pauseChanged ? { menuChanged: true as const } : {}) },
+      };
     });
   } catch (err) {
     console.error("[orders] cancelOrder failed", pgErrorCode(err) ?? "");

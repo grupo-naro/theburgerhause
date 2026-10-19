@@ -7,7 +7,7 @@ import { formatARS } from "@/domain/money";
 import type { CheckoutInfo } from "@/lib/settings/checkout-info";
 import { CheckoutSkeleton } from "./checkout-skeleton";
 import { CustomerSection } from "./customer-section";
-import { ClosedInline, ErrorSummary, UnitsInvalidBanner } from "./error-banners";
+import { ClosedInline, ErrorSummary, OutOfStockBanner, UnitsInvalidBanner } from "./error-banners";
 import { FulfillmentSection } from "./fulfillment-section";
 import { PaymentSection } from "./payment-section";
 import { SummaryPanel } from "./summary-panel";
@@ -31,10 +31,10 @@ export function CheckoutContent({ info }: { info: CheckoutInfo }) {
     if (empty && !c.placed) router.replace("/carrito");
   }, [empty, c.placed, router]);
 
-  // A units-invalid answer is the most important thing on the page: bring it into view.
+  // A units-invalid / out-of-stock answer is the most important thing on the page: bring it into view.
   useEffect(() => {
-    if (c.unitMessages) bannerRef.current?.scrollIntoView({ block: "center" });
-  }, [c.unitMessages]);
+    if (c.unitMessages || c.outOfStock) bannerRef.current?.scrollIntoView({ block: "center" });
+  }, [c.unitMessages, c.outOfStock]);
 
   const showForm = cart.ready && !empty;
   const submitDisabled = c.pending || !c.ordersOpen || !cart.ready || empty;
@@ -49,6 +49,11 @@ export function CheckoutContent({ info }: { info: CheckoutInfo }) {
             {c.unitMessages && (
               <div ref={bannerRef} className="scroll-mt-28">
                 <UnitsInvalidBanner messages={c.unitMessages} removed={c.unitsRemoved} />
+              </div>
+            )}
+            {c.outOfStock && !c.unitMessages && (
+              <div ref={bannerRef} className="scroll-mt-28">
+                <OutOfStockBanner message={c.outOfStock} />
               </div>
             )}
             {showForm && (

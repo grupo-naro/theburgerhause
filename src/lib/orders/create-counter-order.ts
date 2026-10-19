@@ -6,8 +6,10 @@ import { orderTotals } from "@/domain/pricing";
 import { ORDERS_CHANNEL } from "@/lib/events/channels";
 import { notifyInTx } from "@/lib/events/notify";
 import { getBusinessDayCutoff } from "@/lib/settings";
+import { OutOfStockRollback, reserveStockForOrder } from "@/lib/stock/sales";
 import { counterOrderSchema } from "./counter-schemas";
 import { STATION_REQUIRED_MESSAGE } from "./approve-order";
+import { outOfStock } from "./create-order";
 import { defaultToken, insertOrderItems, loadCatalog, pgError } from "./order-rows";
 import { ACTIVE_PAGER_STATUSES } from "./pagers";
 import { enqueuePrintJobs, loadPrintableOrder } from "./print-jobs";
@@ -31,13 +33,18 @@ export type CreateCounterOrderData = {
   paymentMethod: "cash" | "transfer";
   printJobIds: number[];
   duplicate: boolean;
+  /** Set when the sale flipped a drink's stock pause: the caller refreshes the cached menu. */
+  menuChanged?: true;
 };
 export type CreateCounterOrderFailure = {
   ok: false;
-  code: "VALIDATION" | "STATION_REQUIRED" | "UNITS_INVALID" | "PAGER_IN_USE" | "UNEXPECTED";
+  code: "VALIDATION" | "STATION_REQUIRED" | "UNITS_INVALID" | "PAGER_IN_USE" | "UNEXPECTED" | "OUT_OF_STOCK";
   message: string;
   fieldErrors?: Record<string, string>;
   unitIssues?: UnitIssue[];
+  /** OUT_OF_STOCK: the products that ran out (the POS disables them with "Sin stock"). */
+  productIds?: number[];
+  names?: string[];
 };
 export type CreateCounterOrderResult = { ok: true; data: CreateCounterOrderData } | CreateCounterOrderFailure;
 export type CreateCounterOrderContext = { now?: Date; newToken?: () => string };
@@ -53,7 +60,7 @@ const PAGER_INDEX = "orders_active_counter_pager_unique";
 const KEY_INDEX = "orders_idempotency_key_unique";
 
 const fail = (
-  code: Exclude<CreateCounterOrderFailure["code"], "PAGER_IN_USE">,
+  code: keyof typeof COUNTER_MESSAGES,
   extra: Partial<CreateCounterOrderFailure> = {},
 ): CreateCounterOrderFailure => ({ ok: false, code, message: COUNTER_MESSAGES[code], ...extra });
 
@@ -163,6 +170,14 @@ async function place(
     })
     .returning({ id: s.orders.id });
 
+  // The sale is confirmed now: take the controlled drinks off; a shortfall rolls everything back.
+  const stock = await reserveStockForOrder(tx, {
+    orderId: order.id,
+    units: resolved.units.map((u) => ({ productId: u.product.id })),
+    userId: input.userId,
+  });
+  if (!stock.ok) throw new OutOfStockRollback(stock);
+
   await insertOrderItems(tx, order.id, resolved.units);
 
   await tx.insert(s.orderEvents).values({
@@ -191,6 +206,7 @@ async function place(
       paymentMethod: input.paymentMethod,
       printJobIds,
       duplicate: false,
+      ...(stock.pauseChanged ? { menuChanged: true as const } : {}),
     },
   };
 }
@@ -212,6 +228,7 @@ export async function createCounterOrder(
   try {
     return await db.transaction((tx) => place(tx, input, ctx));
   } catch (err) {
+    if (err instanceof OutOfStockRollback) return outOfStock(err.failure);
     const pg = pgError(err);
     if (pg.code === "23505" && pg.constraint === PAGER_INDEX) {
       // Lost a race that slipped past the in-transaction check; the winner has committed by now.

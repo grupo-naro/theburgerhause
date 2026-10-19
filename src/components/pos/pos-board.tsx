@@ -59,6 +59,7 @@ export function PosBoard({ initialPagers, stationId }: Props) {
   }, []);
 
   function addPlain(product: PublicProduct) {
+    if (sale.soldOut.has(product.id)) return;
     if (!cart.add(product.id, [PLAIN_UNIT])) {
       toast.show({ message: MAX_MESSAGE });
       return;
@@ -158,7 +159,10 @@ export function PosBoard({ initialPagers, stationId }: Props) {
           searchRef={searchRef}
           pulses={pulses}
           onAdd={addPlain}
-          onCustomize={(product, from) => openConfigure({ productId: product.id }, from)}
+          onCustomize={(product, from) => {
+            if (!sale.soldOut.has(product.id)) openConfigure({ productId: product.id }, from);
+          }}
+          soldOut={sale.soldOut}
         />
         </div>
 

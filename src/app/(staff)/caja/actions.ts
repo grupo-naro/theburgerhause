@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "@/lib/zod";
 import { getDb } from "@/db/client";
+import { invalidateMenu } from "@/lib/menu/cache";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession } from "@/lib/auth/roles";
 import { actorRefusal, actorSectorFor, type Sector } from "@/lib/orders/sector";
@@ -17,8 +18,8 @@ import type { OrderFailureCode } from "@/lib/orders/transition";
  *  1. authorizes first (`requireRole`), 2. re-validates the client payload with zod
  *  (unknown keys are stripped: `userId`/`stationId` can only come from the verified session),
  *  3. calls the core and returns a serializable result. Expected failures are returned, never
- *  thrown; unexpected ones become a fixed generic message. No cache invalidation: staff pages
- *  are dynamic and the SSE event drives the refresh.
+ *  thrown; unexpected ones become a fixed generic message. Staff pages are dynamic and the SSE
+ *  event drives the refresh; only the cached menu is invalidated, when a drink's stock pause flips.
  */
 
 export type ActionResult<T = undefined> =
@@ -95,9 +96,12 @@ export async function rejectOrderAction(
   const parsed = rejectSchema.safeParse(input);
   if (!parsed.success) return invalid();
   const { session, sector } = auth;
-  return run(() =>
-    rejectOrder(getDb(), { sector, orderId: parsed.data.orderId, userId: session.user.id, reason: parsed.data.reason }),
-  );
+  return run(async () => {
+    const r = await rejectOrder(getDb(), { sector, orderId: parsed.data.orderId, userId: session.user.id, reason: parsed.data.reason });
+    // Returning the drinks lifted a stock pause: the (cached) menu shows the drink again.
+    if (r.ok && r.data.menuChanged) invalidateMenu();
+    return r;
+  });
 }
 
 export async function reprintOrderAction(

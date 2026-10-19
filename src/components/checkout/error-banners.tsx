@@ -64,6 +64,33 @@ export function UnitsInvalidBanner({ messages, removed }: { messages: readonly s
   );
 }
 
+/** `OUT_OF_STOCK`: a drink ran out (another customer took the last one). The order was not created. */
+export function OutOfStockBanner({ message }: { message: string }) {
+  return (
+    <section
+      role="alert"
+      data-testid="out-of-stock-banner"
+      className="rounded-2xl border border-cheddar-600/50 bg-cheddar-400/20 p-4"
+    >
+      <div className="flex items-start gap-3">
+        <InfoIcon className="mt-0.5 size-5 shrink-0 text-ink" />
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-lg font-extrabold text-ink">Sin stock</h2>
+          <p className="mt-1 text-sm leading-snug text-ink">{message}</p>
+          <p className="mt-2 text-sm text-ink">No creamos tu pedido.</p>
+        </div>
+      </div>
+      <Link
+        href="/carrito"
+        data-testid="out-of-stock-cart-link"
+        className="mt-3 inline-flex min-h-11 items-center rounded-full bg-ink px-5 font-display text-sm font-bold text-white transition-colors hover:bg-brand-700"
+      >
+        Revisar mi pedido
+      </Link>
+    </section>
+  );
+}
+
 /** Store paused: the form stays usable to read, but the submit button is disabled. */
 export function ClosedInline({ hours }: { hours: string }) {
   return (

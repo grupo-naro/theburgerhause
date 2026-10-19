@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { getDb } from "@/db/client";
 import { clientIp } from "@/lib/client-ip";
+import { invalidateMenu } from "@/lib/menu/cache";
 import {
   createOrder,
   orderKeyExists,
@@ -16,7 +17,8 @@ import { createOrderSchema } from "@/lib/orders/schemas";
 /**
  * Thin, public (no auth) wrapper around `createOrder`: client IP -> rate limits (BEFORE
  * any creation) -> core -> serializable result. Expected failures are returned, never thrown.
- * Orders are not cached anywhere, so nothing needs revalidating.
+ * Orders are not cached anywhere; the public menu is refreshed only when the sale left a linked
+ * drink at zero (its stock pause flipped, `menuChanged`).
  */
 
 export type ActionResult =
@@ -55,7 +57,9 @@ export async function createOrderAction(input: unknown): Promise<ActionResult> {
     if (!result.ok) return result;
     // Only a successful NEW creation consumes quota (parallel double submits create one order).
     if (quota && !result.data.duplicate) recordCreation(ip, quota.customer.whatsapp);
-    return { ok: true, ...result.data };
+    const { menuChanged, ...data } = result.data;
+    if (menuChanged) invalidateMenu();
+    return { ok: true, ...data };
   } catch (err) {
     // Fixed string + SQLSTATE only: never the message, SQL text, params or stack.
     console.error("[createOrderAction] unexpected error", pgErrorCode(err) ?? "unknown");

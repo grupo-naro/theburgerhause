@@ -72,21 +72,27 @@ export async function lockStockItems(tx: DbTransaction, ids: number[]): Promise<
  * unpaused otherwise. Only `products.stock_paused` is touched, never `active` (the manual pause).
  * Raw material never pauses anything.
  */
-export async function syncStockPause(tx: DbTransaction, item: Pick<LockedStockItem, "id" | "kind" | "active">, quantity: number): Promise<void> {
-  if (item.kind !== "bebida") return;
+export async function syncStockPause(tx: DbTransaction, item: Pick<LockedStockItem, "id" | "kind" | "active">, quantity: number): Promise<boolean> {
+  if (item.kind !== "bebida") return false;
   const paused = item.active && quantity <= 0;
-  await tx
+  const changed = await tx
     .update(s.products)
     .set({ stockPaused: paused })
-    .where(and(eq(s.products.stockItemId, item.id), ne(s.products.stockPaused, paused)));
+    .where(and(eq(s.products.stockItemId, item.id), ne(s.products.stockPaused, paused)))
+    .returning({ id: s.products.id });
+  return changed.length > 0;
 }
 
-/** Sets the new balance of a LOCKED item, syncs the pause and queues the realtime hint. */
-async function applyBalance(tx: DbTransaction, item: LockedStockItem, quantity: number, reason: StockEventReason): Promise<void> {
+/**
+ * Sets the new balance of a LOCKED item, syncs the pause and queues the realtime hint. Returns
+ * whether a product's stock pause flipped (the cached public menu must then be refreshed).
+ */
+async function applyBalance(tx: DbTransaction, item: LockedStockItem, quantity: number, reason: StockEventReason): Promise<boolean> {
   await tx.update(s.stockItems).set({ quantity }).where(eq(s.stockItems.id, item.id));
   item.quantity = quantity;
-  await syncStockPause(tx, item, quantity);
+  const pauseChanged = await syncStockPause(tx, item, quantity);
   await notifyInTx(tx, STOCK_CHANNEL, { itemId: item.id, reason });
+  return pauseChanged;
 }
 
 export type RecordMovementInput = {
@@ -103,9 +109,13 @@ export type RecordMovementInput = {
 /**
  * Inserts one movement for an item the caller ALREADY LOCKED (see lockStockItems) and moves its
  * balance by `qtyDelta`. Validation (signs, units, negatives) is the caller's job; the DB checks
- * signs and the venta/devolucion uniqueness as a backstop. Returns the new balance.
+ * signs and the venta/devolucion uniqueness as a backstop. Returns the new balance and whether a
+ * product's stock pause flipped.
  */
-export async function recordMovement(tx: DbTransaction, input: RecordMovementInput): Promise<{ movementId: number; quantity: number }> {
+export async function recordMovement(
+  tx: DbTransaction,
+  input: RecordMovementInput,
+): Promise<{ movementId: number; quantity: number; pauseChanged: boolean }> {
   const [m] = await tx
     .insert(s.stockMovements)
     .values({
@@ -120,8 +130,8 @@ export async function recordMovement(tx: DbTransaction, input: RecordMovementInp
     })
     .returning({ id: s.stockMovements.id });
   const quantity = input.item.quantity + input.qtyDelta;
-  await applyBalance(tx, input.item, quantity, REASON[input.kind]);
-  return { movementId: m.id, quantity };
+  const pauseChanged = await applyBalance(tx, input.item, quantity, REASON[input.kind]);
+  return { movementId: m.id, quantity, pauseChanged };
 }
 
 async function businessDateNow(tx: DbTransaction, ctx: StockContext): Promise<string> {

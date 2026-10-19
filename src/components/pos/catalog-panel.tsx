@@ -14,6 +14,8 @@ type Props = {
   pulses: Record<number, number>;
   onAdd: (product: PublicProduct) => void;
   onCustomize: (product: PublicProduct, opener: HTMLElement) => void;
+  /** Products the server reported out of stock: shown disabled with "Sin stock". */
+  soldOut?: ReadonlySet<number>;
 };
 
 function Kbd({ children }: { children: ReactNode }) {
@@ -24,7 +26,7 @@ const ALL = "all";
 const ARROWS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
 
 /** Left panel: search, category chips and the grid of tiles. */
-export function CatalogPanel({ searchRef, pulses, onAdd, onCustomize }: Props) {
+export function CatalogPanel({ searchRef, pulses, onAdd, onCustomize, soldOut }: Props) {
   const menu = useMenu();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>(ALL);
@@ -159,7 +161,14 @@ export function CatalogPanel({ searchRef, pulses, onAdd, onCustomize }: Props) {
               )}
               <ul className="grid auto-rows-fr grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-2.5">
                 {c.products.map((p) => (
-                  <ProductTile key={p.id} product={p} pulse={pulses[p.id] ?? 0} onAdd={onAdd} onCustomize={onCustomize} />
+                  <ProductTile
+                    key={p.id}
+                    product={p}
+                    pulse={pulses[p.id] ?? 0}
+                    onAdd={onAdd}
+                    onCustomize={onCustomize}
+                    soldOut={soldOut?.has(p.id) ?? false}
+                  />
                 ))}
               </ul>
             </div>

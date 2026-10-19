@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "@/lib/zod";
 import { getDb } from "@/db/client";
+import { invalidateMenu } from "@/lib/menu/cache";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession } from "@/lib/auth/roles";
 import { counterClientSchema } from "@/lib/orders/counter-schemas";
@@ -23,8 +24,8 @@ import { actorRefusal, actorSectorFor } from "@/lib/orders/sector";
  *  1. authorizes first (`requireRole`), 2. re-validates the client payload with zod (unknown keys
  *  are stripped: `userId`/`stationId` can only come from the verified session), 3. calls the core
  *  and returns a serializable result. Expected failures are returned, never thrown; unexpected
- *  ones become a fixed generic message. No cache invalidation: staff pages are dynamic and the
- *  SSE event drives the refresh.
+ *  ones become a fixed generic message. Staff pages are dynamic and the SSE event drives the
+ *  refresh; only the cached menu is invalidated, when a drink's stock pause flips.
  *
  * Roles: `cajera` and `admin` sell at the counter. `encargada_delivery` is excluded on purpose:
  * she dispatches delivery orders and does not operate the till, so she must not be able to
@@ -37,6 +38,9 @@ export type CounterActionFailure = {
   message: string;
   fieldErrors?: Record<string, string>;
   unitIssues?: CreateCounterOrderFailure["unitIssues"];
+  /** OUT_OF_STOCK: the products the POS disables with "Sin stock". */
+  productIds?: number[];
+  names?: string[];
 };
 export type CounterActionResult<T> = { ok: true; data: T } | CounterActionFailure;
 
@@ -83,6 +87,8 @@ export async function createCounterOrderAction(input: unknown): Promise<CounterA
       userId: session.user.id,
       stationId: session.stationId,
     });
+    // The sale left a linked drink at zero: the (cached) menu must hide it right away.
+    if (r.ok && r.data.menuChanged) invalidateMenu();
     return r;
   } catch (e) {
     return unexpected(e);

@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { thumbUrl, uploadUrl } from "@/lib/uploads/storage";
@@ -57,7 +57,8 @@ export async function loadMenu(db: Db): Promise<PublicMenu> {
     db
       .select()
       .from(s.products)
-      .where(eq(s.products.active, true))
+      // Manual pause (`active`) and stock pause (`stock_paused`, a drink at zero) both hide it.
+      .where(and(eq(s.products.active, true), eq(s.products.stockPaused, false)))
       .orderBy(asc(s.products.sort), asc(s.products.id)),
     db.select().from(s.productModifierGroups),
     db

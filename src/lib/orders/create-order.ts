@@ -6,6 +6,7 @@ import { orderTotals } from "@/domain/pricing";
 import { ORDERS_CHANNEL } from "@/lib/events/channels";
 import { notifyInTx } from "@/lib/events/notify";
 import { getAcceptingOrders, getBusinessDayCutoff, getSettings } from "@/lib/settings";
+import { outOfStockMessage, OutOfStockRollback, reserveStockForOrder } from "@/lib/stock/sales";
 import { createOrderSchema, fieldErrorsOf, type CreateOrderInput } from "./schemas";
 import { defaultToken, insertOrderItems, loadCatalog, pgError } from "./order-rows";
 import { resolveUnits, type UnitIssue } from "./resolve-units";
@@ -16,14 +17,26 @@ import { resolveUnits, type UnitIssue } from "./resolve-units";
  * prices come from the DB only (client values are stripped by the zod schema).
  */
 
-export type CreateOrderData = { publicToken: string; number: number; total: number; duplicate: boolean };
+export type CreateOrderData = {
+  publicToken: string;
+  number: number;
+  total: number;
+  duplicate: boolean;
+  /** Set when the sale flipped a drink's stock pause: the caller refreshes the cached menu. Server-side only. */
+  menuChanged?: true;
+};
 export type CreateOrderFailure = {
   ok: false;
-  code: "STORE_CLOSED" | "VALIDATION" | "UNITS_INVALID" | "HONEYPOT";
+  code: "STORE_CLOSED" | "VALIDATION" | "UNITS_INVALID" | "HONEYPOT" | "OUT_OF_STOCK";
   message: string;
   fieldErrors?: Record<string, string>;
   unitIssues?: UnitIssue[];
+  /** OUT_OF_STOCK: the products that ran out (and their names, used in `message`). */
+  productIds?: number[];
+  names?: string[];
 };
+/** A controlled drink lacks stock: nothing was written. `message` names the products. */
+export type OutOfStockFailure = { ok: false; code: "OUT_OF_STOCK"; message: string; productIds: number[]; names: string[] };
 export type CreateOrderResult = { ok: true; data: CreateOrderData } | CreateOrderFailure;
 export type CreateOrderContext = { now?: Date; newToken?: () => string };
 
@@ -34,12 +47,17 @@ export const MESSAGES = {
   HONEYPOT: "Recargá la página y probá de nuevo.",
 } as const;
 
-const fail = (code: CreateOrderFailure["code"], extra: Partial<CreateOrderFailure> = {}): CreateOrderFailure => ({
+const fail = (code: keyof typeof MESSAGES, extra: Partial<CreateOrderFailure> = {}): CreateOrderFailure => ({
   ok: false,
   code,
   message: MESSAGES[code],
   ...extra,
 });
+
+/** OUT_OF_STOCK as returned by every order-creating flow (web and counter). */
+export function outOfStock(f: { productIds: number[]; names: string[] }): OutOfStockFailure {
+  return { ok: false, code: "OUT_OF_STOCK", message: outOfStockMessage(f.names), productIds: f.productIds, names: f.names };
+}
 
 function honeypotFilled(raw: unknown): boolean {
   if (typeof raw !== "object" || raw === null) return false;
@@ -123,6 +141,10 @@ async function place(
     })
     .returning({ id: s.orders.id });
 
+  // Reserve the controlled drinks in the same transaction; a shortfall rolls the order back.
+  const stock = await reserveStockForOrder(tx, { orderId: order.id, units: resolved.units.map((u) => ({ productId: u.product.id })) });
+  if (!stock.ok) throw new OutOfStockRollback(stock);
+
   await insertOrderItems(tx, order.id, resolved.units);
 
   await tx.insert(s.orderEvents).values({
@@ -136,7 +158,10 @@ async function place(
   // Delivered only if the transaction commits.
   await notifyInTx(tx, ORDERS_CHANNEL, { orderId: order.id, status: "pendiente_aprobacion", event: "created" });
 
-  return { ok: true, data: { publicToken, number, total: totals.total, duplicate: false } };
+  return {
+    ok: true,
+    data: { publicToken, number, total: totals.total, duplicate: false, ...(stock.pauseChanged ? { menuChanged: true as const } : {}) },
+  };
 }
 
 /**
@@ -154,6 +179,7 @@ export async function createOrder(db: Db, rawInput: unknown, ctx: CreateOrderCon
   try {
     return await db.transaction((tx) => place(tx, input, ctx));
   } catch (err) {
+    if (err instanceof OutOfStockRollback) return outOfStock(err.failure);
     // Backstop: a same-key insert that raced past the advisory lock.
     const pg = pgError(err);
     if (pg.code === "23505" && pg.constraint === "orders_idempotency_key_unique") {

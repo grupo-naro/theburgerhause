@@ -10,6 +10,7 @@ vi.mock("@/lib/orders/reject-order", async (importOriginal) => {
   const m = await importOriginal<typeof import("@/lib/orders/reject-order")>();
   return { ...m, rejectOrder: vi.fn(m.rejectOrder) };
 });
+vi.mock("@/lib/menu/cache", () => ({ invalidateMenu: vi.fn(), MENU_CACHE_TAG: "menu" }));
 vi.mock("@/lib/orders/reprint", async (importOriginal) => {
   const m = await importOriginal<typeof import("@/lib/orders/reprint")>();
   return { ...m, reprintOrder: vi.fn(m.reprintOrder) };
@@ -21,9 +22,11 @@ import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { requireRole } from "@/lib/auth/require-role";
 import { AuthError, type AuthSession, type Role } from "@/lib/auth/roles";
+import { invalidateMenu } from "@/lib/menu/cache";
 import { approveOrder } from "@/lib/orders/approve-order";
 import { rejectOrder } from "@/lib/orders/reject-order";
 import { reprintOrder } from "@/lib/orders/reprint";
+import { setInitialStock } from "@/lib/stock/movements";
 import { redirectOf } from "@/test-support/next-mocks";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
 import { approveOrderAction, rejectOrderAction, reprintOrderAction } from "./actions";
@@ -177,6 +180,34 @@ describe("rejectOrderAction", () => {
     expect(await rejectOrderAction({ orderId: o.id, reason: "x" })).toMatchObject({ ok: false, code: "VALIDATION" });
     expect(await rejectOrderAction({ orderId: o.id } as never)).toMatchObject({ ok: false, code: "VALIDATION" });
     expect((await status(o.id)).status).toBe("pendiente_aprobacion");
+  });
+});
+
+async function linkMeltDrink(units: number) {
+  const [item] = await testDb().insert(s.stockItems).values({ name: "Coca 500", kind: "bebida", unit: "u", minQty: 0 }).returning();
+  await testDb().update(s.products).set({ stockItemId: item.id }).where(eq(s.products.id, fx.melt));
+  const r = await setInitialStock(testDb(), { itemId: item.id, userId: fx.userId, milli: units * 1000 });
+  if (!r.ok) throw new Error(r.message);
+  return item.id;
+}
+const qtyOf = async (itemId: number) => (await testDb().select({ q: s.stockItems.quantity }).from(s.stockItems).where(eq(s.stockItems.id, itemId)))[0].q;
+
+describe("rejectOrderAction gives the drinks back", () => {
+  it("returns the reserved drink and refreshes the cached menu when it lifts the stock pause", async () => {
+    const itemId = await linkMeltDrink(1);
+    const o = await place();
+    expect(await qtyOf(itemId)).toBe(0);
+    as("cajera");
+    expect(await rejectOrderAction({ orderId: o.id, reason: "Sin cadete" })).toMatchObject({ ok: true });
+    expect(await qtyOf(itemId)).toBe(1000);
+    expect(invalidateMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it("an order without controlled drinks does not touch the menu cache", async () => {
+    const o = await place();
+    as("cajera");
+    expect(await rejectOrderAction({ orderId: o.id, reason: "Sin cadete" })).toMatchObject({ ok: true });
+    expect(invalidateMenu).not.toHaveBeenCalled();
   });
 });
 
