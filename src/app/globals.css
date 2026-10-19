@@ -190,3 +190,17 @@ html {
   }
   dialog::backdrop { display: none; }
 }
+
+/*
+ * Admin touch sizing: below md, inside the admin shell only (it carries data-admin-touch), buttons and
+ * links built with buttonClass (.bh-btn) are at least 44 px tall and text fields use 16 px so iOS does
+ * not zoom on focus. Staff screens (Mostrador, Delivery, Caja, Cocina) are not under the marker.
+ */
+@media (max-width: 47.999rem) {
+  [data-admin-touch] .bh-btn {
+    min-height: 2.75rem;
+  }
+  [data-admin-touch] :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"]), select, textarea) {
+    font-size: 1rem;
+  }
+}

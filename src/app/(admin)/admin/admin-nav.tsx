@@ -16,7 +16,7 @@ export const ADMIN_LINKS = [
 export function AdminNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Administración" className="border-b border-line bg-surface md:w-56 md:shrink-0 md:border-r md:border-b-0">
+    <nav aria-label="Administración" className="hidden border-b border-line bg-surface md:block md:w-56 md:shrink-0 md:border-r md:border-b-0">
       <ul className="flex gap-1 overflow-x-auto px-2 py-2 md:flex-col md:px-3 md:py-4">
         {ADMIN_LINKS.map((l) => {
           const active = pathname === l.href || pathname.startsWith(`${l.href}/`);

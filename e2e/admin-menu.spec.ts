@@ -153,12 +153,13 @@ test("admin menu is usable on a phone @mobile", async ({ page }) => {
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
-  const nav = page.getByRole("navigation", { name: "Administración" });
-  await expect(nav.getByRole("link", { name: "Menú" })).toBeVisible();
   await shot(page, "admin-menu-mobile");
-  // Every section is reachable (the nav scrolls horizontally on phones).
+  // Every section is reachable from the ☰ drawer on phones.
+  await page.getByRole("button", { name: "Abrir menú" }).click();
+  const nav = page.getByRole("navigation", { name: "Secciones de administración" });
+  await expect(nav.getByRole("link", { name: "Menú" })).toBeVisible();
   const ajustes = nav.getByRole("link", { name: "Ajustes" });
-  await ajustes.scrollIntoViewIfNeeded();
+  await expect(ajustes).toBeVisible();
   await ajustes.click();
   await expect(page).toHaveURL(/\/admin\/ajustes$/);
 });
