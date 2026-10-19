@@ -33,6 +33,11 @@ Hoy el encargado anota a mano en papel un reporte diario de lo gastado (ej. "19/
 6. **Rol `encargado`:** maneja Mostrador, Delivery y Cocina, entra al admin completo y al stock. No tiene acceso a analíticas cuando existan.
 7. **Pantallas** (maquetadas en celular, aprobadas): lista de stock con estado Ok/Poco/Agotado; "Consumo del día" con un campo de cantidad por artículo y "Guardar consumo"; "Reponer stock" con artículo, cantidad, nota y "Cargar ingreso".
 
+## Respuesta posterior del dueño (2026-10-19)
+
+- El encargado NO puede crear ni editar usuarios, ni cambiar los ajustes: `/admin/usuarios` y `/admin/ajustes` son solo del administrador. El encargado sí accede al resto del admin (menú y precios, modificadores, cadetes) y al stock.
+- Mi llamada: `/admin/estaciones` (tokens de impresión) también queda solo para el administrador, por ser sensible; el encargado no la ve en el menú ni puede abrirla por URL.
+
 ## Mis decisiones (marcadas para que las corrijas)
 
 - El administrador y el encargado crean artículos y definen el mínimo de aviso "Poco". Al empezar se carga el stock inicial de cada artículo (ajuste inicial) con una entrada registrada en el historial.
