@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
-import type { AuthSession, Role } from "@/lib/auth/roles";
+import { isManager, type AuthSession, type Role } from "@/lib/auth/roles";
 import { legacyRedirectTarget } from "@/lib/caja/workspaces";
 import type { Sector } from "@/lib/orders/sector";
 
@@ -25,7 +25,7 @@ export async function requireWorkspace(
   path: string,
 ): Promise<{ session: AuthSession; scope: Sector }> {
   const session = await requireSessionOrRedirect(roles, path);
-  if (session.user.role === "admin") return { session, scope: sector };
+  if (isManager(session.user.role)) return { session, scope: sector };
   if (session.stationId === null) redirect(stationUrl(path));
   if (session.stationKind !== sector) redirect(stationUrl(path, WRONG_STATION_REASON));
   return { session, scope: sector };
@@ -36,7 +36,7 @@ export async function requireWorkspace(
  * sent to their sector workspace.
  */
 export async function requireGeneralView(legacy: "caja" | "despacho", path: string): Promise<AuthSession> {
-  const session = await requireSessionOrRedirect(["cajera", "encargada_delivery", "admin"], path);
+  const session = await requireSessionOrRedirect(["cajera", "encargada_delivery", "admin", "encargado"], path);
   const target = legacyRedirectTarget(legacy, session.user.role);
   if (target) redirect(target);
   return session;

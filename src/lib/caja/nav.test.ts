@@ -35,6 +35,13 @@ describe("navLinksFor (role x station kind)", () => {
     expect(links("admin", "mostrador")).toEqual(expected);
     expect(links("admin", "delivery")).toEqual(expected);
   });
+  it("encargado sees both workspaces, Cocina, the general views and Administración, whatever the station", () => {
+    const expected = links("admin", null);
+    expect(links("encargado", null)).toEqual(expected);
+    expect(links("encargado", "mostrador")).toEqual(expected);
+    expect(links("encargado", "delivery")).toEqual(expected);
+    expect(expected.map((l) => l[1])).toEqual(expect.arrayContaining(["Venta", "Gestión Delivery", "Cocina", "Administración"]));
+  });
   it("staff without a station get the workspaces of their role (the pages send them to pick a station)", () => {
     expect(links("cajera", null).map((l) => l[0])).toEqual(["/mostrador", "/mostrador/pedidos", "/retiro", "/cocina"]);
     expect(links("encargada_delivery", null).map((l) => l[0])).toEqual(["/delivery", "/delivery/rendicion", "/cocina"]);

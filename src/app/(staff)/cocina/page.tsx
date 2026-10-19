@@ -13,7 +13,7 @@ import { getSettings } from "@/lib/settings";
 export const metadata = { title: "Cocina · The Burger House 828" };
 
 async function CocinaPage() {
-  const session = await requireSessionOrRedirect(["cocina", "cajera", "encargada_delivery", "admin"], "/cocina");
+  const session = await requireSessionOrRedirect(["cocina", "cajera", "encargada_delivery", "admin", "encargado"], "/cocina");
   const db = getDb();
   const now = new Date();
   const [board, recent, settings] = await Promise.all([listKitchenBoard(db), listRecentlyReady(db), getSettings(db)]);

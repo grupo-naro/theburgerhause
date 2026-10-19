@@ -38,22 +38,22 @@ Staff actions on orders additionally apply the sector rule server side (a cashie
 | `src/app/(admin)/admin/usuarios/actions.ts#saveUserAction` | admin | admin | Create/edit staff users and passwords. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/usuarios/actions.ts#toggleUserActiveAction` | admin | admin | Deactivate/reactivate a user (revokes sessions). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/usuarios/actions.ts#revokeSessionsAction` | admin | admin | Revoke every session of a user. | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/caja/actions.ts#approveOrderAction` | staff | cajera, encargada_delivery, admin | Approve a web order (own sector; admin exempt). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/caja/actions.ts#rejectOrderAction` | staff | cajera, encargada_delivery, admin | Reject a web order with a reason (own sector). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/caja/actions.ts#reprintOrderAction` | staff | cajera, encargada_delivery, admin | Re-queue the tickets of an order (own sector). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/despacho/actions.ts#markReadyAction` | staff | cajera, encargada_delivery, admin | Order ready (own sector). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/despacho/actions.ts#markPickupAction` | staff | cajera, encargada_delivery, admin | Order to pickup (own sector). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/despacho/actions.ts#markDeliveredAction` | staff | cajera, encargada_delivery, admin | Order delivered, optional cash collected (own sector). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/despacho/actions.ts#returnToDispatchAction` | staff | cajera, encargada_delivery, admin | Return an order to dispatch with a reason (own sector). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/despacho/actions.ts#cancelOrderAction` | staff | cajera, encargada_delivery, admin | Cancel/void an order after approval with a mandatory reason (own sector: delivery manager cancels delivery, cashier takeaway and counter; admin all). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/despacho/actions.ts#assignCadetAction` | staff | encargada_delivery, admin | Assign orders to a cadet (delivery manager and admin only). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/delivery/rendicion/actions.ts#settleCadetAction` | staff | encargada_delivery, admin | Settle a cadet's cash (delivery sector; admin exempt). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/mostrador/actions.ts#createCounterOrderAction` | staff | cajera, admin | POS sale (cashier and admin). | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/mostrador/actions.ts#listActivePagersAction` | staff | cajera, admin | Active pager numbers. | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/mostrador/actions.ts#getPrintStateAction` | staff | cajera, admin | Print status of one order. | `src/lib/security/authz.test.ts` |
-| `src/app/(staff)/cocina/actions.ts#kitchenReadyAction` | staff | cocina, cajera, encargada_delivery, admin | Kitchen screen: order ready. The cocina role is exempt from the sector rule (only here); cashier / delivery manager keep their own sector, admin exempt. | `src/app/(staff)/cocina/actions.int.test.ts`<br>`src/lib/security/authz.test.ts` |
-| `src/app/(staff)/cocina/actions.ts#kitchenUndoAction` | staff | cocina, cajera, encargada_delivery, admin | Kitchen screen: put a ready order back in preparation, only while nobody called / assigned it (audited). Same sector rule as kitchenReadyAction. | `src/app/(staff)/cocina/actions.int.test.ts`<br>`src/lib/security/authz.test.ts` |
-| `src/app/(staff)/estacion/actions.ts#selectStation` | staff | cajera, encargada_delivery, admin | Bind the session to a station of the role's kind (guard: requireSessionOrRedirect). | `src/app/(staff)/estacion/actions.int.test.ts`<br>`src/lib/security/authz.test.ts` |
+| `src/app/(staff)/caja/actions.ts#approveOrderAction` | staff | cajera, encargada_delivery, admin, encargado | Approve a web order (own sector; admin exempt). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/caja/actions.ts#rejectOrderAction` | staff | cajera, encargada_delivery, admin, encargado | Reject a web order with a reason (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/caja/actions.ts#reprintOrderAction` | staff | cajera, encargada_delivery, admin, encargado | Re-queue the tickets of an order (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/despacho/actions.ts#markReadyAction` | staff | cajera, encargada_delivery, admin, encargado | Order ready (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/despacho/actions.ts#markPickupAction` | staff | cajera, encargada_delivery, admin, encargado | Order to pickup (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/despacho/actions.ts#markDeliveredAction` | staff | cajera, encargada_delivery, admin, encargado | Order delivered, optional cash collected (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/despacho/actions.ts#returnToDispatchAction` | staff | cajera, encargada_delivery, admin, encargado | Return an order to dispatch with a reason (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/despacho/actions.ts#cancelOrderAction` | staff | cajera, encargada_delivery, admin, encargado | Cancel/void an order after approval with a mandatory reason (own sector: delivery manager cancels delivery, cashier takeaway and counter; admin all). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/despacho/actions.ts#assignCadetAction` | staff | encargada_delivery, admin, encargado | Assign orders to a cadet (delivery manager and admin only). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/delivery/rendicion/actions.ts#settleCadetAction` | staff | encargada_delivery, admin, encargado | Settle a cadet's cash (delivery sector; admin exempt). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/mostrador/actions.ts#createCounterOrderAction` | staff | cajera, admin, encargado | POS sale (cashier and admin). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/mostrador/actions.ts#listActivePagersAction` | staff | cajera, admin, encargado | Active pager numbers. | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/mostrador/actions.ts#getPrintStateAction` | staff | cajera, admin, encargado | Print status of one order. | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/cocina/actions.ts#kitchenReadyAction` | staff | cocina, cajera, encargada_delivery, admin, encargado | Kitchen screen: order ready. The cocina role is exempt from the sector rule (only here); cashier / delivery manager keep their own sector, admin exempt. | `src/app/(staff)/cocina/actions.int.test.ts`<br>`src/lib/security/authz.test.ts` |
+| `src/app/(staff)/cocina/actions.ts#kitchenUndoAction` | staff | cocina, cajera, encargada_delivery, admin, encargado | Kitchen screen: put a ready order back in preparation, only while nobody called / assigned it (audited). Same sector rule as kitchenReadyAction. | `src/app/(staff)/cocina/actions.int.test.ts`<br>`src/lib/security/authz.test.ts` |
+| `src/app/(staff)/estacion/actions.ts#selectStation` | staff | cajera, encargada_delivery, admin, encargado | Bind the session to a station of the role's kind (guard: requireSessionOrRedirect). | `src/app/(staff)/estacion/actions.int.test.ts`<br>`src/lib/security/authz.test.ts` |
 | `src/app/(staff)/login/actions.ts#login` | public | - | Credentials in the form. zod caps (user 64, password 256), limiter 5 attempts/15 min per ip+user and 20 per ip, dummy scrypt for unknown users, new session token on every login. | `src/app/(staff)/login/actions.int.test.ts`<br>`src/lib/auth/login.int.test.ts` |
 | `src/app/(staff)/logout/actions.ts#logout` | public | - | No credential needed: revokes the caller's own session row (if any) and clears the cookie. Cannot touch anyone else's session. | `src/app/(staff)/logout/actions.int.test.ts` |
 | `src/app/(public)/actions.ts#checkOrdersOpen` | public | - | Reads one boolean (store open). Same cost as a health check; the Nginx volume cap applies. | `src/app/(public)/actions.int.test.ts` |
@@ -66,7 +66,7 @@ Staff actions on orders additionally apply the sector rule server side (a cashie
 | `src/app/api/agent/heartbeat/route.ts#POST` | agent-token | - | Bearer station token (sha256 lookup). Failures spend a per-IP budget (30/10 min); a valid token always passes. No cookies, no CORS. | `src/lib/print/agent-routes.int.test.ts`<br>`src/lib/security/authz.test.ts` |
 | `src/app/api/agent/jobs/[id]/ack/route.ts#POST` | agent-token | - | Bearer station token; body capped at 4096 chars; a job of another station answers like an unknown one. | `src/lib/print/agent-routes.int.test.ts`<br>`src/lib/security/authz.test.ts` |
 | `src/app/api/agent/stream/route.ts#GET` | agent-token | - | Bearer station token; one stream per station, global cap 50. | `src/app/api/agent/stream/route.int.test.ts`<br>`src/lib/security/authz.test.ts` |
-| `src/app/api/events/route.ts#GET` | staff | cocina, cajera, encargada_delivery, admin | SSE for staff screens: requireRole first, caps 10 per user / 200 global, session revalidated every 60 s without sliding. | `src/app/api/events/route.test.ts`<br>`src/lib/security/authz.test.ts` |
+| `src/app/api/events/route.ts#GET` | staff | cocina, cajera, encargada_delivery, admin, encargado | SSE for staff screens: requireRole first, caps 10 per user / 200 global, session revalidated every 60 s without sliding. | `src/app/api/events/route.test.ts`<br>`src/lib/security/authz.test.ts` |
 | `src/app/api/health/route.ts#GET` | public | - | Liveness probe: 60 req/min per IP, answers only status/db/realtime/time/version/commit. | `src/lib/health.test.ts`<br>`src/app/api/health/route.int.test.ts` |
 | `src/app/api/pedido/[token]/status/route.ts#GET` | capability-token | - | Customer polling. The 256-bit token is the credential; per-IP request limiter plus a miss limiter; uniform 404/429 bodies; no-store. | `src/app/api/pedido/[token]/status/route.test.ts` |
 | `src/app/api/uploads/route.ts#POST` | admin | admin | Image upload: same-origin check, requireRole(admin) before reading the body, 5 MB cap (Content-Length and real size), image re-encoded by sharp. | `src/app/api/uploads/route.test.ts`<br>`src/lib/security/authz.test.ts` |
@@ -84,12 +84,12 @@ Every page under `src/app/(admin)/admin/**` is admin-only: the page (or, for the
 | `src/app/(public)/checkout/page.tsx` | public | - | Checkout form. | `e2e/store-checkout.spec.ts` |
 | `src/app/(public)/pedido/[token]/page.tsx` | capability-token | - | Order tracking: no-store, no-referrer, noindex; an unknown token answers the same not-found. | `e2e/store-tracking.spec.ts` |
 | `src/app/(staff)/login/page.tsx` | public | - | Login form. | `e2e/auth.spec.ts` |
-| `src/app/(staff)/estacion/page.tsx` | staff | cajera, encargada_delivery, admin | Station picker. | `e2e/sector-workspaces.spec.ts` |
-| `src/app/(staff)/caja/page.tsx` | staff | cajera, encargada_delivery, admin | General view; staff are redirected to their workspace. | `e2e/caja.spec.ts` |
-| `src/app/(staff)/despacho/page.tsx` | staff | cajera, encargada_delivery, admin | General dispatch view; staff are redirected. | `e2e/despacho-roles.spec.ts` |
-| `src/app/(staff)/mostrador/page.tsx` | staff | cajera, admin | POS (mostrador sector). | `e2e/mostrador-guards.spec.ts` |
-| `src/app/(staff)/mostrador/pedidos/page.tsx` | staff | cajera, admin | Counter orders board. | `e2e/despacho-roles.spec.ts` |
-| `src/app/(staff)/retiro/page.tsx` | staff | cajera, admin | Takeaway approval workspace. | `e2e/caja.spec.ts` |
-| `src/app/(staff)/cocina/page.tsx` | staff | cocina, cajera, encargada_delivery, admin | Kitchen screen (orders in preparation, no customer data). | `e2e/cocina.spec.ts` |
-| `src/app/(staff)/delivery/page.tsx` | staff | encargada_delivery, admin | Delivery workspace. | `e2e/delivery-workspace.spec.ts` |
-| `src/app/(staff)/delivery/rendicion/page.tsx` | staff | encargada_delivery, admin | Cadet settlement screen. | `e2e/rendicion-roles-print.spec.ts` |
+| `src/app/(staff)/estacion/page.tsx` | staff | cajera, encargada_delivery, admin, encargado | Station picker. | `e2e/sector-workspaces.spec.ts` |
+| `src/app/(staff)/caja/page.tsx` | staff | cajera, encargada_delivery, admin, encargado | General view; staff are redirected to their workspace. | `e2e/caja.spec.ts` |
+| `src/app/(staff)/despacho/page.tsx` | staff | cajera, encargada_delivery, admin, encargado | General dispatch view; staff are redirected. | `e2e/despacho-roles.spec.ts` |
+| `src/app/(staff)/mostrador/page.tsx` | staff | cajera, admin, encargado | POS (mostrador sector). | `e2e/mostrador-guards.spec.ts` |
+| `src/app/(staff)/mostrador/pedidos/page.tsx` | staff | cajera, admin, encargado | Counter orders board. | `e2e/despacho-roles.spec.ts` |
+| `src/app/(staff)/retiro/page.tsx` | staff | cajera, admin, encargado | Takeaway approval workspace. | `e2e/caja.spec.ts` |
+| `src/app/(staff)/cocina/page.tsx` | staff | cocina, cajera, encargada_delivery, admin, encargado | Kitchen screen (orders in preparation, no customer data). | `e2e/cocina.spec.ts` |
+| `src/app/(staff)/delivery/page.tsx` | staff | encargada_delivery, admin, encargado | Delivery workspace. | `e2e/delivery-workspace.spec.ts` |
+| `src/app/(staff)/delivery/rendicion/page.tsx` | staff | encargada_delivery, admin, encargado | Cadet settlement screen. | `e2e/rendicion-roles-print.spec.ts` |

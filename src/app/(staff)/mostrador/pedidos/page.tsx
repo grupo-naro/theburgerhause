@@ -10,7 +10,7 @@ export const metadata = { title: "Mostrador · The Burger House 828" };
 
 /** Counter sales in flight: in the kitchen, ready (call the pager), waiting at the counter. */
 async function PedidosPage() {
-  const { session, scope } = await requireWorkspace("mostrador", ["cajera", "admin"], "/mostrador/pedidos");
+  const { session, scope } = await requireWorkspace("mostrador", ["cajera", "admin", "encargado"], "/mostrador/pedidos");
   const now = new Date();
   const board = await getDispatchBoard(getDb(), { now, sector: scope, channel: "counter" });
 

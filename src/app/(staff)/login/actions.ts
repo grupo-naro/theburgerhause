@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "@/lib/zod";
 import { getDb } from "@/db/client";
+import { isManager } from "@/lib/auth/roles";
 import { authenticate, roleHome, safeNextPath } from "@/lib/auth/login";
 import { isLoginBlocked, recordLoginFailure } from "@/lib/auth/login-rate-limit";
 import { setSessionCookie } from "@/lib/auth/session";
@@ -48,7 +49,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   await setSessionCookie(token);
 
   let destination: string;
-  if (user.role === "admin" || user.role === "cocina") {
+  if (isManager(user.role) || user.role === "cocina") {
     // Admin and the kitchen device need no station: straight to their home.
     destination = safeNextPath(next, roleHome(user.role));
   } else {

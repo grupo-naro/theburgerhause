@@ -57,6 +57,13 @@
       "when": 1792340586017,
       "tag": "0007_cocina_role_kds_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792428715163,
+      "tag": "0008_encargado_role",
+      "breakpoints": true
     }
   ]
 }

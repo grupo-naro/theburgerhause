@@ -35,7 +35,7 @@ export const paymentMethod = pgEnum("payment_method", ["cash", "transfer"]);
 export const paymentStatus = pgEnum("payment_status", ["pending", "paid"]);
 export const fulfillment = pgEnum("fulfillment", ["delivery", "takeaway"]);
 export const channel = pgEnum("channel", ["web", "counter"]);
-export const userRole = pgEnum("user_role", ["admin", "cajera", "encargada_delivery", "cocina"]);
+export const userRole = pgEnum("user_role", ["admin", "cajera", "encargada_delivery", "cocina", "encargado"]);
 export const printJobStatus = pgEnum("print_job_status", [
   "pending",
   "printing",

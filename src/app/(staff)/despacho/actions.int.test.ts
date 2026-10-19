@@ -88,10 +88,10 @@ describe("authorization", () => {
     await markPickupAction({ orderId: 1 });
     await markDeliveredAction({ orderId: 1 });
     await returnToDispatchAction({ orderId: 1, reason: "motivo" });
-    expect(vi.mocked(requireRole).mock.calls).toEqual(Array(4).fill(["cajera", "encargada_delivery", "admin"]));
+    expect(vi.mocked(requireRole).mock.calls).toEqual(Array(4).fill(["cajera", "encargada_delivery", "admin", "encargado"]));
     vi.mocked(requireRole).mockClear();
     await assignCadetAction({ orderIds: [1], cadetId: 1 });
-    expect(vi.mocked(requireRole).mock.calls).toEqual([["encargada_delivery", "admin"]]);
+    expect(vi.mocked(requireRole).mock.calls).toEqual([["encargada_delivery", "admin", "encargado"]]);
   });
 
   it("assign is rejected for the cajera (core not called) and allowed for encargada and admin", async () => {
@@ -345,7 +345,7 @@ describe("cancelOrderAction", () => {
     expect(await cancelOrderAction({ orderId: "x", reason: "motivo" })).toMatchObject({ ok: false, code: "VALIDATION" });
     expect(await cancelOrderAction({ orderId: 1 })).toMatchObject({ ok: false, code: "VALIDATION" });
     await cancelOrderAction({ orderId: 1, reason: "motivo" });
-    expect(vi.mocked(requireRole).mock.calls.at(-1)).toEqual(["cajera", "encargada_delivery", "admin"]);
+    expect(vi.mocked(requireRole).mock.calls.at(-1)).toEqual(["cajera", "encargada_delivery", "admin", "encargado"]);
   });
 
   it("the cashier cancels takeaway orders, the delivery manager delivery ones; the other sector is refused; reason mandatory", async () => {

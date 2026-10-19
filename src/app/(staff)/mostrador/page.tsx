@@ -14,7 +14,7 @@ import { posCartStorageKey } from "@/lib/pos/storage-key";
 export const metadata = { title: "Venta · The Burger House 828" };
 
 async function MostradorPage() {
-  const { session } = await requireWorkspace("mostrador", ["cajera", "admin"], "/mostrador");
+  const { session } = await requireWorkspace("mostrador", ["cajera", "admin", "encargado"], "/mostrador");
 
   // Counter sales ignore the web "closed" switch; prices/products are the PUBLIC (active) menu.
   const [menu, pagers] = await Promise.all([getMenu(), listActivePagers(getDb())]);

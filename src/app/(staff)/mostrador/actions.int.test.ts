@@ -79,17 +79,17 @@ describe("authorization", () => {
     expect(await orders()).toHaveLength(0);
   });
 
-  it("requires exactly cajera and admin (not encargada_delivery), before anything else", async () => {
+  it("requires exactly cajera, admin and encargado (not encargada_delivery), before anything else", async () => {
     as("cajera");
     await createCounterOrderAction(body());
     await listActivePagersAction();
     expect(vi.mocked(requireRole).mock.calls).toEqual([
-      ["cajera", "admin"],
-      ["cajera", "admin"],
+      ["cajera", "admin", "encargado"],
+      ["cajera", "admin", "encargado"],
     ]);
   });
 
-  it.each(["cajera", "admin"] as const)("%s can sell at the counter", async (role) => {
+  it.each(["cajera", "admin", "encargado"] as const)("%s can sell at the counter", async (role) => {
     as(role);
     expect(await createCounterOrderAction(body())).toMatchObject({ ok: true });
   });
@@ -214,7 +214,7 @@ describe("getPrintStateAction", () => {
     const a = await sell();
     vi.mocked(requireRole).mockClear();
     await getPrintStateAction({ orderId: a.orderId });
-    expect(vi.mocked(requireRole).mock.calls).toEqual([["cajera", "admin"]]);
+    expect(vi.mocked(requireRole).mock.calls).toEqual([["cajera", "admin", "encargado"]]);
   });
 
   it("returns the job counts of THAT order; other orders are unaffected", async () => {

@@ -13,7 +13,7 @@ import { WRONG_STATION_REASON } from "@/lib/auth/workspace";
 import { findStation } from "@/lib/stations";
 
 export async function selectStation(formData: FormData): Promise<void> {
-  const session = await requireSessionOrRedirect(["admin", "cajera", "encargada_delivery"], "/estacion");
+  const session = await requireSessionOrRedirect(["admin", "cajera", "encargada_delivery", "encargado"], "/estacion");
   const id = z.coerce.number().int().positive().safeParse(formData.get("stationId"));
   const rawNext = formData.get("next");
   const next = typeof rawNext === "string" ? safeNextPath(rawNext, "") : "";

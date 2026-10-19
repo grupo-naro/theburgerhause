@@ -1,4 +1,9 @@
-export type Role = "admin" | "cajera" | "encargada_delivery" | "cocina";
+export type Role = "admin" | "cajera" | "encargada_delivery" | "cocina" | "encargado";
+
+/** Managers (admin, encargado) act in every sector and need no station. Shared access decisions use this. */
+export function isManager(role: Role): boolean {
+  return role === "admin" || role === "encargado";
+}
 
 export type AuthUser = { id: number; name: string; username: string; role: Role };
 

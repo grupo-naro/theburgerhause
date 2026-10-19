@@ -40,7 +40,7 @@ type Authorized = { session: AuthSession; sector: Sector | null } | { result: Ac
 /** UNAUTHENTICATED -> /login; FORBIDDEN -> generic error result. */
 async function authorize(): Promise<Authorized> {
   try {
-    const session = await requireRole("cajera", "encargada_delivery", "admin");
+    const session = await requireRole("cajera", "encargada_delivery", "admin", "encargado");
     // Sector rule, server side: staff only act on orders of their station kind (admin exempt).
     const actor = actorSectorFor(session.user.role, session.stationKind);
     return actor.ok ? { session, sector: actor.sector } : { result: actorRefusal(actor.code) };

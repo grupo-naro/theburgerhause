@@ -30,7 +30,7 @@ const GENERIC_ERROR = "No se pudo completar la acción. Probá de nuevo.";
 const FORBIDDEN_MESSAGE = "No tenés permisos para realizar esta acción.";
 const INVALID_REQUEST = "Solicitud inválida";
 
-const SETTLE_ROLES: Role[] = ["encargada_delivery", "admin"];
+const SETTLE_ROLES: Role[] = ["encargada_delivery", "admin", "encargado"];
 
 export async function settleCadetAction(input: unknown): Promise<SettleActionResult> {
   let userId: number;

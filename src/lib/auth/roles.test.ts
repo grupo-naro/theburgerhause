@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AuthError, assertRole, type AuthSession, type Role } from "@/lib/auth/roles";
+import { AuthError, assertRole, isManager, type AuthSession, type Role } from "@/lib/auth/roles";
 
 function session(role: Role): AuthSession {
   return { user: { id: 1, name: "N", username: "n", role }, stationId: null, stationKind: null, sessionId: "s" };
@@ -28,5 +28,13 @@ describe("assertRole", () => {
   });
   it("does not implicitly allow admin", () => {
     expect(codeOf(() => assertRole(session("admin"), ["cajera"]))).toBe("FORBIDDEN");
+  });
+});
+
+describe("isManager", () => {
+  it("is true for admin and encargado only", () => {
+    expect(isManager("admin")).toBe(true);
+    expect(isManager("encargado")).toBe(true);
+    for (const r of ["cajera", "encargada_delivery", "cocina"] as Role[]) expect(isManager(r)).toBe(false);
   });
 });

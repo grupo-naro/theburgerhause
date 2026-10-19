@@ -3,6 +3,7 @@ export const ROLE_LABEL = {
   cajera: "Cajera",
   encargada_delivery: "Encargada de delivery",
   cocina: "Cocina",
+  encargado: "Encargado",
 } as const;
 
-export const ROLES = ["cajera", "encargada_delivery", "cocina", "admin"] as const;
+export const ROLES = ["cajera", "encargada_delivery", "cocina", "encargado", "admin"] as const;

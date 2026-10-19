@@ -11,7 +11,7 @@ export const metadata = { title: "Elegir estación · The Burger House 828" };
 async function StationPicker({ searchParams }: { searchParams: PageProps<"/estacion">["searchParams"] }) {
   const { next, motivo } = await searchParams;
   const nextPath = typeof next === "string" ? next : "";
-  const session = await requireSessionOrRedirect(["admin", "cajera", "encargada_delivery"], "/estacion");
+  const session = await requireSessionOrRedirect(["admin", "cajera", "encargada_delivery", "encargado"], "/estacion");
   // One workspace per sector: staff only see the stations of their own kind (the action enforces it too).
   const stations = (await listStations(getDb())).filter((s) => stationAllowedForRole(session.user.role, s.kind));
   const own = session.user.role === "cajera" ? "de Mostrador" : "de Delivery";

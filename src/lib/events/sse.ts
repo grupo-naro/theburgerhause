@@ -13,7 +13,7 @@ import { ORDERS_CHANNEL } from "./channels";
  * frames and a `: ping` comment every 25 s. print_job_created is deliberately NOT forwarded.
  */
 
-export const STAFF_ROLES: Role[] = ["admin", "cajera", "encargada_delivery", "cocina"];
+export const STAFF_ROLES: Role[] = ["admin", "cajera", "encargada_delivery", "cocina", "encargado"];
 export const RETRY_MS = 3_000;
 
 export type EventsHandlerOptions = {

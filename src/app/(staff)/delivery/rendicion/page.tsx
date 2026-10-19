@@ -34,7 +34,7 @@ function NotFound() {
 }
 
 async function RendicionPage({ searchParams }: PageProps<"/delivery/rendicion">) {
-  const { session } = await requireWorkspace("delivery", ["encargada_delivery", "admin"], "/delivery/rendicion");
+  const { session } = await requireWorkspace("delivery", ["encargada_delivery", "admin", "encargado"], "/delivery/rendicion");
 
   const sp = await searchParams;
   const cadet = parseCadetParam(sp.cadet);

@@ -26,10 +26,10 @@ export type Entry = {
 };
 
 const ADMIN: Role[] = ["admin"];
-const STAFF3: Role[] = ["cajera", "encargada_delivery", "admin"];
-const KITCHEN: Role[] = ["cocina", "cajera", "encargada_delivery", "admin"];
-const DELIVERY: Role[] = ["encargada_delivery", "admin"];
-const COUNTER: Role[] = ["cajera", "admin"];
+const STAFF3: Role[] = ["cajera", "encargada_delivery", "admin", "encargado"];
+const KITCHEN: Role[] = ["cocina", "cajera", "encargada_delivery", "admin", "encargado"];
+const DELIVERY: Role[] = ["encargada_delivery", "admin", "encargado"];
+const COUNTER: Role[] = ["cajera", "admin", "encargado"];
 
 const AUTHZ_TEST = "src/lib/security/authz.test.ts";
 

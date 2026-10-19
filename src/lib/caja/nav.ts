@@ -1,4 +1,4 @@
-import type { Role } from "@/lib/auth/roles";
+import { isManager, type Role } from "@/lib/auth/roles";
 import type { StationKindName } from "@/lib/orders/sector";
 
 export type NavLink = { href: string; label: string; /** Opens in a new tab (the kitchen screen is a separate fullscreen view). */ newTab?: true };
@@ -34,7 +34,7 @@ export function activeNavHref(pathname: string, links: readonly NavLink[]): stri
  */
 export function navLinksFor(role: Role, stationKind: StationKindName | null): NavLink[] {
   if (role === "cocina") return [COCINA]; // the kitchen role sees only its screen (the shell hides the navigation anyway)
-  if (role === "admin") return [...MOSTRADOR_WORKSPACE, ...DELIVERY_WORKSPACE, COCINA, GENERAL_CAJA, GENERAL_DESPACHO, ADMIN];
+  if (isManager(role)) return [...MOSTRADOR_WORKSPACE, ...DELIVERY_WORKSPACE, COCINA, GENERAL_CAJA, GENERAL_DESPACHO, ADMIN];
   const own = role === "cajera" ? "mostrador" : "delivery";
   if (stationKind !== null && stationKind !== own) return [CHANGE_STATION];
   return [...(own === "mostrador" ? MOSTRADOR_WORKSPACE : DELIVERY_WORKSPACE), COCINA];

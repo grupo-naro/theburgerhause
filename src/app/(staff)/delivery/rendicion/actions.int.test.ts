@@ -60,7 +60,7 @@ describe("authorization", () => {
   it("requires encargada_delivery or admin: the cajera is excluded", async () => {
     as("admin");
     await settleCadetAction({ cadetId: 1, expectedAmount: 100 });
-    expect(vi.mocked(requireRole).mock.calls).toEqual([["encargada_delivery", "admin"]]);
+    expect(vi.mocked(requireRole).mock.calls).toEqual([["encargada_delivery", "admin", "encargado"]]);
   });
 
   it("a cajera gets a generic error, the core is NOT called and nothing changes", async () => {
@@ -74,7 +74,7 @@ describe("authorization", () => {
     expect(await testDb().select().from(s.settlements)).toHaveLength(0);
   });
 
-  it.each(["encargada_delivery", "admin"] as const)("%s can settle", async (role) => {
+  it.each(["encargada_delivery", "admin", "encargado"] as const)("%s can settle", async (role) => {
     const { cadet, ids, owed } = await debt();
     as(role);
     const r = await settleCadetAction({ cadetId: cadet.id, expectedAmount: owed, note: "ok" });

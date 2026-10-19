@@ -2,6 +2,7 @@ import { getDb } from "@/db/client";
 import { StaffShell } from "@/components/staff/staff-shell";
 import { SectorWorkspace } from "@/components/staff/sector-workspace";
 import { ToastProvider } from "@/components/ui/toast";
+import { isManager } from "@/lib/auth/roles";
 import { requireWorkspace } from "@/lib/auth/workspace";
 import { parseTab } from "@/lib/caja/workspaces";
 import { listFailedPrintJobs, listPendingApproval, listRecentProcessed } from "@/lib/orders/caja-queries";
@@ -26,7 +27,7 @@ export async function SectorWorkspacePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { sector, path, title } = CONFIG[which];
-  const roles = sector === "delivery" ? (["encargada_delivery", "admin"] as const) : (["cajera", "admin"] as const);
+  const roles = sector === "delivery" ? (["encargada_delivery", "admin", "encargado"] as const) : (["cajera", "admin", "encargado"] as const);
   const { session } = await requireWorkspace(sector, [...roles], path);
   const sp = await searchParams;
 
@@ -38,7 +39,7 @@ export async function SectorWorkspacePage({
     // Recientes keeps the whole sector (the counter sector also holds the counter sales: reprint lives here).
     listRecentProcessed(db, { limit: 30, now, sector }),
     getDispatchBoard(db, { now, ...scope }),
-    session.stationId === null ? Promise.resolve([]) : listFailedPrintJobs(db, session.stationId, { sector: session.user.role === "admin" ? null : sector }),
+    session.stationId === null ? Promise.resolve([]) : listFailedPrintJobs(db, session.stationId, { sector: isManager(session.user.role) ? null : sector }),
   ]);
 
   return (

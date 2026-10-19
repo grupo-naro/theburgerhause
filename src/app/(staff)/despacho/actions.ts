@@ -42,8 +42,8 @@ const GENERIC_ERROR = "No se pudo completar la acción. Probá de nuevo.";
 const FORBIDDEN_MESSAGE = "No tenés permisos para realizar esta acción.";
 const INVALID_REQUEST = "Solicitud inválida";
 
-const ORDER_ROLES: Role[] = ["cajera", "encargada_delivery", "admin"];
-const ASSIGN_ROLES: Role[] = ["encargada_delivery", "admin"];
+const ORDER_ROLES: Role[] = ["cajera", "encargada_delivery", "admin", "encargado"];
+const ASSIGN_ROLES: Role[] = ["encargada_delivery", "admin", "encargado"];
 
 const orderId = z.number().int().positive().max(2_147_483_647);
 const orderSchema = z.object({ orderId });

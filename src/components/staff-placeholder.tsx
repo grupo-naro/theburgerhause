@@ -1,13 +1,13 @@
 import { Suspense } from "react";
 import { requireSessionOrRedirect, requireStationOrRedirect } from "@/lib/auth/guards";
-import type { Role } from "@/lib/auth/roles";
+import { isManager, type Role } from "@/lib/auth/roles";
 import { StaffShell, StaffShellFallback } from "@/components/staff/staff-shell";
 
 type Props = { title: string; path: string; roles: Role[]; needsStation?: boolean };
 
 async function PlaceholderPage({ title, path, roles, needsStation = false }: Props) {
   const session = await requireSessionOrRedirect(roles, path);
-  if (needsStation && session.user.role !== "admin") requireStationOrRedirect(session, path);
+  if (needsStation && !isManager(session.user.role)) requireStationOrRedirect(session, path);
   return (
     <StaffShell session={session}>
       <h1 className="font-display text-3xl font-extrabold text-brand-600">{title}</h1>

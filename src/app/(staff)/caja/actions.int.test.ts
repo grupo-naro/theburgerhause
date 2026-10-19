@@ -81,10 +81,10 @@ describe("authorization", () => {
     const o = await place();
     as("cajera");
     await approveOrderAction({ orderId: o.id, paymentVerified: false });
-    expect(requireRole).toHaveBeenCalledWith("cajera", "encargada_delivery", "admin");
+    expect(requireRole).toHaveBeenCalledWith("cajera", "encargada_delivery", "admin", "encargado");
   });
 
-  it.each(["cajera", "encargada_delivery", "admin"] as const)("%s can approve (an order of their sector)", async (role) => {
+  it.each(["cajera", "encargada_delivery", "admin", "encargado"] as const)("%s can approve (an order of their sector)", async (role) => {
     const o = await place({ fulfillment: role === "encargada_delivery" ? "delivery" : "takeaway" });
     as(role, role === "encargada_delivery" ? fx.otherStationId : fx.stationId);
     expect(await approveOrderAction({ orderId: o.id, paymentVerified: false })).toMatchObject({ ok: true });

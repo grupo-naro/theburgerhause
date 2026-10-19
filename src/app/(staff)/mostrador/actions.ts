@@ -49,7 +49,7 @@ type Authorized = { session: AuthSession } | { result: CounterActionFailure };
 /** UNAUTHENTICATED -> /login; FORBIDDEN -> generic error result. */
 async function authorize(): Promise<Authorized> {
   try {
-    const session = await requireRole("cajera", "admin");
+    const session = await requireRole("cajera", "admin", "encargado");
     // Sector rule, server side: counter sales belong to the mostrador sector (admin exempt). A missing station is
     // reported by the core (STATION_REQUIRED) with the printing wording.
     const actor = actorSectorFor(session.user.role, session.stationKind);

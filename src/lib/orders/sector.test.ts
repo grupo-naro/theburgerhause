@@ -88,3 +88,22 @@ describe("kitchenActorSectorFor (ready / undo from the kitchen screen only)", ()
     expect(stationAllowedForRole("cocina", "delivery")).toBe(false);
   });
 });
+
+describe("encargado (manager, exempt like admin)", () => {
+  it("is exempt from the sector rule, with or without a station", () => {
+    expect(actorSectorFor("encargado", null)).toEqual({ ok: true, sector: null });
+    expect(actorSectorFor("encargado", "delivery")).toEqual({ ok: true, sector: null });
+    expect(kitchenActorSectorFor("encargado", null)).toEqual({ ok: true, sector: null });
+    expect(stationAllowedForRole("encargado", "mostrador")).toBe(true);
+    expect(stationAllowedForRole("encargado", "delivery")).toBe(true);
+  });
+  it("approves / cancels / dispatches any sector (null actor passes decideSector)", () => {
+    const actor = actorSectorFor("encargado", null);
+    expect(actor.ok && decideSector(actor.sector, "delivery")).toEqual({ ok: true });
+    expect(actor.ok && decideSector(actor.sector, "takeaway")).toEqual({ ok: true });
+  });
+  it("the cashier stays restricted", () => {
+    const actor = actorSectorFor("cajera", "mostrador");
+    expect(actor.ok && decideSector(actor.sector, "delivery")).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+  });
+});

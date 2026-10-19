@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AuthSession, Role } from "@/lib/auth/roles";
+import { isManager, type AuthSession, type Role } from "@/lib/auth/roles";
 
 /**
  * Behavioural half of the authorization audit. For EVERY staff/admin Server Action in SURFACE (loaded
@@ -48,7 +48,7 @@ function loader(file: string): () => Promise<Record<string, unknown>> {
   return load;
 }
 
-const ALL_ROLES: Role[] = ["admin", "cajera", "encargada_delivery", "cocina"];
+const ALL_ROLES: Role[] = ["admin", "cajera", "encargada_delivery", "cocina", "encargado"];
 
 const sessionOf = (role: Role, stationKind: "mostrador" | "delivery" | null = null): AuthSession => ({
   user: { id: 1, name: "T", username: "t", role },
@@ -158,7 +158,7 @@ describe("sector rule: staff only act in the sector of their station (before any
   });
 
   for (const { file, name, roles } of sectorBound) {
-    const staff = roles.filter((r) => r !== "admin");
+    const staff = roles.filter((r) => !isManager(r)); // managers (admin, encargado) are exempt from the sector rule
     for (const role of staff) {
       const wrongKind = role === "cajera" ? "delivery" : "mostrador";
       it(`${name}: ${role} at a ${wrongKind} station -> WRONG_SECTOR`, async () => {
@@ -197,7 +197,7 @@ describe("Route Handlers", () => {
   it("POST /api/uploads: 401 anonymous, 403 for cashier and delivery manager, 403 cross-origin; DB untouched", async () => {
     const { POST } = await import("../../app/api/uploads/route");
     expect((await POST(sameOriginPost())).status).toBe(401);
-    for (const role of ["cajera", "encargada_delivery"] as Role[]) {
+    for (const role of ["cajera", "encargada_delivery", "encargado"] as Role[]) {
       state.session = sessionOf(role, "mostrador");
       expect((await POST(sameOriginPost())).status).toBe(403);
     }

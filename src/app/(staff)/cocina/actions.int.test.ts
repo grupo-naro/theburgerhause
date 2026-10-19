@@ -65,12 +65,12 @@ describe("authorization (before any DB work)", () => {
     expect(core()).not.toHaveBeenCalled();
   });
 
-  it("allows exactly cocina, cajera, encargada_delivery and admin", async () => {
+  it("allows exactly cocina, cajera, encargada_delivery, admin and encargado", async () => {
     as("admin");
     await kitchenReadyAction({ orderId: 1 });
-    expect(vi.mocked(requireRole).mock.calls.at(-1)).toEqual(["cocina", "cajera", "encargada_delivery", "admin"]);
+    expect(vi.mocked(requireRole).mock.calls.at(-1)).toEqual(["cocina", "cajera", "encargada_delivery", "admin", "encargado"]);
     await kitchenUndoAction({ orderId: 1 });
-    expect(vi.mocked(requireRole).mock.calls.at(-1)).toEqual(["cocina", "cajera", "encargada_delivery", "admin"]);
+    expect(vi.mocked(requireRole).mock.calls.at(-1)).toEqual(["cocina", "cajera", "encargada_delivery", "admin", "encargado"]);
   });
 });
 

@@ -33,5 +33,6 @@ describe("roleHome", () => {
     expect(roleHome("admin")).toBe("/admin");
     expect(roleHome("cajera")).toBe("/mostrador");
     expect(roleHome("encargada_delivery")).toBe("/delivery");
+    expect(roleHome("encargado")).toBe("/mostrador");
   });
 });

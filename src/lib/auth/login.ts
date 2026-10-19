@@ -62,6 +62,7 @@ const ROLE_HOME: Record<Role, string> = {
   cajera: "/mostrador",
   encargada_delivery: "/delivery",
   cocina: "/cocina",
+  encargado: "/mostrador",
 };
 
 export function roleHome(role: Role): string {

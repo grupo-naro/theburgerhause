@@ -1,11 +1,11 @@
 import type { Fulfillment } from "@/domain/order-status";
-import type { Role } from "@/lib/auth/roles";
+import { isManager, type Role } from "@/lib/auth/roles";
 
 /**
  * Sector rule (Task 10.1): web orders are distributed BY ORDER TYPE. Delivery orders belong to the
  * delivery sector (Delivery-kind stations); takeaway orders and counter sales belong to the counter
  * (mostrador) sector (Mostrador-kind stations). Pure: no db, no next/*. The queries filter by it and
- * every order-level action rejects the wrong sector with WRONG_SECTOR before any write. Admin is exempt.
+ * every order-level action rejects the wrong sector with WRONG_SECTOR before any write. Admin and encargado are exempt.
  */
 
 export type Sector = "mostrador" | "delivery";
@@ -24,9 +24,9 @@ export function sectorOfOrder(order: { fulfillment: Fulfillment }): Sector {
 
 export type ActorSector = { ok: true; sector: Sector | null } | { ok: false; code: "STATION_REQUIRED" | "WRONG_SECTOR" };
 
-/** The sector a user acts in: admin is exempt (null); staff act in their station's kind; no station -> cannot act. */
+/** The sector a user acts in: admin and encargado are exempt (null); staff act in their station's kind; no station -> cannot act. */
 export function actorSectorFor(role: Role, stationKind: StationKindName | null): ActorSector {
-  if (role === "admin") return { ok: true, sector: null };
+  if (isManager(role)) return { ok: true, sector: null };
   if (stationKind === null) return { ok: false, code: "STATION_REQUIRED" };
   if (!stationAllowedForRole(role, stationKind)) return { ok: false, code: "WRONG_SECTOR" };
   return { ok: true, sector: stationKind };
@@ -59,7 +59,7 @@ export function decideSector(actor: Sector | null | undefined, fulfillment: Fulf
 
 /** Supported role/station combinations: staff work at the station kind of their own sector (admin anywhere). */
 export function stationAllowedForRole(role: Role, kind: StationKindName): boolean {
-  if (role === "admin") return true;
+  if (isManager(role)) return true;
   if (role === "cocina") return false; // the kitchen has no station: it only uses the kitchen screen
   return role === "cajera" ? kind === "mostrador" : kind === "delivery";
 }

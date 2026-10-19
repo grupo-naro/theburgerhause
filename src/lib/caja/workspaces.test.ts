@@ -46,5 +46,7 @@ describe("legacyRedirectTarget (old URLs)", () => {
     expect(legacyRedirectTarget("despacho", "admin")).toBeNull();
     expect(legacyRedirectTarget("caja", "cocina")).toBe("/cocina");
     expect(legacyRedirectTarget("despacho", "cocina")).toBe("/cocina");
+    expect(legacyRedirectTarget("caja", "encargado")).toBeNull();
+    expect(legacyRedirectTarget("despacho", "encargado")).toBeNull();
   });
 });

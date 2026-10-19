@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { getDb } from "@/db/client";
 import { LiveRefresh } from "@/components/live/live-refresh";
 import { LogoutButton } from "@/components/logout-button";
-import type { AuthSession } from "@/lib/auth/roles";
+import { isManager, type AuthSession } from "@/lib/auth/roles";
 import { navLinksFor } from "@/lib/caja/nav";
 import { listPendingApproval } from "@/lib/orders/caja-queries";
 import { derivePrinterStatus } from "@/lib/caja/printer-status";
@@ -20,7 +20,7 @@ import { StaffNav } from "./staff-nav";
  * inside it must not mount another. Reads request data: render it inside <Suspense>.
  */
 export async function StaffShell({ session, ownsOrderAlert = false, children }: { session: AuthSession; ownsOrderAlert?: boolean; children: ReactNode }) {
-  const station = session.stationId === null ? null : await getStationHeader(getDb(), session.stationId, session.user.role === "admin" ? null : session.stationKind);
+  const station = session.stationId === null ? null : await getStationHeader(getDb(), session.stationId, isManager(session.user.role) ? null : session.stationKind);
   const printer = station
     ? derivePrinterStatus({ lastSeenAt: station.lastSeenAt, failedCount: station.failedCount, now: new Date() })
     : null;

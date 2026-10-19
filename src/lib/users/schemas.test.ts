@@ -24,7 +24,7 @@ describe("userInputSchema", () => {
     }
   });
   it("role must be one of the three roles", () => {
-    for (const role of ["admin", "cajera", "encargada_delivery"]) {
+    for (const role of ["admin", "cajera", "encargada_delivery", "cocina", "encargado"]) {
       expect(userInputSchema.safeParse({ ...base, role }).success).toBe(true);
     }
     expect(userInputSchema.safeParse({ ...base, role: "root" }).success).toBe(false);

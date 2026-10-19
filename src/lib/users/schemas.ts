@@ -21,7 +21,7 @@ export const userInputSchema = z
       .max(40, "Máximo 40 caracteres")
       .regex(/^[a-z0-9._-]+$/i, "Solo letras, números, punto, guion y guion bajo")
       .transform((v) => v.toLowerCase()),
-    role: z.enum(["admin", "cajera", "encargada_delivery", "cocina"], "Elegí un rol"),
+    role: z.enum(["admin", "cajera", "encargada_delivery", "cocina", "encargado"], "Elegí un rol"),
     active: z.boolean(),
     password,
   })

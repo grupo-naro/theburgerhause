@@ -1,4 +1,4 @@
-import type { Role } from "@/lib/auth/roles";
+import { isManager, type Role } from "@/lib/auth/roles";
 import type { Sector } from "@/lib/orders/sector";
 
 /**
@@ -46,7 +46,7 @@ export function tabLanes(tab: TabId): LaneId[] {
 
 /** Where the old general URLs send staff (null = admin keeps the general view). */
 export function legacyRedirectTarget(legacy: "caja" | "despacho", role: Role): string | null {
-  if (role === "admin") return null;
+  if (isManager(role)) return null;
   if (role === "cocina") return "/cocina";
   if (role === "encargada_delivery") return "/delivery";
   return legacy === "caja" ? "/retiro" : "/mostrador/pedidos";
