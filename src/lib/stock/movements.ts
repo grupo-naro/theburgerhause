@@ -42,7 +42,12 @@ const REASON: Record<MovementKind, StockEventReason> = {
   devolucion: "devolucion",
 };
 
-/** Locks the given items in id order (no deadlock cycles between multi-item writers). */
+/**
+ * Locks the given items (SELECT ... FOR UPDATE) sorted by id. This is deadlock-safe ONLY when a
+ * transaction locks ALL the items it will touch in ONE call: two calls (e.g. item 5, then item 2)
+ * can form a cycle with another writer that sorted them. Gather every item id first (sales:
+ * every linked item of the order), then call this once, before any movement is written.
+ */
 export async function lockStockItems(tx: DbTransaction, ids: number[]): Promise<Map<number, LockedStockItem>> {
   const unique = [...new Set(ids)].sort((a, b) => a - b);
   if (unique.length === 0) return new Map();
@@ -301,7 +306,8 @@ export type EditMovementData = { quantity: number; needsConfirmation?: { resulti
 
 /**
  * Corrects the amount of an ajuste_inicial / ingreso / consumo (`newMilli` is the corrected
- * amount, sign implied by the kind; 0 annuls it). Keeps the replaced value in `superseded_value`.
+ * amount, sign implied by the kind; 0 annuls it). Every edit appends a `stock_movement_edits` row
+ * (previous and new value, who, when); `superseded_value` mirrors the latest replaced value.
  * If the balance would drop below zero and `confirmNegative` is false, returns
  * `needsConfirmation` WITHOUT writing. Sales and returns are never editable.
  */
@@ -342,10 +348,19 @@ export async function editMovement(
       return { ok: true, data: { quantity: item.quantity, needsConfirmation: { resultingQuantity } } };
     }
 
+    const editedAt = ctx.now ?? new Date();
     await tx
       .update(s.stockMovements)
-      .set({ qtyDelta: newDelta, supersededValue: m.qtyDelta, editedBy: input.userId, editedAt: ctx.now ?? new Date() })
+      .set({ qtyDelta: newDelta, supersededValue: m.qtyDelta, editedBy: input.userId, editedAt })
       .where(eq(s.stockMovements.id, input.movementId));
+    // Full trail: one append-only row per edit (the columns above only mirror the latest one).
+    await tx.insert(s.stockMovementEdits).values({
+      movementId: input.movementId,
+      previousDelta: m.qtyDelta,
+      newDelta,
+      editedBy: input.userId,
+      editedAt,
+    });
     await applyBalance(tx, item, resultingQuantity, "edicion");
     return { ok: true, data: { quantity: resultingQuantity } };
   });

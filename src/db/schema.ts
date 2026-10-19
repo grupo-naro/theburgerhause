@@ -433,6 +433,28 @@ export const stockMovements = pgTable(
   ],
 );
 
+/**
+ * Append-only audit of every edit of a movement (one row per edit, written in the same
+ * transaction). The movement's superseded_value/edited_by/edited_at mirror only the LATEST edit.
+ */
+export const stockMovementEdits = pgTable(
+  "stock_movement_edits",
+  {
+    id: serial("id").primaryKey(),
+    movementId: integer("movement_id")
+      .notNull()
+      .references(() => stockMovements.id, { onDelete: "restrict" }),
+    previousDelta: integer("previous_delta").notNull(),
+    newDelta: integer("new_delta").notNull(),
+    editedBy: integer("edited_by").references(() => users.id, { onDelete: "set null" }),
+    editedAt: timestamp("edited_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("stock_movement_edits_movement_idx").on(t.movementId, t.id),
+    index("stock_movement_edits_edited_by_idx").on(t.editedBy),
+  ],
+);
+
 // ---------------------------------------------------------------- settings
 /**
  * Key/value store. Known keys (value is jsonb):

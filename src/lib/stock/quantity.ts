@@ -19,23 +19,32 @@ export const QUANTITY_MESSAGES = {
   whole: "Para unidades usá números enteros",
   decimals: "Usá hasta 3 decimales",
   tooBig: "La cantidad es demasiado grande",
+  missingWhole: "Escribí el número completo, por ejemplo 0,5",
+  missingDecimals: "Completá los decimales o borrá la coma",
 } as const;
 
 export type ParsedQuantity = { ok: true; milli: number } | { ok: false; message: string };
 
-const NUMBER = /^(\d+)(?:[.,](\d*))?$/;
+const NUMBER = /^(\d+)(?:[.,](\d+))?$/;
 
-/** Parses what a person types ("12,5", "12.5", "48") into milli-units. Zero and negatives are rejected. */
+/**
+ * Parses what a person types ("12,5", "12.5", "48") into milli-units. Zero and negatives are
+ * rejected. There are NO thousands separators: "1.250" is 1,25 (formatQuantity never groups, so
+ * what is shown can be typed back). Units (`u`) accept no separator at all, so "1.000" can never
+ * silently mean 1 u.
+ */
 export function parseQuantity(input: string, unit: Unit): ParsedQuantity {
   const raw = typeof input === "string" ? input.trim() : "";
   if (raw === "") return { ok: false, message: QUANTITY_MESSAGES.empty };
   if (raw.startsWith("-")) return { ok: false, message: QUANTITY_MESSAGES.positive };
+  if (/^[.,]\d+$/.test(raw)) return { ok: false, message: QUANTITY_MESSAGES.missingWhole };
+  if (/^\d+[.,]$/.test(raw)) return { ok: false, message: QUANTITY_MESSAGES.missingDecimals };
   const m = NUMBER.exec(raw);
-  if (!m || (m[2] !== undefined && m[2] === "")) return { ok: false, message: QUANTITY_MESSAGES.invalid };
+  if (!m) return { ok: false, message: QUANTITY_MESSAGES.invalid };
+  if (unit === "u" && m[2] !== undefined) return { ok: false, message: QUANTITY_MESSAGES.whole };
   const whole = m[1];
   const frac = (m[2] ?? "").replace(/0+$/, "");
   if (frac.length > 3) return { ok: false, message: QUANTITY_MESSAGES.decimals };
-  if (unit === "u" && frac.length > 0) return { ok: false, message: QUANTITY_MESSAGES.whole };
   if (whole.replace(/^0+/, "").length > 7) return { ok: false, message: QUANTITY_MESSAGES.tooBig };
   const milli = Number(whole) * MILLI_PER_UNIT + Number(frac.padEnd(3, "0"));
   if (milli > MAX_MILLI) return { ok: false, message: QUANTITY_MESSAGES.tooBig };
@@ -43,9 +52,10 @@ export function parseQuantity(input: string, unit: Unit): ParsedQuantity {
   return { ok: true, milli };
 }
 
-const FORMAT = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 3, useGrouping: true });
+/** No grouping: es-AR would print 1250 as "1.250", which the parser reads as 1,25. */
+const FORMAT = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 3, useGrouping: false });
 
-/** "12,5 kg", "3 u", "0,125 l". */
+/** "12,5 kg", "3 u", "0,125 l", "1250 kg" (round-trips through parseQuantity). */
 export function formatQuantity(milli: number, unit: Unit): string {
   return `${FORMAT.format(milli / MILLI_PER_UNIT)} ${unit}`;
 }

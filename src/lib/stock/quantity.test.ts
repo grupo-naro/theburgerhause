@@ -21,10 +21,17 @@ describe("parseQuantity", () => {
     }
   });
 
-  it("rejects decimals for units", () => {
-    const r = parseQuantity("1,5", "u");
-    expect(r).toEqual({ ok: false, message: "Para unidades usá números enteros" });
-    expect(parseQuantity("2,0", "u")).toEqual({ ok: true, milli: 2000 });
+  it("rejects any decimal separator for units (so '1.000' can never mean 1 u)", () => {
+    for (const bad of ["1,5", "2,0", "1.000", "1.250"]) {
+      expect(parseQuantity(bad, "u"), bad).toEqual({ ok: false, message: "Para unidades usá números enteros" });
+    }
+  });
+
+  it("explains a missing whole or decimal part", () => {
+    expect(parseQuantity(".5", "kg")).toEqual({ ok: false, message: "Escribí el número completo, por ejemplo 0,5" });
+    expect(parseQuantity(",5", "kg")).toEqual({ ok: false, message: "Escribí el número completo, por ejemplo 0,5" });
+    expect(parseQuantity("12.", "kg")).toEqual({ ok: false, message: "Completá los decimales o borrá la coma" });
+    expect(parseQuantity("12,", "kg")).toEqual({ ok: false, message: "Completá los decimales o borrá la coma" });
   });
 
   it("rejects more than 3 decimals and absurd sizes", () => {
@@ -41,6 +48,43 @@ describe("formatQuantity", () => {
     expect(formatQuantity(125, "l")).toBe("0,125 l");
     expect(formatQuantity(0, "kg")).toBe("0 kg");
     expect(formatQuantity(-2000, "u")).toBe("-2 u");
+  });
+
+  it("never uses a thousands separator", () => {
+    expect(formatQuantity(1_250_000, "kg")).toBe("1250 kg");
+    expect(formatQuantity(1_250_500, "kg")).toBe("1250,5 kg");
+    expect(formatQuantity(1_000_000, "u")).toBe("1000 u");
+  });
+});
+
+describe("round trip parseQuantity(formatQuantity(x)) === x", () => {
+  const strip = (s: string) => s.replace(/ (kg|u|l)$/, "");
+  const cases: Array<[number, "kg" | "u" | "l"]> = [
+    [1_250_000, "kg"],
+    [1_250_500, "kg"],
+    [12_500, "kg"],
+    [1, "kg"],
+    [999_999, "kg"],
+    [125, "l"],
+    [3_000_500, "l"],
+    [1000, "u"],
+    [3000, "u"],
+    [1_000_000, "u"],
+    [123_456_000, "u"],
+    [MAX_MILLI, "kg"],
+  ];
+  for (const [milli, unit] of cases) {
+    it(`${milli} ${unit}`, () => {
+      expect(parseQuantity(strip(formatQuantity(milli, unit)), unit)).toEqual({ ok: true, milli });
+    });
+  }
+
+  it("holds for a sweep of values", () => {
+    for (let milli = 1; milli < 3_000_000; milli += 7_919) {
+      expect(parseQuantity(strip(formatQuantity(milli, "kg")), "kg")).toEqual({ ok: true, milli });
+      const whole = Math.ceil(milli / 1000) * 1000;
+      expect(parseQuantity(strip(formatQuantity(whole, "u")), "u")).toEqual({ ok: true, milli: whole });
+    }
   });
 });
 

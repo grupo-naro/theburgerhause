@@ -195,6 +195,33 @@ describe("registerConsumo", () => {
     expect(await itemQty(fx.carne)).toBe(-10000);
   });
 
+  it("concurrent consumptions listing overlapping items in opposite order do not deadlock and sum exactly", async () => {
+    const rounds = 10;
+    const rs = await Promise.all(
+      Array.from({ length: rounds }, (_, i) =>
+        registerConsumo(db(), {
+          userId: fx.userId,
+          businessDate: "2026-10-19",
+          lines:
+            i % 2 === 0
+              ? [
+                  { itemId: fx.carne, milli: 1000 },
+                  { itemId: fx.coca, milli: 1000 },
+                ]
+              : [
+                  { itemId: fx.coca, milli: 1000 },
+                  { itemId: fx.carne, milli: 1000 },
+                ],
+          idempotencyKey: key(70 + i),
+        }),
+      ),
+    );
+    for (const r of rs) expect(r.ok).toBe(true);
+    expect(await itemQty(fx.carne)).toBe(60000 - rounds * 1000);
+    expect(await itemQty(fx.coca)).toBe(10000 - rounds * 1000);
+    expect(await movementsOf(fx.carne)).toHaveLength(1 + rounds);
+  });
+
   it("a drink consumed down to zero gets stock_paused", async () => {
     ok(await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.coca, milli: 10000 }], idempotencyKey: key(41) }));
     expect(await productFlags(fx.cocaProduct)).toEqual({ active: true, stockPaused: true });
@@ -213,6 +240,39 @@ describe("editMovement", () => {
     expect(edited).toMatchObject({ qtyDelta: -5000, supersededValue: -50000, editedBy: fx.userId });
     expect(edited.editedAt).toBeInstanceOf(Date);
     expect(await itemQty(fx.carne)).toBe(55000);
+  });
+
+  it("two consecutive edits keep both previous values, authors and timestamps in order", async () => {
+    const [other] = await db()
+      .insert(s.users)
+      .values({ name: "Admin", username: "admin2", passwordHash: "x", role: "admin" })
+      .returning({ id: s.users.id });
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 10000, idempotencyKey: key(60) }));
+    const [m] = await movementsOf(fx.carne);
+    const t1 = new Date("2026-10-19T16:00:00Z");
+    const t2 = new Date("2026-10-19T17:00:00Z");
+    ok(await editMovement(db(), { movementId: m.id, userId: fx.userId, newMilli: 8000, confirmNegative: false }, { now: t1 }));
+    ok(await editMovement(db(), { movementId: m.id, userId: other.id, newMilli: 9500, confirmNegative: false }, { now: t2 }));
+    // a no-op edit is not recorded
+    ok(await editMovement(db(), { movementId: m.id, userId: other.id, newMilli: 9500, confirmNegative: false }));
+
+    const edits = await db().select().from(s.stockMovementEdits).where(eq(s.stockMovementEdits.movementId, m.id)).orderBy(s.stockMovementEdits.id);
+    expect(edits.map((e) => [e.previousDelta, e.newDelta, e.editedBy, e.editedAt.toISOString()])).toEqual([
+      [10000, 8000, fx.userId, t1.toISOString()],
+      [8000, 9500, other.id, t2.toISOString()],
+    ]);
+    const [latest] = await movementsOf(fx.carne);
+    expect(latest).toMatchObject({ qtyDelta: 9500, supersededValue: 8000, editedBy: other.id });
+    expect(await itemQty(fx.carne)).toBe(9500);
+  });
+
+  it("an edit that needs confirmation records no edit row", async () => {
+    ok(await registerIngreso(db(), { itemId: fx.coca, userId: fx.userId, milli: 3000, idempotencyKey: key(61) }));
+    ok(await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.coca, milli: 3000 }], idempotencyKey: key(62) }));
+    const [ing] = await movementsOf(fx.coca);
+    const r = ok(await editMovement(db(), { movementId: ing.id, userId: fx.userId, newMilli: 1000, confirmNegative: false }));
+    expect(r.needsConfirmation).toEqual({ resultingQuantity: -2000 });
+    expect(await db().select().from(s.stockMovementEdits)).toHaveLength(0);
   });
 
   it("editing to the same value is a no-op", async () => {

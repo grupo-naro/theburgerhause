@@ -1,4 +1,4 @@
-import { asc, count, desc, eq, sql } from "drizzle-orm";
+import { asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db, DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
@@ -59,7 +59,11 @@ export type MovementRow = {
   editedByName: string | null;
   editedAt: Date | null;
   createdAt: Date;
+  /** Every edit of this movement, oldest first (empty if never edited). */
+  edits: MovementEdit[];
 };
+
+export type MovementEdit = { previousDelta: number; newDelta: number; editedByName: string | null; editedAt: Date };
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -91,7 +95,26 @@ export async function listMovements(db: Conn, opts: { itemId?: number; limit?: n
     .leftJoin(author, eq(author.id, s.stockMovements.userId))
     .leftJoin(editor, eq(editor.id, s.stockMovements.editedBy));
   const filtered = opts.itemId !== undefined ? base.where(eq(s.stockMovements.itemId, opts.itemId)) : base;
-  return filtered.orderBy(desc(s.stockMovements.id)).limit(limit);
+  const rows = await filtered.orderBy(desc(s.stockMovements.id)).limit(limit);
+
+  const edited = rows.filter((r) => r.editedAt !== null).map((r) => r.id);
+  const byMovement = new Map<number, MovementEdit[]>();
+  if (edited.length > 0) {
+    const edits = await db
+      .select({
+        movementId: s.stockMovementEdits.movementId,
+        previousDelta: s.stockMovementEdits.previousDelta,
+        newDelta: s.stockMovementEdits.newDelta,
+        editedByName: s.users.name,
+        editedAt: s.stockMovementEdits.editedAt,
+      })
+      .from(s.stockMovementEdits)
+      .leftJoin(s.users, eq(s.users.id, s.stockMovementEdits.editedBy))
+      .where(inArray(s.stockMovementEdits.movementId, edited))
+      .orderBy(asc(s.stockMovementEdits.id));
+    for (const { movementId, ...e } of edits) byMovement.set(movementId, [...(byMovement.get(movementId) ?? []), e]);
+  }
+  return rows.map((r) => ({ ...r, edits: byMovement.get(r.id) ?? [] }));
 }
 
 export type ShortageReason = "agotado" | "bajo_minimo";

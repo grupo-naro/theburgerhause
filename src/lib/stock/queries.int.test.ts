@@ -56,6 +56,15 @@ describe("listMovements", () => {
       editedByName: "Enzo",
       note: "Factura 12",
     });
+    await editMovement(db(), { movementId: ing.id, userId: fx.userId, newMilli: 9000, confirmNegative: false });
+    const [twice] = await listMovements(db(), { itemId: fx.coca });
+    expect(twice.edits.map((e) => [e.previousDelta, e.newDelta, e.editedByName])).toEqual([
+      [6000, 12000, "Enzo"],
+      [12000, 9000, "Enzo"],
+    ]);
+    expect(twice.edits[0].editedAt).toBeInstanceOf(Date);
+    const [initial] = await listMovements(db(), { itemId: fx.carne });
+    expect(initial.edits).toEqual([]);
     expect(await listMovements(db(), { itemId: fx.carne })).toHaveLength(1);
     expect(await listMovements(db(), { limit: 1 })).toHaveLength(1);
   });
