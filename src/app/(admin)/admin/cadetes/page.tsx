@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { getDb } from "@/db/client";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
 import { listCadets } from "@/lib/cadets/admin";
+import { CadetCard } from "./_components/cadet-card";
 import { toggleCadetActiveAction } from "./actions";
 
 export const metadata = { title: "Cadetes · Administración" };
@@ -31,61 +32,68 @@ export default async function AdminCadetsPage() {
           <p className="text-ink-muted">Todavía no hay cadetes. Cargá el primero para poder despachar pedidos.</p>
         </Card>
       ) : (
-        <Card className="overflow-x-auto p-0">
-          <table className="w-full text-left text-sm">
-            <caption className="sr-only">Cadetes</caption>
-            <thead className="text-xs text-ink-muted uppercase">
-              <tr>
-                <th scope="col" className={th}>
-                  Nombre
-                </th>
-                <th scope="col" className={`${th} hidden sm:table-cell`}>
-                  Teléfono
-                </th>
-                <th scope="col" className={`${th} hidden sm:table-cell`}>
-                  En camino
-                </th>
-                <th scope="col" className={th}>
-                  Estado
-                </th>
-                <th scope="col" className={th}>
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {cadets.map((c) => (
-                <tr key={c.id} className={c.active ? "" : "bg-slate-50 text-ink-muted"}>
-                  <td className="p-3 font-medium">
-                    {c.name}
-                    <span className="block text-xs font-normal text-ink-muted sm:hidden">
-                      {c.phone ?? "Sin teléfono"} · {c.enCamino} en camino
-                    </span>
-                  </td>
-                  <td className="hidden p-3 whitespace-nowrap sm:table-cell">{c.phone ?? "–"}</td>
-                  <td className="hidden p-3 sm:table-cell">{c.enCamino}</td>
-                  <td className="p-3">
-                    <Badge tone={c.active ? "success" : "muted"}>{c.active ? "Activo" : "Inactivo"}</Badge>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex flex-wrap items-start gap-1">
-                      <ActionButton
-                        action={toggleCadetActiveAction}
-                        fields={{ id: c.id, value: String(!c.active) }}
-                        label={`${c.active ? "Desactivar" : "Activar"} ${c.name}`}
-                      >
-                        {c.active ? "Desactivar" : "Activar"}
-                      </ActionButton>
-                      <Link href={`/admin/cadetes/${c.id}`} className={buttonClass("ghost", "sm")}>
-                        Editar
-                      </Link>
-                    </div>
-                  </td>
+        <>
+          <ul aria-label="Cadetes" className="flex flex-col gap-3 md:hidden">
+            {cadets.map((c) => (
+              <CadetCard key={c.id} cadet={c} />
+            ))}
+          </ul>
+          <Card className="hidden overflow-x-auto p-0 md:block">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">Cadetes</caption>
+              <thead className="text-xs text-ink-muted uppercase">
+                <tr>
+                  <th scope="col" className={th}>
+                    Nombre
+                  </th>
+                  <th scope="col" className={`${th} hidden sm:table-cell`}>
+                    Teléfono
+                  </th>
+                  <th scope="col" className={`${th} hidden sm:table-cell`}>
+                    En camino
+                  </th>
+                  <th scope="col" className={th}>
+                    Estado
+                  </th>
+                  <th scope="col" className={th}>
+                    Acciones
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {cadets.map((c) => (
+                  <tr key={c.id} className={c.active ? "" : "bg-slate-50 text-ink-muted"}>
+                    <td className="p-3 font-medium">
+                      {c.name}
+                      <span className="block text-xs font-normal text-ink-muted sm:hidden">
+                        {c.phone ?? "Sin teléfono"} · {c.enCamino} en camino
+                      </span>
+                    </td>
+                    <td className="hidden p-3 whitespace-nowrap sm:table-cell">{c.phone ?? "–"}</td>
+                    <td className="hidden p-3 sm:table-cell">{c.enCamino}</td>
+                    <td className="p-3">
+                      <Badge tone={c.active ? "success" : "muted"}>{c.active ? "Activo" : "Inactivo"}</Badge>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap items-start gap-1">
+                        <ActionButton
+                          action={toggleCadetActiveAction}
+                          fields={{ id: c.id, value: String(!c.active) }}
+                          label={`${c.active ? "Desactivar" : "Activar"} ${c.name}`}
+                        >
+                          {c.active ? "Desactivar" : "Activar"}
+                        </ActionButton>
+                        <Link href={`/admin/cadetes/${c.id}`} className={buttonClass("ghost", "sm")}>
+                          Editar
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </>
       )}
     </section>
   );

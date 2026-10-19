@@ -8,6 +8,7 @@ import { requireSessionOrRedirect } from "@/lib/auth/guards";
 import { listUsers } from "@/lib/users/admin";
 import { revokeSessionsAction, toggleUserActiveAction } from "./actions";
 import { ROLE_LABEL } from "./_components/role-label";
+import { UserCard } from "./_components/user-card";
 
 export const metadata = { title: "Usuarios · Administración" };
 
@@ -28,7 +29,12 @@ export default async function AdminUsersPage() {
         Los usuarios no se borran: se desactivan, y eso cierra sus sesiones al instante. Siempre tiene que quedar un
         administrador activo.
       </p>
-      <Card className="overflow-x-auto p-0">
+      <ul aria-label="Usuarios" className="flex flex-col gap-3 md:hidden">
+        {users.map((u) => (
+          <UserCard key={u.id} user={u} self={u.id === session.user.id} />
+        ))}
+      </ul>
+      <Card className="hidden overflow-x-auto p-0 md:block">
         <table className="w-full text-left text-sm">
           <caption className="sr-only">Usuarios</caption>
           <thead className="text-xs text-ink-muted uppercase">

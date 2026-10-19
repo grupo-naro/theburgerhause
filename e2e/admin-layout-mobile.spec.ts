@@ -1,5 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
-import { findProduct } from "./helpers/db";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { formatARS } from "../src/domain/money";
+import { findCadet, findGroup, findModifier, findProduct, findUser } from "./helpers/db";
 import { noHorizontalOverflow } from "./helpers/checkout";
 import { authFile } from "./helpers/users";
 
@@ -204,4 +205,157 @@ test("@mobile the drawer overlays ⋯ menus and cards, and the ⋯ panel stays u
     return [[20, 300], [195, 600], [370, 400], [195, 800]].every(([x, y]) => d.contains(document.elementFromPoint(x, y)));
   });
   expect(covered).toBe(true);
+});
+
+// ---- Modificadores / Usuarios / Cadetes cards ----
+
+const PHONE_WIDTHS = [390, 360];
+
+async function expectTall(locator: Locator): Promise<void> {
+  expect((await locator.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+}
+
+async function seedGroupWithOptions(page: Page, group: string, options: Array<[string, string]>): Promise<void> {
+  await page.goto("/admin/modificadores/grupos/nuevo");
+  await page.getByLabel("Nombre").fill(group);
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(page).toHaveURL(/\/admin\/modificadores$/);
+  const groupId = (await findGroup(group)).id;
+  for (const [name, price] of options) {
+    await page.goto(`/admin/modificadores/nuevo?grupo=${groupId}`);
+    await expect(page.getByLabel("Grupo")).not.toHaveValue("");
+    await page.getByLabel("Nombre").fill(name);
+    await page.getByLabel("Tipo").selectOption({ label: "Agregar" });
+    await page.getByLabel("Precio (pesos)").fill(price);
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(page).toHaveURL(/\/admin\/modificadores$/);
+  }
+}
+
+test("@mobile modifier groups show one card per group with stacked option cards", async ({ page }) => {
+  const u = uid();
+  const group = `Grupo ${u}`;
+  const a = `Dips ${u}`;
+  const b = `Bacon ${u} ${"y".repeat(34)}`;
+  await seedGroupWithOptions(page, group, [[a, "1200"], [b, "800"]]);
+  const groupId = (await findGroup(group)).id;
+
+  for (const width of PHONE_WIDTHS) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/admin/modificadores");
+    expect(await noHorizontalOverflow(page)).toBe(true);
+    await expect(page.getByRole("table", { name: `Modificadores de ${group}` })).toBeHidden();
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin/modificadores");
+  const list = page.getByRole("list", { name: `Modificadores de ${group}` });
+  const cardA = list.getByRole("listitem").filter({ hasText: a });
+  const cardB = list.getByRole("listitem").filter({ hasText: b.slice(0, 20) });
+  await expect(cardA).toContainText(formatARS(120000));
+  await expect(cardA).toContainText("Activo");
+  await cardB.scrollIntoViewIfNeeded();
+  const boxB = await cardB.boundingBox();
+  expect(boxB!.x + boxB!.width).toBeLessThanOrEqual(390);
+
+  const toggle = cardA.getByRole("button", { name: `Desactivar ${a}` });
+  await expectTall(toggle);
+  await expectTall(cardA.getByRole("link", { name: "Editar" }));
+  await expect(cardA.getByRole("link", { name: "Editar" })).toHaveAttribute("href", /\/admin\/modificadores\/\d+$/);
+  await toggle.click();
+  await expect(cardA.getByRole("button", { name: `Activar ${a}` })).toBeVisible();
+  await expect(cardA).toContainText("Inactivo");
+  expect((await findModifier(groupId, a)).active).toBe(false);
+  await cardA.getByRole("button", { name: `Activar ${a}` }).click();
+  await expect(cardA.getByRole("button", { name: `Desactivar ${a}` })).toBeVisible();
+
+  // ⋯: first can't go up; Bajar reorders and closes the menu.
+  const more = cardA.getByRole("button", { name: `Más acciones de ${a}` });
+  await expectTall(more);
+  await more.click();
+  await expect(cardA.getByRole("button", { name: `Subir ${a}` })).toBeDisabled();
+  await cardA.getByRole("button", { name: `Bajar ${a}` }).click();
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await expect(list.getByRole("listitem").first()).toContainText(b.slice(0, 20));
+
+  await expectTall(page.getByRole("link", { name: "Editar grupo" }).first());
+  expect(await noHorizontalOverflow(page)).toBe(true);
+});
+
+test("@mobile users show cards; deactivating keeps its effect and self-protection", async ({ page }) => {
+  const username = `cajera.${uid()}`;
+  await page.goto("/admin/usuarios/nuevo");
+  await page.getByLabel("Nombre").fill(`Cajera ${username}`);
+  await page.getByLabel("Usuario", { exact: true }).fill(username);
+  await page.getByLabel("Rol").selectOption("cajera");
+  await page.getByLabel("Contraseña").fill("e2e-user-pass-1");
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(page).toHaveURL(/\/admin\/usuarios$/);
+
+  for (const width of PHONE_WIDTHS) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/admin/usuarios");
+    expect(await noHorizontalOverflow(page)).toBe(true);
+    await expect(page.getByRole("table", { name: "Usuarios" })).toBeHidden();
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin/usuarios");
+  const list = page.getByRole("list", { name: "Usuarios" });
+  const card = list.getByRole("listitem").filter({ hasText: username });
+  await expect(card).toContainText("Cajera");
+  await expect(card).toContainText("Activo");
+  const toggle = card.getByRole("button", { name: `Desactivar ${username}` });
+  await expectTall(toggle);
+  await expectTall(card.getByRole("link", { name: "Editar" }));
+  await expect(card.getByRole("link", { name: "Editar" })).toHaveAttribute("href", /\/admin\/usuarios\/\d+$/);
+
+  // Cerrar sesiones lives in ⋯ and is disabled with no sessions.
+  const more = card.getByRole("button", { name: `Más acciones de ${username}` });
+  await expectTall(more);
+  await more.click();
+  await expect(card.getByRole("button", { name: `Cerrar sesiones de ${username}` })).toBeDisabled();
+  await page.keyboard.press("Escape");
+
+  await toggle.click();
+  await expect(card).toContainText("Inactivo");
+  expect((await findUser(username)).active).toBe(false);
+
+  // The only admin cannot deactivate itself: same error as the table.
+  const admin = list.getByRole("listitem").filter({ hasText: "(vos)" });
+  await admin.getByRole("button", { name: "Desactivar admin" }).click();
+  await expect(admin.getByRole("alert")).toContainText("No podés desactivarte a vos mismo");
+  expect((await findUser("admin")).active).toBe(true);
+});
+
+test("@mobile cadets show cards with toggle and edit", async ({ page }) => {
+  const name = `Cadete ${uid()}`;
+  await page.goto("/admin/cadetes/nuevo");
+  await page.getByLabel("Nombre").fill(name);
+  await page.getByLabel("Teléfono").fill("+54 11 5555-1234");
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(page).toHaveURL(/\/admin\/cadetes$/);
+
+  for (const width of PHONE_WIDTHS) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/admin/cadetes");
+    expect(await noHorizontalOverflow(page)).toBe(true);
+    await expect(page.getByRole("table", { name: "Cadetes" })).toBeHidden();
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin/cadetes");
+  const card = page.getByRole("list", { name: "Cadetes" }).getByRole("listitem").filter({ hasText: name });
+  await expect(card).toContainText("+54 11 5555-1234");
+  await expect(card).toContainText("0 en camino");
+  const toggle = card.getByRole("button", { name: `Desactivar ${name}` });
+  await expectTall(toggle);
+  await expectTall(card.getByRole("link", { name: "Editar" }));
+  await expect(card.getByRole("link", { name: "Editar" })).toHaveAttribute("href", /\/admin\/cadetes\/\d+$/);
+  await toggle.click();
+  await expect(card).toContainText("Inactivo");
+  expect((await findCadet(name)).active).toBe(false);
+  await card.getByRole("button", { name: `Activar ${name}` }).click();
+  await expect(card).toContainText("Activo");
+  expect((await findCadet(name)).active).toBe(true);
 });

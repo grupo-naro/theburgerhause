@@ -7,6 +7,7 @@ import { formatARS } from "@/domain/money";
 import type { AdminModifierGroup } from "@/lib/modifiers/admin";
 import { moveModifierAction, toggleModifierActiveAction } from "../actions";
 import { KIND_LABEL } from "./kind-label";
+import { OptionCard } from "./option-card";
 
 const th = "pb-1 pr-3 font-semibold";
 
@@ -25,10 +26,17 @@ export function GroupCard({ group }: { group: AdminModifierGroup }) {
           </Link>
         </div>
       </div>
+      {modifiers.length > 0 ? (
+        <ul aria-label={`Modificadores de ${group.name}`} className="flex flex-col gap-3 md:hidden">
+          {modifiers.map((m, i) => (
+            <OptionCard key={m.id} modifier={m} first={i === 0} last={i === modifiers.length - 1} />
+          ))}
+        </ul>
+      ) : null}
       {modifiers.length === 0 ? (
         <p className="text-sm text-ink-muted">Este grupo todavía no tiene modificadores.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[66rem] table-fixed text-left text-sm">
             <caption className="sr-only">Modificadores de {group.name}</caption>
             <thead className="text-xs text-ink-muted uppercase">
