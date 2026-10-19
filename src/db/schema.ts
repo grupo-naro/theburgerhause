@@ -46,6 +46,9 @@ export const printJobStatus = pgEnum("print_job_status", [
 export const printJobType = pgEnum("print_job_type", ["kitchen", "ticket", "delivery", "customer"]);
 export const modifierKind = pgEnum("modifier_kind", ["remove", "add", "swap"]);
 export const stationKind = pgEnum("station_kind", ["mostrador", "delivery"]);
+export const stockItemKind = pgEnum("stock_item_kind", ["bebida", "materia_prima"]);
+export const stockUnit = pgEnum("stock_unit", ["kg", "u", "l"]);
+export const stockMovementKind = pgEnum("stock_movement_kind", ["ajuste_inicial", "ingreso", "consumo", "venta", "devolucion"]);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
@@ -74,10 +77,16 @@ export const products = pgTable(
     /** Shown in the storefront carousel (UX spec §6). */
     featured: boolean("featured").notNull().default(false),
     sort: integer("sort").notNull().default(0),
+    /** Optional link to a `bebida` stock item: each unit sold takes one unit (1000 milli) of stock. */
+    stockItemId: integer("stock_item_id").references(() => stockItems.id, { onDelete: "set null" }),
+    /** Paused BY STOCK (linked item at <= 0). Distinct from `active` (manual pause), which stock never touches. */
+    stockPaused: boolean("stock_paused").notNull().default(false),
   },
   (t) => [
     unique("products_category_name_unique").on(t.categoryId, t.name),
     index("products_category_idx").on(t.categoryId),
+    /** 1 product <-> 1 stock item. */
+    uniqueIndex("products_stock_item_unique").on(t.stockItemId).where(sql`${t.stockItemId} IS NOT NULL`),
     check("products_price_nonneg", sql`${t.price} >= 0`),
   ],
 );
@@ -352,6 +361,75 @@ export const printJobs = pgTable(
     index("print_jobs_station_status_idx").on(t.stationId, t.status),
     index("print_jobs_order_idx").on(t.orderId),
     check("print_jobs_attempts_nonneg", sql`${t.attempts} >= 0`),
+  ],
+);
+
+// ---------------------------------------------------------------- stock
+/**
+ * Stock (drinks and raw material). Quantities are integer MILLI-units (1 kg = 1000, 1 u = 1000)
+ * so decimals never go through floats. `quantity` is the running balance, kept in the SAME
+ * transaction as every movement under a row lock: quantity = sum(stock_movements.qty_delta).
+ */
+export const stockItems = pgTable(
+  "stock_items",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    kind: stockItemKind("kind").notNull(),
+    unit: stockUnit("unit").notNull(),
+    /** "Poco" threshold (milli); 0 = no minimum. */
+    minQty: integer("min_qty").notNull().default(0),
+    quantity: integer("quantity").notNull().default(0),
+    active: boolean("active").notNull().default(true),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("stock_items_name_unique").on(sql`lower(${t.name})`),
+    check("stock_items_min_qty_nonneg", sql`${t.minQty} >= 0`),
+    check("stock_items_unit_whole", sql`${t.unit} <> 'u' OR ${t.minQty} % 1000 = 0`),
+  ],
+);
+
+/**
+ * Append-only ledger. Only `qty_delta` of ajuste_inicial/ingreso/consumo may be edited, and an edit
+ * keeps the value it replaced in `superseded_value` (+ who/when). Signs: consumo/venta <= 0, the rest >= 0.
+ */
+export const stockMovements = pgTable(
+  "stock_movements",
+  {
+    id: serial("id").primaryKey(),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => stockItems.id, { onDelete: "restrict" }),
+    kind: stockMovementKind("kind").notNull(),
+    qtyDelta: integer("qty_delta").notNull(),
+    businessDate: date("business_date", { mode: "string" }).notNull(),
+    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    orderId: integer("order_id").references(() => orders.id, { onDelete: "restrict" }),
+    note: text("note"),
+    idempotencyKey: text("idempotency_key"),
+    supersededValue: integer("superseded_value"),
+    editedBy: integer("edited_by").references(() => users.id, { onDelete: "set null" }),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("stock_movements_idempotency_key_unique")
+      .on(t.idempotencyKey)
+      .where(sql`${t.idempotencyKey} IS NOT NULL`),
+    /** At most one venta and one devolucion per order and item. */
+    uniqueIndex("stock_movements_order_item_kind_unique")
+      .on(t.orderId, t.itemId, t.kind)
+      .where(sql`${t.orderId} IS NOT NULL`),
+    index("stock_movements_item_idx").on(t.itemId, t.id),
+    index("stock_movements_user_idx").on(t.userId),
+    index("stock_movements_edited_by_idx").on(t.editedBy),
+    check(
+      "stock_movements_sign",
+      sql`(${t.kind} IN ('consumo','venta') AND ${t.qtyDelta} <= 0) OR (${t.kind} IN ('ajuste_inicial','ingreso','devolucion') AND ${t.qtyDelta} >= 0)`,
+    ),
+    check("stock_movements_order_only_sales", sql`${t.orderId} IS NULL OR ${t.kind} IN ('venta','devolucion')`),
+    check("stock_movements_note_len", sql`char_length(${t.note}) <= 200`),
   ],
 );
 

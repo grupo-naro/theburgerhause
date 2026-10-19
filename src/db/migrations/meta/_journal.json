@@ -64,6 +64,13 @@
       "when": 1792428715163,
       "tag": "0008_encargado_role",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792432252968,
+      "tag": "0009_stock",
+      "breakpoints": true
     }
   ]
 }

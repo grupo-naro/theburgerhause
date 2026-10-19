@@ -35,6 +35,7 @@ function setup() {
   const clock = createFakeClock();
   const onOrders = vi.fn();
   const onResync = vi.fn();
+  const onStock = vi.fn();
   const states: string[] = [];
   const client = createLiveClient({
     url: "/api/events",
@@ -42,11 +43,12 @@ function setup() {
     schedule: clock.schedule,
     cancel: clock.cancel,
     onOrders,
+    onStock,
     onResync,
     onState: (s) => states.push(s),
   });
   const src = () => FakeSource.all[FakeSource.all.length - 1];
-  return { clock, onOrders, onResync, states, client, src };
+  return { clock, onOrders, onStock, onResync, states, client, src };
 }
 
 const ev = { orderId: 5, status: "en_preparacion", event: "status" };
@@ -71,6 +73,19 @@ describe("live client state machine", () => {
     t.src().emit("orders", JSON.stringify({ nope: 1 }));
     expect(t.onOrders).toHaveBeenCalledTimes(1);
     expect(t.onOrders).toHaveBeenCalledWith(ev);
+  });
+
+  it("forwards parsed stock events and ignores malformed ones", () => {
+    const t = setup();
+    t.client.start();
+    t.src().open();
+    const stock = { itemId: 3, reason: "ingreso" };
+    t.src().emit("stock", JSON.stringify(stock));
+    t.src().emit("stock", "not json");
+    t.src().emit("stock", JSON.stringify({ itemId: "3" }));
+    expect(t.onStock).toHaveBeenCalledTimes(1);
+    expect(t.onStock).toHaveBeenCalledWith(stock);
+    expect(t.onOrders).not.toHaveBeenCalled();
   });
 
   it("calls onResync for resync events", () => {

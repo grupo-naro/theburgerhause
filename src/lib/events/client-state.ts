@@ -1,4 +1,5 @@
-import type { OrdersEvent } from "./channels";
+import type { OrdersEvent, StockEvent } from "./channels";
+import { STOCK_EVENT_REASONS } from "./stock-reasons";
 
 /**
  * Pure connection policy of the browser side of /api/events (no DOM, no React): the EventSource,
@@ -32,6 +33,7 @@ export type LiveClientDeps = {
   schedule: (fn: () => void, ms: number) => unknown;
   cancel: (handle: unknown) => void;
   onOrders?: (event: OrdersEvent) => void;
+  onStock?: (event: StockEvent) => void;
   onResync?: () => void;
   onState?: (state: LiveState) => void;
 };
@@ -46,6 +48,19 @@ function parseOrders(data: string | undefined): OrdersEvent | null {
     const v = JSON.parse(data) as Partial<OrdersEvent> | null;
     if (v && typeof v.orderId === "number" && typeof v.status === "string" && typeof v.event === "string") {
       return v as OrdersEvent;
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
+function parseStock(data: string | undefined): StockEvent | null {
+  if (typeof data !== "string") return null;
+  try {
+    const v = JSON.parse(data) as Partial<StockEvent> | null;
+    if (v && typeof v.itemId === "number" && typeof v.reason === "string" && (STOCK_EVENT_REASONS as readonly string[]).includes(v.reason)) {
+      return { itemId: v.itemId, reason: v.reason };
     }
   } catch {
     // fall through
@@ -136,6 +151,11 @@ export function createLiveClient(deps: LiveClientDeps): LiveClient {
       if (!current()) return;
       const ev = parseOrders(e.data);
       if (ev) deps.onOrders?.(ev);
+    });
+    s.addEventListener("stock", (e) => {
+      if (!current()) return;
+      const ev = parseStock(e.data);
+      if (ev) deps.onStock?.(ev);
     });
     s.addEventListener("resync", () => {
       if (current()) deps.onResync?.();

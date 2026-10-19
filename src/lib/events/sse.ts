@@ -5,11 +5,11 @@ import { AuthError, type AuthSession, type Role } from "@/lib/auth/roles";
 import { SESSION_COOKIE } from "@/lib/auth/session";
 import { validateSessionToken } from "@/lib/auth/session-store";
 import { subscribe } from "./bus";
-import { ORDERS_CHANNEL } from "./channels";
+import { ORDERS_CHANNEL, STOCK_CHANNEL } from "./channels";
 
 /**
  * Server half of GET /api/events (the route file only re-exports it: route modules may not export
- * anything else). Protocol: `retry: 3000`, `event: hello`, then `event: orders` / `event: resync`
+ * anything else). Protocol: `retry: 3000`, `event: hello`, then `event: orders` / `event: stock` / `event: resync`
  * frames and a `: ping` comment every 25 s. print_job_created is deliberately NOT forwarded.
  */
 
@@ -149,6 +149,7 @@ export function createEventsHandler(opts: EventsHandlerOptions = {}): (request: 
 
           cleanups.push(
             subscribe(ORDERS_CHANNEL, (event) => send(frame("orders", event))),
+            subscribe(STOCK_CHANNEL, (event) => send(frame("stock", event))),
             subscribe("resync", () => send(frame("resync", {}))),
           );
 
