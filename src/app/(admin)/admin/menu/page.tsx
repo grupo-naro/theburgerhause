@@ -9,7 +9,7 @@ import { CategorySection } from "./_components/category-section";
 export const metadata = { title: "Menú · Administración" };
 
 export default async function AdminMenuPage() {
-  await requireSessionOrRedirect(["admin"], "/admin/menu");
+  await requireSessionOrRedirect(["admin", "encargado"], "/admin/menu");
   const menu = await listMenuForAdmin(getDb());
   return (
     <section className="flex flex-col gap-5">

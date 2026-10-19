@@ -9,7 +9,7 @@ import { GroupCard } from "./_components/group-card";
 export const metadata = { title: "Modificadores · Administración" };
 
 export default async function AdminModifiersPage() {
-  await requireSessionOrRedirect(["admin"], "/admin/modificadores");
+  await requireSessionOrRedirect(["admin", "encargado"], "/admin/modificadores");
   const groups = await listGroupsWithModifiers(getDb());
   return (
     <section className="flex flex-col gap-5">

@@ -14,7 +14,7 @@ import {
 } from "@/lib/menu/admin";
 import { setProductModifierGroups } from "@/lib/modifiers/admin";
 import { groupIdsFromForm } from "@/lib/modifiers/form-data";
-import { authorizeAdmin, type ActionState } from "@/lib/menu/action-state";
+import { authorizeManager, type ActionState } from "@/lib/menu/action-state";
 import { invalidateMenu } from "@/lib/menu/cache";
 import {
   categoryFromForm,
@@ -37,7 +37,7 @@ function toState(result: Result<unknown>, fd?: FormData): ActionState {
 }
 
 export async function saveCategoryAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const auth = await authorizeAdmin();
+  const auth = await authorizeManager();
   if ("state" in auth) return auth.state;
   const result = await saveCategory(getDb(), categoryFromForm(fd));
   if (!result.ok) return toState(result, fd);
@@ -46,7 +46,7 @@ export async function saveCategoryAction(_prev: ActionState, fd: FormData): Prom
 }
 
 export async function saveProductAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const auth = await authorizeAdmin();
+  const auth = await authorizeManager();
   if ("state" in auth) return auth.state;
   const result = await saveProduct(getDb(), productFromForm(fd));
   if (!result.ok) return toState(result, fd);
@@ -56,7 +56,7 @@ export async function saveProductAction(_prev: ActionState, fd: FormData): Promi
 
 /** Replaces the modifier groups linked to a product (separate form on the product edit page). */
 export async function saveProductModifierGroupsAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const auth = await authorizeAdmin();
+  const auth = await authorizeManager();
   if ("state" in auth) return auth.state;
   const productId = parseId(fd);
   const groupIds = groupIdsFromForm(fd);
@@ -73,7 +73,7 @@ export async function saveProductModifierGroupsAction(_prev: ActionState, fd: Fo
 }
 
 async function quick(run: () => Promise<Result<unknown>> | null): Promise<ActionState> {
-  const auth = await authorizeAdmin();
+  const auth = await authorizeManager();
   if ("state" in auth) return auth.state;
   const pending = run();
   if (!pending) return { error: "Solicitud inválida." };

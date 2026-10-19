@@ -13,7 +13,7 @@ export const metadata = { title: "Editar modificador · Administración" };
 export default async function EditModifierPage({ params }: PageProps<"/admin/modificadores/[id]">) {
   const { id: rawId } = await params;
   const id = /^\d+$/.test(rawId) ? Number(rawId) : NaN;
-  await requireSessionOrRedirect(["admin"], `/admin/modificadores/${encodeURIComponent(rawId)}`);
+  await requireSessionOrRedirect(["admin", "encargado"], `/admin/modificadores/${encodeURIComponent(rawId)}`);
   const db = getDb();
   const modifier = Number.isSafeInteger(id) ? await getModifierForAdmin(db, id) : null;
   if (!modifier) notFound();

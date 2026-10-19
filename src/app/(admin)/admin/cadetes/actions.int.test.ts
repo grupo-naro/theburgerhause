@@ -12,7 +12,7 @@ import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { requireRole } from "@/lib/auth/require-role";
-import { AuthError, type AuthSession } from "@/lib/auth/roles";
+import { assertRole, AuthError, type AuthSession } from "@/lib/auth/roles";
 import * as core from "@/lib/cadets/admin";
 import { invalidateCadets } from "@/lib/cadets/cache";
 import { form, redirectOf } from "@/test-support/next-mocks";
@@ -50,6 +50,13 @@ describe("authorization", () => {
     expect(spy()).not.toHaveBeenCalled();
     expect(invalidateCadets).not.toHaveBeenCalled();
     expect(await testDb().select().from(s.cadets)).toHaveLength(0);
+  });
+  it("saveCadetAction: encargado is allowed (the role list admits admin and encargado)", async () => {
+    vi.mocked(requireRole).mockImplementation(async (...roles) =>
+      assertRole({ user: { id: 2, name: "E", username: "e", role: "encargado" }, stationId: null, stationKind: null, sessionId: "x" }, roles),
+    );
+    expect(await redirectOf(saveCadetAction(prev, form({ name: "Enc" })))).toBe("/admin/cadetes");
+    expect(await testDb().select().from(s.cadets)).toHaveLength(1);
   });
   it.each(calls)("%s: anonymous is sent to /login", async (_n, run, spy) => {
     anonymous();

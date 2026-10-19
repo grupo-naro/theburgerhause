@@ -14,7 +14,7 @@ export const metadata = { title: "Cadetes · Administración" };
 const th = "p-3 font-semibold";
 
 export default async function AdminCadetsPage() {
-  await requireSessionOrRedirect(["admin"], "/admin/cadetes");
+  await requireSessionOrRedirect(["admin", "encargado"], "/admin/cadetes");
   const cadets = await listCadets(getDb());
   return (
     <section className="flex flex-col gap-5">

@@ -1,5 +1,5 @@
 import type { AuthSession } from "@/lib/auth/roles";
-import { authorizeAdmin, type ActionState } from "@/lib/menu/action-state";
+import { authorizeAdmin, authorizeManager, type ActionState } from "@/lib/menu/action-state";
 import { rawValues } from "@/lib/menu/form-data";
 import type { Result } from "@/lib/menu/admin";
 
@@ -30,8 +30,9 @@ export function toState(result: Result<unknown>, fd?: FormData, omit: string[] =
 export async function quick(
   run: (session: AuthSession) => Promise<Result<unknown>> | null,
   onSuccess: () => void,
+  zone: "admin" | "manager" = "admin",
 ): Promise<ActionState> {
-  const auth = await authorizeAdmin();
+  const auth = await (zone === "manager" ? authorizeManager() : authorizeAdmin());
   if ("state" in auth) return auth.state;
   const pending = run(auth.session);
   if (!pending) return { error: "Solicitud inválida." };

@@ -46,7 +46,7 @@ describe("authorization surface", () => {
   });
 
   it("non-public Server Actions authorize BEFORE any database access (static check)", () => {
-    const auth = [/\bauthorizeAdmin\(/, /\bauthorize\(/, /\bquick\(/, /\brequireRole\(/, /\brequireSessionOrRedirect\(/];
+    const auth = [/\bauthorizeAdmin\(/, /\bauthorizeManager\(/,/\bauthorize\(/, /\bquick\(/, /\brequireRole\(/, /\brequireSessionOrRedirect\(/];
     const touching = [/\bgetDb\(/, /\bgetSessionToken\(/, /\bcookies\(\)/];
     for (const [key, e] of Object.entries(SURFACE)) {
       if (!key.startsWith("action:") || (e.access !== "staff" && e.access !== "admin")) continue;

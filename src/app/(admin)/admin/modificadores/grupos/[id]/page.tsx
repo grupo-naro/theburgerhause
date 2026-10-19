@@ -9,7 +9,7 @@ export const metadata = { title: "Editar grupo · Administración" };
 export default async function EditGroupPage({ params }: PageProps<"/admin/modificadores/grupos/[id]">) {
   const { id: rawId } = await params;
   const id = /^\d+$/.test(rawId) ? Number(rawId) : NaN;
-  await requireSessionOrRedirect(["admin"], `/admin/modificadores/grupos/${encodeURIComponent(rawId)}`);
+  await requireSessionOrRedirect(["admin", "encargado"], `/admin/modificadores/grupos/${encodeURIComponent(rawId)}`);
   const group = Number.isSafeInteger(id) ? await getGroupForAdmin(getDb(), id) : null;
   if (!group) notFound();
   return (

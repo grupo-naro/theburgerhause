@@ -26,6 +26,8 @@ export type Entry = {
 };
 
 const ADMIN: Role[] = ["admin"];
+/** Zones the encargado shares with the admin (menu, modifiers, cadets, product photos). */
+const MANAGERS: Role[] = ["admin", "encargado"];
 const STAFF3: Role[] = ["cajera", "encargada_delivery", "admin", "encargado"];
 const KITCHEN: Role[] = ["cocina", "cajera", "encargada_delivery", "admin", "encargado"];
 const DELIVERY: Role[] = ["encargada_delivery", "admin", "encargado"];
@@ -34,6 +36,7 @@ const COUNTER: Role[] = ["cajera", "admin", "encargado"];
 const AUTHZ_TEST = "src/lib/security/authz.test.ts";
 
 const adminAction = (note: string): Entry => ({ access: "admin", roles: ADMIN, note, tests: [AUTHZ_TEST] });
+const managerAction = (note: string): Entry => ({ access: "staff", roles: MANAGERS, note, tests: [AUTHZ_TEST] });
 const staffAction = (roles: Role[], note: string, tests: string[] = [AUTHZ_TEST]): Entry => ({
   access: "staff",
   roles,
@@ -46,26 +49,27 @@ const STAFF_DIR = "src/app/(staff)";
 
 /** Keys: `action:<file>#<export>`, `route:<file>#<METHOD>`, `page:<file>`. */
 export const SURFACE: Record<string, Entry> = {
-  // ---- admin Server Actions (authorizeAdmin first; `quick` authorizes before running) ----
+  // ---- admin Server Actions: usuarios / ajustes / estaciones are admin only (authorizeAdmin); menu / modificadores / cadetes
+  //      also admit the encargado (authorizeManager). `quick` authorizes before running ----
   [`action:${ADMIN_DIR}/ajustes/actions.ts#saveSettingsAction`]: adminAction("Store settings (fee, hours, closed switch)."),
   [`action:${ADMIN_DIR}/ajustes/actions.ts#toggleAcceptingOrdersAction`]: adminAction("Open/closed switch."),
-  [`action:${ADMIN_DIR}/cadetes/actions.ts#saveCadetAction`]: adminAction("Create/edit a cadet."),
-  [`action:${ADMIN_DIR}/cadetes/actions.ts#toggleCadetActiveAction`]: adminAction("Deactivate/reactivate a cadet."),
+  [`action:${ADMIN_DIR}/cadetes/actions.ts#saveCadetAction`]: managerAction("Create/edit a cadet."),
+  [`action:${ADMIN_DIR}/cadetes/actions.ts#toggleCadetActiveAction`]: managerAction("Deactivate/reactivate a cadet."),
   [`action:${ADMIN_DIR}/estaciones/actions.ts#createStationAction`]: adminAction("Creates a station and returns its token once."),
   [`action:${ADMIN_DIR}/estaciones/actions.ts#rotateStationTokenAction`]: adminAction("Rotates a station token (returned once)."),
   [`action:${ADMIN_DIR}/estaciones/actions.ts#renameStationAction`]: adminAction("Renames a station."),
-  [`action:${ADMIN_DIR}/menu/actions.ts#saveCategoryAction`]: adminAction("Category CRUD."),
-  [`action:${ADMIN_DIR}/menu/actions.ts#saveProductAction`]: adminAction("Product CRUD (imagePath re-validated)."),
-  [`action:${ADMIN_DIR}/menu/actions.ts#saveProductModifierGroupsAction`]: adminAction("Product to modifier group links."),
-  [`action:${ADMIN_DIR}/menu/actions.ts#moveCategoryAction`]: adminAction("Reorder categories."),
-  [`action:${ADMIN_DIR}/menu/actions.ts#moveProductAction`]: adminAction("Reorder products."),
-  [`action:${ADMIN_DIR}/menu/actions.ts#toggleCategoryActiveAction`]: adminAction("Show/hide a category."),
-  [`action:${ADMIN_DIR}/menu/actions.ts#toggleProductActiveAction`]: adminAction("Show/hide a product."),
-  [`action:${ADMIN_DIR}/menu/actions.ts#toggleProductFeaturedAction`]: adminAction("Featured flag."),
-  [`action:${ADMIN_DIR}/modificadores/actions.ts#saveModifierGroupAction`]: adminAction("Modifier group CRUD."),
-  [`action:${ADMIN_DIR}/modificadores/actions.ts#saveModifierAction`]: adminAction("Modifier CRUD."),
-  [`action:${ADMIN_DIR}/modificadores/actions.ts#moveModifierAction`]: adminAction("Reorder modifiers."),
-  [`action:${ADMIN_DIR}/modificadores/actions.ts#toggleModifierActiveAction`]: adminAction("Show/hide a modifier."),
+  [`action:${ADMIN_DIR}/menu/actions.ts#saveCategoryAction`]: managerAction("Category CRUD."),
+  [`action:${ADMIN_DIR}/menu/actions.ts#saveProductAction`]: managerAction("Product CRUD (imagePath re-validated)."),
+  [`action:${ADMIN_DIR}/menu/actions.ts#saveProductModifierGroupsAction`]: managerAction("Product to modifier group links."),
+  [`action:${ADMIN_DIR}/menu/actions.ts#moveCategoryAction`]: managerAction("Reorder categories."),
+  [`action:${ADMIN_DIR}/menu/actions.ts#moveProductAction`]: managerAction("Reorder products."),
+  [`action:${ADMIN_DIR}/menu/actions.ts#toggleCategoryActiveAction`]: managerAction("Show/hide a category."),
+  [`action:${ADMIN_DIR}/menu/actions.ts#toggleProductActiveAction`]: managerAction("Show/hide a product."),
+  [`action:${ADMIN_DIR}/menu/actions.ts#toggleProductFeaturedAction`]: managerAction("Featured flag."),
+  [`action:${ADMIN_DIR}/modificadores/actions.ts#saveModifierGroupAction`]: managerAction("Modifier group CRUD."),
+  [`action:${ADMIN_DIR}/modificadores/actions.ts#saveModifierAction`]: managerAction("Modifier CRUD."),
+  [`action:${ADMIN_DIR}/modificadores/actions.ts#moveModifierAction`]: managerAction("Reorder modifiers."),
+  [`action:${ADMIN_DIR}/modificadores/actions.ts#toggleModifierActiveAction`]: managerAction("Show/hide a modifier."),
   [`action:${ADMIN_DIR}/usuarios/actions.ts#saveUserAction`]: adminAction("Create/edit staff users and passwords."),
   [`action:${ADMIN_DIR}/usuarios/actions.ts#toggleUserActiveAction`]: adminAction("Deactivate/reactivate a user (revokes sessions)."),
   [`action:${ADMIN_DIR}/usuarios/actions.ts#revokeSessionsAction`]: adminAction("Revoke every session of a user."),
@@ -155,9 +159,9 @@ export const SURFACE: Record<string, Entry> = {
     tests: ["src/app/api/pedido/[token]/status/route.test.ts"],
   },
   ["route:src/app/api/uploads/route.ts#POST"]: {
-    access: "admin",
-    roles: ADMIN,
-    note: "Image upload: same-origin check, requireRole(admin) before reading the body, 5 MB cap (Content-Length and real size), image re-encoded by sharp.",
+    access: "staff",
+    roles: MANAGERS,
+    note: "Image upload (product form; admin and encargado): same-origin check, requireRole(admin, encargado) before reading the body, 5 MB cap (Content-Length and real size), image re-encoded by sharp.",
     tests: ["src/app/api/uploads/route.test.ts", AUTHZ_TEST],
   },
   ["route:src/app/api/csp-report/route.ts#POST"]: {
@@ -192,5 +196,5 @@ export const SURFACE: Record<string, Entry> = {
   ["page:src/app/(staff)/delivery/rendicion/page.tsx"]: { access: "staff", roles: DELIVERY, note: "Cadet settlement screen.", tests: ["e2e/rendicion-roles-print.spec.ts"] },
 };
 
-/** Every page under (admin)/admin is admin-only (guard in the page itself or in the admin shell). */
+/** Every page under (admin)/admin is guarded in the page itself or in the admin shell (usuarios, ajustes, estaciones: admin only; menu, modificadores, cadetes: admin and encargado). */
 export const ADMIN_PAGE_PREFIX = "page:src/app/(admin)/admin/";

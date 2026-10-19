@@ -17,7 +17,7 @@ if you changed code); in CI it is always started fresh.
 
 1. Creates/migrates the test DB (reuses `src/db/global-setup.int.ts`).
 2. Truncates every table and runs the menu seed.
-3. Creates users `admin`, `cajera`, `encargada`, `cocina` (credentials in `e2e/helpers/users.ts`, test-only).
+3. Creates users `admin`, `cajera`, `encargada`, `cocina`, `encargado` (credentials in `e2e/helpers/users.ts`, test-only).
 4. Logs each one in THROUGH THE LOGIN FORM (cashier picks "Mostrador 1", encargada "Delivery 1", the kitchen user has no station and lands on `/cocina`)
    and saves cookies to `e2e/.auth/<role>.json` (git-ignored).
 

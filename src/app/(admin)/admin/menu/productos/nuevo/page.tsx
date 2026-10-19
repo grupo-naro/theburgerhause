@@ -8,7 +8,7 @@ export const metadata = { title: "Nuevo producto · Administración" };
 
 export default async function NewProductPage({ searchParams }: PageProps<"/admin/menu/productos/nuevo">) {
   const sp = await searchParams;
-  await requireSessionOrRedirect(["admin"], "/admin/menu/productos/nuevo");
+  await requireSessionOrRedirect(["admin", "encargado"], "/admin/menu/productos/nuevo");
   const categories = await getDb()
     .select({ id: s.categories.id, name: s.categories.name })
     .from(s.categories)

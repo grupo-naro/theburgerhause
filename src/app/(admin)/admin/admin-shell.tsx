@@ -9,10 +9,10 @@ const OPERATION_HOME = "/mostrador";
 
 /** Reads the session (request-time data): render it inside <Suspense>. */
 export async function AdminShell({ children }: { children: ReactNode }) {
-  const session = await requireSessionOrRedirect(["admin"], "/admin");
+  const session = await requireSessionOrRedirect(["admin", "encargado"], "/admin");
   return (
     <div data-admin-touch className="flex min-h-dvh flex-col">
-      <AdminMobileBar userName={session.user.name} homeHref={OPERATION_HOME} />
+      <AdminMobileBar userName={session.user.name} role={session.user.role} homeHref={OPERATION_HOME} />
       <header className="hidden items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3 md:flex">
         <span className="font-display text-lg font-extrabold text-brand-600 sm:text-xl">Administración</span>
         <div className="flex items-center gap-3">
@@ -21,7 +21,7 @@ export async function AdminShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       <div className="flex flex-1 flex-col md:flex-row">
-        <AdminNav />
+        <AdminNav role={session.user.role} />
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
       </div>
     </div>

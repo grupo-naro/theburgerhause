@@ -18,23 +18,23 @@ Staff actions on orders additionally apply the sector rule server side (a cashie
 | --- | --- | --- | --- | --- |
 | `src/app/(admin)/admin/ajustes/actions.ts#saveSettingsAction` | admin | admin | Store settings (fee, hours, closed switch). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/ajustes/actions.ts#toggleAcceptingOrdersAction` | admin | admin | Open/closed switch. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/cadetes/actions.ts#saveCadetAction` | admin | admin | Create/edit a cadet. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/cadetes/actions.ts#toggleCadetActiveAction` | admin | admin | Deactivate/reactivate a cadet. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/cadetes/actions.ts#saveCadetAction` | staff | admin, encargado | Create/edit a cadet. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/cadetes/actions.ts#toggleCadetActiveAction` | staff | admin, encargado | Deactivate/reactivate a cadet. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/estaciones/actions.ts#createStationAction` | admin | admin | Creates a station and returns its token once. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/estaciones/actions.ts#rotateStationTokenAction` | admin | admin | Rotates a station token (returned once). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/estaciones/actions.ts#renameStationAction` | admin | admin | Renames a station. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/menu/actions.ts#saveCategoryAction` | admin | admin | Category CRUD. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/menu/actions.ts#saveProductAction` | admin | admin | Product CRUD (imagePath re-validated). | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/menu/actions.ts#saveProductModifierGroupsAction` | admin | admin | Product to modifier group links. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/menu/actions.ts#moveCategoryAction` | admin | admin | Reorder categories. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/menu/actions.ts#moveProductAction` | admin | admin | Reorder products. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/menu/actions.ts#toggleCategoryActiveAction` | admin | admin | Show/hide a category. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/menu/actions.ts#toggleProductActiveAction` | admin | admin | Show/hide a product. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/menu/actions.ts#toggleProductFeaturedAction` | admin | admin | Featured flag. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/modificadores/actions.ts#saveModifierGroupAction` | admin | admin | Modifier group CRUD. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/modificadores/actions.ts#saveModifierAction` | admin | admin | Modifier CRUD. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/modificadores/actions.ts#moveModifierAction` | admin | admin | Reorder modifiers. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/modificadores/actions.ts#toggleModifierActiveAction` | admin | admin | Show/hide a modifier. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/menu/actions.ts#saveCategoryAction` | staff | admin, encargado | Category CRUD. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/menu/actions.ts#saveProductAction` | staff | admin, encargado | Product CRUD (imagePath re-validated). | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/menu/actions.ts#saveProductModifierGroupsAction` | staff | admin, encargado | Product to modifier group links. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/menu/actions.ts#moveCategoryAction` | staff | admin, encargado | Reorder categories. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/menu/actions.ts#moveProductAction` | staff | admin, encargado | Reorder products. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/menu/actions.ts#toggleCategoryActiveAction` | staff | admin, encargado | Show/hide a category. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/menu/actions.ts#toggleProductActiveAction` | staff | admin, encargado | Show/hide a product. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/menu/actions.ts#toggleProductFeaturedAction` | staff | admin, encargado | Featured flag. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/modificadores/actions.ts#saveModifierGroupAction` | staff | admin, encargado | Modifier group CRUD. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/modificadores/actions.ts#saveModifierAction` | staff | admin, encargado | Modifier CRUD. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/modificadores/actions.ts#moveModifierAction` | staff | admin, encargado | Reorder modifiers. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/modificadores/actions.ts#toggleModifierActiveAction` | staff | admin, encargado | Show/hide a modifier. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/usuarios/actions.ts#saveUserAction` | admin | admin | Create/edit staff users and passwords. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/usuarios/actions.ts#toggleUserActiveAction` | admin | admin | Deactivate/reactivate a user (revokes sessions). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/usuarios/actions.ts#revokeSessionsAction` | admin | admin | Revoke every session of a user. | `src/lib/security/authz.test.ts` |
@@ -69,13 +69,13 @@ Staff actions on orders additionally apply the sector rule server side (a cashie
 | `src/app/api/events/route.ts#GET` | staff | cocina, cajera, encargada_delivery, admin, encargado | SSE for staff screens: requireRole first, caps 10 per user / 200 global, session revalidated every 60 s without sliding. | `src/app/api/events/route.test.ts`<br>`src/lib/security/authz.test.ts` |
 | `src/app/api/health/route.ts#GET` | public | - | Liveness probe: 60 req/min per IP, answers only status/db/realtime/time/version/commit. | `src/lib/health.test.ts`<br>`src/app/api/health/route.int.test.ts` |
 | `src/app/api/pedido/[token]/status/route.ts#GET` | capability-token | - | Customer polling. The 256-bit token is the credential; per-IP request limiter plus a miss limiter; uniform 404/429 bodies; no-store. | `src/app/api/pedido/[token]/status/route.test.ts` |
-| `src/app/api/uploads/route.ts#POST` | admin | admin | Image upload: same-origin check, requireRole(admin) before reading the body, 5 MB cap (Content-Length and real size), image re-encoded by sharp. | `src/app/api/uploads/route.test.ts`<br>`src/lib/security/authz.test.ts` |
+| `src/app/api/uploads/route.ts#POST` | staff | admin, encargado | Image upload (product form; admin and encargado): same-origin check, requireRole(admin, encargado) before reading the body, 5 MB cap (Content-Length and real size), image re-encoded by sharp. | `src/app/api/uploads/route.test.ts`<br>`src/lib/security/authz.test.ts` |
 | `src/app/api/csp-report/route.ts#POST` | public | - | CSP violation reports (browsers send no credentials): 30/min per IP, body read capped at 8 KB, one fixed log line, body never stored. | `src/lib/security/csp-report.test.ts` |
 | `src/app/uploads/[...path]/route.ts#GET` | public | - | Product photos. Strict uuid.webp name (no traversal, no listing); Nginx serves the directory directly in production. | `src/app/uploads/[...path]/route.test.ts` |
 
 ## Pages
 
-Every page under `src/app/(admin)/admin/**` is admin-only: the page (or, for the index redirect, the admin shell) calls `requireSessionOrRedirect(["admin"])`. The scanner enforces a guard marker on each of them.
+Every page under `src/app/(admin)/admin/**` is guarded: the page (or, for the index redirect, the admin shell) calls `requireSessionOrRedirect(...)`; `usuarios`, `ajustes` and `estaciones` admit only `admin`, `menu`, `modificadores` and `cadetes` admit `admin` and `encargado`. The scanner enforces a guard marker on each of them.
 
 | Entry | Access | Roles | Guard / abuse bound | Tests |
 | --- | --- | --- | --- | --- |

@@ -8,7 +8,7 @@ export const metadata = { title: "Nuevo modificador · Administración" };
 
 export default async function NewModifierPage({ searchParams }: PageProps<"/admin/modificadores/nuevo">) {
   const sp = await searchParams;
-  await requireSessionOrRedirect(["admin"], "/admin/modificadores/nuevo");
+  await requireSessionOrRedirect(["admin", "encargado"], "/admin/modificadores/nuevo");
   const groups = await getDb()
     .select({ id: s.modifierGroups.id, name: s.modifierGroups.name })
     .from(s.modifierGroups)

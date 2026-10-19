@@ -15,7 +15,7 @@ export const metadata = { title: "Editar producto · Administración" };
 export default async function EditProductPage({ params }: PageProps<"/admin/menu/productos/[id]">) {
   const { id: rawId } = await params;
   const id = /^\d+$/.test(rawId) ? Number(rawId) : NaN;
-  await requireSessionOrRedirect(["admin"], `/admin/menu/productos/${encodeURIComponent(rawId)}`);
+  await requireSessionOrRedirect(["admin", "encargado"], `/admin/menu/productos/${encodeURIComponent(rawId)}`);
   const db = getDb();
   const product = Number.isSafeInteger(id) ? await getProductForAdmin(db, id) : null;
   if (!product) notFound();

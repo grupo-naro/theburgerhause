@@ -9,7 +9,7 @@ export const metadata = { title: "Editar cadete · Administración" };
 export default async function EditCadetPage({ params }: PageProps<"/admin/cadetes/[id]">) {
   const { id: rawId } = await params;
   const id = /^\d+$/.test(rawId) ? Number(rawId) : NaN;
-  await requireSessionOrRedirect(["admin"], `/admin/cadetes/${encodeURIComponent(rawId)}`);
+  await requireSessionOrRedirect(["admin", "encargado"], `/admin/cadetes/${encodeURIComponent(rawId)}`);
   const cadet = Number.isSafeInteger(id) ? await getCadetForAdmin(getDb(), id) : null;
   if (!cadet) notFound();
   const names = (await listCadets(getDb())).filter((c) => c.active && c.id !== cadet.id).map((c) => c.name);

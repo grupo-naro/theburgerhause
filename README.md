@@ -58,7 +58,7 @@ Se validan al arrancar (`src/lib/env.ts`).
 
 ## Roles y pantallas
 
-Roles de staff: `admin`, `cajera`, `encargada_delivery`, `cocina` (solo ve `/cocina`, sin estación). El cliente final no tiene cuenta. El login es en `/login`;
+Roles de staff: `admin`, `encargado` (gestiona menú, modificadores y cadetes, sin usuarios/ajustes/estaciones), `cajera`, `encargada_delivery`, `cocina` (solo ve `/cocina`, sin estación). El cliente final no tiene cuenta. El login es en `/login`;
 cajera y encargada eligen su **estación** (por ejemplo "Mostrador 1", "Delivery 1") en `/estacion`: de esa estación
 salen las impresiones.
 
@@ -83,8 +83,9 @@ mostrador, en estaciones **Mostrador**. Se hace cumplir en el servidor (filtro p
 `WRONG_SECTOR` en las acciones, antes de escribir nada); el admin está exento. La cajera solo puede elegir estaciones
 de Mostrador y la encargada de Delivery. La aprobación imprime en la estación que aprueba.
 | `/admin` | admin | Panel. |
-| `/admin/menu`, `/admin/modificadores` | admin | Productos, categorías, grupos de modificadores. |
-| `/admin/usuarios`, `/admin/cadetes` | admin | Cuentas de staff y cadetes. |
+| `/admin/menu`, `/admin/modificadores` | admin, encargado | Productos, categorías, grupos de modificadores. |
+| `/admin/cadetes` | admin, encargado | Cadetes. |
+| `/admin/usuarios` | admin | Cuentas de staff. |
 | `/admin/estaciones` | admin | Estaciones y tokens del Print Agent. |
 | `/admin/ajustes` | admin | Datos del local, costo de envío, datos bancarios, pedidos abiertos/cerrados, cierre del día, tiempos del reloj de la cocina. |
 

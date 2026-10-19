@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/require-role";
-import { AuthError, type AuthSession } from "@/lib/auth/roles";
+import { AuthError, type AuthSession, type Role } from "@/lib/auth/roles";
 
 /** State shape shared by every admin Server Action (`useActionState`). */
 export type ActionState = {
@@ -16,9 +16,9 @@ export type ActionState = {
  * Server Actions are public endpoints: every action authorizes here first.
  * UNAUTHENTICATED redirects to /login; FORBIDDEN returns an error state.
  */
-export async function authorizeAdmin(): Promise<{ session: AuthSession } | { state: ActionState }> {
+async function authorizeRoles(...roles: Role[]): Promise<{ session: AuthSession } | { state: ActionState }> {
   try {
-    return { session: await requireRole("admin") };
+    return { session: await requireRole(...roles) };
   } catch (e) {
     if (e instanceof AuthError) {
       if (e.code === "UNAUTHENTICATED") redirect("/login");
@@ -26,4 +26,14 @@ export async function authorizeAdmin(): Promise<{ session: AuthSession } | { sta
     }
     throw e;
   }
+}
+
+/** Admin-only zones (users, stations, settings). */
+export function authorizeAdmin(): Promise<{ session: AuthSession } | { state: ActionState }> {
+  return authorizeRoles("admin");
+}
+
+/** Zones the encargado shares with the admin (menu, modifiers, cadets). */
+export function authorizeManager(): Promise<{ session: AuthSession } | { state: ActionState }> {
+  return authorizeRoles("admin", "encargado");
 }

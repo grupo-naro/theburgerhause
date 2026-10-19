@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { getDb } from "@/db/client";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
+import { isManager } from "@/lib/auth/roles";
 import { WRONG_STATION_REASON } from "@/lib/auth/workspace";
 import { stationAllowedForRole } from "@/lib/orders/sector";
 import { listStations } from "@/lib/stations";
@@ -14,6 +15,7 @@ async function StationPicker({ searchParams }: { searchParams: PageProps<"/estac
   const session = await requireSessionOrRedirect(["admin", "cajera", "encargada_delivery", "encargado"], "/estacion");
   // One workspace per sector: staff only see the stations of their own kind (the action enforces it too).
   const stations = (await listStations(getDb())).filter((s) => stationAllowedForRole(session.user.role, s.kind));
+  const manager = isManager(session.user.role);
   const own = session.user.role === "cajera" ? "de Mostrador" : "de Delivery";
   return (
     <>
@@ -24,7 +26,7 @@ async function StationPicker({ searchParams }: { searchParams: PageProps<"/estac
       )}
       {stations.length === 0 && (
         <p role="alert" data-testid="no-stations" className="rounded-xl border-2 border-line bg-surface px-4 py-3 text-base font-semibold text-ink">
-          No hay estaciones {own}. Pedile al admin que cree una.
+          {manager ? "Todavía no hay estaciones creadas. Se crean en Administración." : `No hay estaciones ${own}. Pedile al admin que cree una.`}
         </p>
       )}
       <form action={selectStation} className="flex w-full flex-col gap-3">

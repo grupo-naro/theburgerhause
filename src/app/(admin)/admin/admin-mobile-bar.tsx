@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { LogoutButton } from "@/components/logout-button";
-import { ADMIN_LINKS } from "./admin-nav";
+import type { Role } from "@/lib/auth/roles";
+import { adminLinksFor } from "./admin-nav";
 
 const FOCUSABLE = "a[href], button:not([disabled])";
 
@@ -13,7 +14,7 @@ const FOCUSABLE = "a[href], button:not([disabled])";
  * the way back to the operation area and "Cerrar sesión". From `md` up it is not rendered visible
  * (the shell shows the sidebar instead).
  */
-export function AdminMobileBar({ userName, homeHref }: { userName: string; homeHref: string }) {
+export function AdminMobileBar({ userName, role, homeHref }: { userName: string; role: Role; homeHref: string }) {
   const pathname = usePathname();
   // The drawer is open only on the page where it was opened: navigating closes it with no effect.
   const [openedOn, setOpenedOn] = useState<string | null>(null);
@@ -21,7 +22,8 @@ export function AdminMobileBar({ userName, homeHref }: { userName: string; homeH
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const drawerId = useId();
-  const current = ADMIN_LINKS.find((l) => pathname === l.href || pathname.startsWith(`${l.href}/`));
+  const links = adminLinksFor(role);
+  const current = links.find((l) => pathname === l.href || pathname.startsWith(`${l.href}/`));
 
   const close = () => {
     setOpenedOn(null);
@@ -106,7 +108,7 @@ export function AdminMobileBar({ userName, homeHref }: { userName: string; homeH
             <p className="-mt-2 truncate text-sm text-ink-muted">{userName}</p>
             <nav aria-label="Secciones de administración">
               <ul className="flex flex-col gap-1">
-                {ADMIN_LINKS.map((l) => {
+                {links.map((l) => {
                   const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
                   return (
                     <li key={l.href}>

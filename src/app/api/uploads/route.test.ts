@@ -49,7 +49,7 @@ describe("POST /api/uploads", () => {
   it("403 for cajera", async () => {
     requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
     expect((await POST(upload({ body: await png() }))).status).toBe(403);
-    expect(requireRole).toHaveBeenCalledWith("admin");
+    expect(requireRole).toHaveBeenCalledWith("admin", "encargado");
   });
 
   it("201 for admin with png, files written", async () => {

@@ -10,7 +10,7 @@ export const metadata = { title: "Editar categoría · Administración" };
 export default async function EditCategoryPage({ params }: PageProps<"/admin/menu/categorias/[id]">) {
   const { id: rawId } = await params;
   const id = /^\d+$/.test(rawId) ? Number(rawId) : NaN;
-  await requireSessionOrRedirect(["admin"], `/admin/menu/categorias/${encodeURIComponent(rawId)}`);
+  await requireSessionOrRedirect(["admin", "encargado"], `/admin/menu/categorias/${encodeURIComponent(rawId)}`);
   const category = Number.isSafeInteger(id) ? await getCategoryForAdmin(getDb(), id) : null;
   if (!category) notFound();
   return (

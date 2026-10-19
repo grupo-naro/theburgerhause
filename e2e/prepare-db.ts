@@ -55,6 +55,7 @@ export async function prepareDatabase(): Promise<void> {
   await upsertStaff(USERS.cajera);
   await upsertStaff(USERS.encargada);
   await upsertStaff(USERS.cocina);
+  await upsertStaff(USERS.encargado);
   await testDb()
     .insert(s.settings)
     .values({ key: PREPARED_MARKER_KEY, value: new Date().toISOString() })

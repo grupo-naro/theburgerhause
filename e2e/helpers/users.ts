@@ -1,5 +1,5 @@
 /** Test-only users. Passwords are constants: the e2e database is disposable. */
-export type E2ERole = "admin" | "cajera" | "encargada_delivery" | "cocina";
+export type E2ERole = "admin" | "cajera" | "encargada_delivery" | "cocina" | "encargado";
 
 export type E2EUser = {
   role: E2ERole;
@@ -29,6 +29,14 @@ export const USERS = {
     password: "encargada-e2e-pass-1",
     station: "Delivery 1",
     home: "/delivery",
+  },
+  // The manager: reaches menu / modifiers / cadets in the admin and works in every sector (no station needed: lands on /mostrador).
+  encargado: {
+    role: "encargado",
+    name: "Encargado E2E",
+    username: "encargado",
+    password: "encargado-e2e-pass-1",
+    home: "/mostrador",
   },
   // The kitchen device: no station, lands straight on the kitchen screen.
   cocina: { role: "cocina", name: "Cocina E2E", username: "cocina", password: "cocina-e2e-pass-1", home: "/cocina" },

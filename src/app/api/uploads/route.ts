@@ -19,7 +19,7 @@ const IMAGE_ERROR_MESSAGE = {
 export async function POST(request: Request): Promise<Response> {
   try {
     assertSameOrigin(request);
-    await requireRole("admin");
+    await requireRole("admin", "encargado");
 
     const declared = Number(request.headers.get("content-length"));
     if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES + MULTIPART_OVERHEAD) {

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/client";
-import { authorizeAdmin, type ActionState } from "@/lib/menu/action-state";
+import { authorizeManager, type ActionState } from "@/lib/menu/action-state";
 import { invalidateMenu } from "@/lib/menu/cache";
 import { parseBoolValue, parseDirection, parseId, rawValues } from "@/lib/menu/form-data";
 import type { Result } from "@/lib/menu/admin";
@@ -20,7 +20,7 @@ function toState(result: Result<unknown>, fd?: FormData): ActionState {
 }
 
 export async function saveModifierGroupAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const auth = await authorizeAdmin();
+  const auth = await authorizeManager();
   if ("state" in auth) return auth.state;
   const result = await saveModifierGroup(getDb(), groupFromForm(fd));
   if (!result.ok) return toState(result, fd);
@@ -29,7 +29,7 @@ export async function saveModifierGroupAction(_prev: ActionState, fd: FormData):
 }
 
 export async function saveModifierAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const auth = await authorizeAdmin();
+  const auth = await authorizeManager();
   if ("state" in auth) return auth.state;
   const result = await saveModifier(getDb(), modifierFromForm(fd));
   if (!result.ok) return toState(result, fd);
@@ -38,7 +38,7 @@ export async function saveModifierAction(_prev: ActionState, fd: FormData): Prom
 }
 
 async function quick(run: () => Promise<Result<unknown>> | null): Promise<ActionState> {
-  const auth = await authorizeAdmin();
+  const auth = await authorizeManager();
   if ("state" in auth) return auth.state;
   const pending = run();
   if (!pending) return { error: "Solicitud inválida." };

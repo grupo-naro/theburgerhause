@@ -194,13 +194,16 @@ describe("Route Handlers", () => {
     expect(state.dbCalls).toBe(0);
   });
 
-  it("POST /api/uploads: 401 anonymous, 403 for cashier and delivery manager, 403 cross-origin; DB untouched", async () => {
+  it("POST /api/uploads: 401 anonymous, 403 for cashier, delivery manager and kitchen, 403 cross-origin; DB untouched; admin and encargado pass the role check", async () => {
     const { POST } = await import("../../app/api/uploads/route");
     expect((await POST(sameOriginPost())).status).toBe(401);
-    for (const role of ["cajera", "encargada_delivery", "encargado"] as Role[]) {
+    for (const role of ["cajera", "encargada_delivery", "cocina"] as Role[]) {
       state.session = sessionOf(role, "mostrador");
       expect((await POST(sameOriginPost())).status).toBe(403);
     }
+    // The encargado edits products (photos), so the role check lets him through (the bogus body then fails with 400).
+    state.session = sessionOf("encargado", null);
+    expect((await POST(sameOriginPost())).status).toBe(400);
     state.session = sessionOf("admin");
     expect((await POST(sameOriginPost({ origin: "https://evil.example" }))).status).toBe(403);
     expect((await POST(sameOriginPost({ origin: "" }))).status).toBe(403); // a missing Origin is refused too

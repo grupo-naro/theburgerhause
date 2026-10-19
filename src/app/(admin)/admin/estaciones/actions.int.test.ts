@@ -17,7 +17,7 @@ import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { requireRole } from "@/lib/auth/require-role";
-import { AuthError, type AuthSession } from "@/lib/auth/roles";
+import { assertRole, AuthError, type AuthSession } from "@/lib/auth/roles";
 import * as core from "@/lib/stations/admin";
 import { invalidateStations } from "@/lib/stations/cache";
 import { hashStationToken, isWellFormedStationToken } from "@/lib/stations/token";
@@ -54,6 +54,15 @@ describe("authorization", () => {
     expect(r.token).toBeUndefined();
     expect(spy()).not.toHaveBeenCalled();
     expect(invalidateStations).not.toHaveBeenCalled();
+    expect(await testDb().select().from(s.stations)).toHaveLength(0);
+  });
+  it.each(calls)("%s: encargado is refused by the real role check and the core is never called", async (_n, run, spy) => {
+    // The role list passed to requireRole decides: only an admin passes.
+    vi.mocked(requireRole).mockImplementation(async (...roles) =>
+      assertRole({ user: { id: 2, name: "E", username: "e", role: "encargado" }, stationId: null, stationKind: null, sessionId: "x" }, roles),
+    );
+    expect(((await run()) as { error?: string }).error).toBeTruthy();
+    expect(spy()).not.toHaveBeenCalled();
     expect(await testDb().select().from(s.stations)).toHaveLength(0);
   });
   it.each(calls)("%s: anonymous is sent to /login", async (_n, run, spy) => {
