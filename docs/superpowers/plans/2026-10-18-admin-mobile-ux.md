@@ -55,7 +55,7 @@
 - [ ] **Step 1:** RED in `e2e/admin-layout-mobile.spec.ts` (mobile, seeded menu): on `/admin/menu` no horizontal overflow; the first product's "Pausado/Activo" button is visible without scrolling sideways and ≥ 44 px tall; clicking it flips the label (and clicking again restores it); "⋯" opens a menu containing Destacar, Subir, Bajar; Subir disabled on the first product of its category and Bajar on the last; a product with a 120-character name does not overflow (create/rename via the admin form or seed helper); no photo → placeholder visible. Run; expect FAIL.
 - [ ] **Step 2:** Implement `ProductCard`; in `CategorySection` render cards `md:hidden` (list with `role="list"`) and the existing table `hidden md:block`; make the category header actions wrap sensibly below `md` (primary "Nuevo producto" and "Editar" visible, ↑↓/Desactivar via `OverflowMenu`).
 - [ ] **Step 3:** Fix `e2e/admin-menu.spec.ts` selectors if duplicated DOM changes them (display:none elements are excluded from role queries; keep assertions equally strict). Run `pnpm e2e --grep "admin-menu|admin-layout-mobile"` in both projects, then `pnpm lint && pnpm test && pnpm build`.
-- [ ] **Step 4:** Capture screenshots at 390 px and 1280 px to the scratchpad, LOOK at them, fix visible defects in a separate commit. Commit `feat(admin): mobile product cards with big pause toggle`.
+- [ ] **Step 4:** Commit `feat(admin): mobile product cards with big pause toggle`. Do NOT take screenshots (the owner reviews visually).
 
 ### Task 3: Modificadores, Usuarios, Cadetes — cards below `md`
 
@@ -79,5 +79,5 @@
 - [ ] **Step 1:** RED in `e2e/admin-layout-mobile.spec.ts`: on the product form, user form and settings page at 390 px: no horizontal overflow; each checkbox label row is ≥ 44 px tall and clicking its text toggles it; computed `font-size` of text inputs is ≥ 16 px; Estaciones page has no overflow. Run; expect FAIL.
 - [ ] **Step 2:** Implement the form changes; keep staff screens unchanged (assert `data-admin-touch` scoping: a Mostrador page button keeps its previous height — add one assertion in the spec).
 - [ ] **Step 3:** Update `docs/guias/guia-administrador.md` (celular: ☰, pausar un producto, "⋯") and `e2e/README.md`.
-- [ ] **Step 4:** Full gates: `pnpm lint`, `pnpm test`, `pnpm test:int`, `pnpm test:security`, `pnpm build`, fresh-build `pnpm e2e` (both projects). Take screenshots at 390 px and 1280 px of menu, modificadores, usuarios, cadetes, estaciones, ajustes and LOOK at them; fix defects in separate commits.
+- [ ] **Step 4:** Full gates: `pnpm lint`, `pnpm test`, `pnpm test:int`, `pnpm test:security`, `pnpm build`, fresh-build `pnpm e2e` (both projects). Do NOT take screenshots (the owner reviews visually).
 - [ ] **Step 5:** Commit `feat(admin): mobile form targets, docs and verification`.
