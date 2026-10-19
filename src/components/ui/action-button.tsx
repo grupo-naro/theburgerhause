@@ -17,6 +17,8 @@ export function ActionButton({
   variant = "secondary",
   size = "sm",
   disabled = false,
+  fullWidth = false,
+  className = "",
 }: {
   action: (prev: State, formData: FormData) => Promise<State>;
   fields: Record<string, string | number>;
@@ -26,10 +28,14 @@ export function ActionButton({
   variant?: ButtonVariant;
   size?: ButtonSize;
   disabled?: boolean;
+  /** Stretch the form and button to the container width (touch-friendly state toggles). */
+  fullWidth?: boolean;
+  /** Extra classes for the button. */
+  className?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {} as State);
   return (
-    <form action={formAction} className="inline-flex flex-col">
+    <form action={formAction} className={fullWidth ? "flex w-full flex-col" : "inline-flex flex-col"}>
       {Object.entries(fields).map(([k, v]) => (
         <input key={k} type="hidden" name={k} value={v} />
       ))}
@@ -38,7 +44,7 @@ export function ActionButton({
         aria-label={label}
         title={state.error ?? label}
         disabled={pending || disabled}
-        className={buttonClass(variant, size)}
+        className={`${buttonClass(variant, size)} ${fullWidth ? "w-full" : ""} ${className}`}
       >
         {children}
       </button>
