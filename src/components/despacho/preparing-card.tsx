@@ -6,9 +6,10 @@ import { FULFILLMENT_LABEL } from "@/lib/caja/labels";
 import type { DispatchOrder } from "@/lib/orders/dispatch-queries";
 import { AgeBadge, BigButton, CardError, ItemsSummary, OrderNumber, urgencyAccent } from "./card-parts";
 import { CancelOrderControl } from "./cancel-dialog";
+import { TandaField } from "./tanda-field";
 import { useCardAction } from "./use-card-action";
 
-type Props = { order: DispatchOrder; now: number; canMark: boolean };
+type Props = { order: DispatchOrder; now: number; canMark: boolean; /** The role may write the tanda of a delivery order. */ canEditTanda?: boolean };
 
 /** Where the order goes, in one chip: LLAMADOR 7 (counter) / Delivery / Retiro. */
 export function DestinationChip({ order }: { order: DispatchOrder }) {
@@ -33,7 +34,7 @@ export function WhereLine({ order }: { order: DispatchOrder }) {
   return <p className="min-w-0 truncate text-base font-semibold text-ink">{text}</p>;
 }
 
-export function PreparingCard({ order, now, canMark }: Props) {
+export function PreparingCard({ order, now, canMark, canEditTanda = false }: Props) {
   const { exec, busy, error } = useCardAction();
   return (
     <article
@@ -51,6 +52,7 @@ export function PreparingCard({ order, now, canMark }: Props) {
         <DestinationChip order={order} />
         <WhereLine order={order} />
       </div>
+      {order.fulfillment === "delivery" && <TandaField orderId={order.id} number={order.number} tanda={order.tanda} canEdit={canEditTanda} />}
       <div className="mt-3 border-t border-line pt-3">
         <ItemsSummary items={order.items} />
       </div>

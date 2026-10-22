@@ -3,6 +3,7 @@
 import { CheckIcon, PinIcon } from "@/components/menu/icons";
 import type { DispatchOrder } from "@/lib/orders/dispatch-queries";
 import { CancelOrderControl } from "./cancel-dialog";
+import { TandaField } from "./tanda-field";
 import { AgeBadge, ItemsSummary, OrderNumber, PaymentBadge, Total, urgencyAccent } from "./card-parts";
 
 type Props = {
@@ -13,9 +14,11 @@ type Props = {
   selectable?: { selected: boolean; onToggle: () => void };
   /** The role may cancel the order (a button inside the card, independent of the selection). */
   canCancel?: boolean;
+  /** The role may write the tanda. */
+  canEditTanda?: boolean;
 };
 
-function Body({ order, now, reserve, canCancel }: { order: DispatchOrder; now: number; reserve: boolean; canCancel: boolean }) {
+function Body({ order, now, reserve, canCancel, canEditTanda }: { order: DispatchOrder; now: number; reserve: boolean; canCancel: boolean; canEditTanda: boolean }) {
   return (
     <>
       <header className={`flex items-start justify-between gap-2 ${reserve ? "pr-14" : ""}`}>
@@ -34,6 +37,7 @@ function Body({ order, now, reserve, canCancel }: { order: DispatchOrder; now: n
           )}
         </div>
       </div>
+      <TandaField orderId={order.id} number={order.number} tanda={order.tanda} canEdit={canEditTanda} />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <PaymentBadge order={order} />
         <Total cents={order.total} />
@@ -47,7 +51,7 @@ function Body({ order, now, reserve, canCancel }: { order: DispatchOrder; now: n
 }
 
 /** Ready delivery order. With `selectable` the whole card is a checkbox label (Space toggles when focused). */
-export function DeliveryReadyCard({ order, now, fresh, selectable, canCancel = false }: Props) {
+export function DeliveryReadyCard({ order, now, fresh, selectable, canCancel = false, canEditTanda = false }: Props) {
   const base = `block rounded-2xl border border-line border-l-8 bg-surface p-4 shadow-sm transition-colors ${urgencyAccent(order, "ready", now)} ${
     fresh ? "animate-card-flash ring-4 ring-cheddar-400" : ""
   }`;
@@ -61,7 +65,7 @@ export function DeliveryReadyCard({ order, now, fresh, selectable, canCancel = f
   if (!selectable) {
     return (
       <article {...common} className={base}>
-        <Body order={order} now={now} reserve={false} canCancel={canCancel} />
+        <Body order={order} now={now} reserve={false} canCancel={canCancel} canEditTanda={canEditTanda} />
       </article>
     );
   }
@@ -80,7 +84,7 @@ export function DeliveryReadyCard({ order, now, fresh, selectable, canCancel = f
         className="peer absolute top-2 right-2 size-12 cursor-pointer appearance-none rounded-xl border-2 border-ink-muted bg-surface checked:border-brand-600 checked:bg-brand-600"
       />
       <CheckIcon className="pointer-events-none absolute top-2 right-2 size-12 p-2.5 text-white opacity-0 peer-checked:opacity-100" />
-      <Body order={order} now={now} reserve canCancel={canCancel} />
+      <Body order={order} now={now} reserve canCancel={canCancel} canEditTanda={canEditTanda} />
     </label>
   );
 }

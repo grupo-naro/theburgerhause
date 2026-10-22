@@ -25,6 +25,7 @@ import { Lane } from "./lane";
 import { LaneCounters } from "./lane-counters";
 import { PickupCard } from "./pickup-card";
 import { PreparingCard } from "./preparing-card";
+import { TandaSummary } from "./tanda-summary";
 import { useReadyAlert } from "./use-ready-alert";
 
 type Props = {
@@ -55,6 +56,26 @@ const ALL_LANES: readonly LaneId[] = ["preparing", "ready", "pickup", "enroute"]
 
 const chip =
   "min-h-12 rounded-full border border-line bg-surface px-4 text-base font-bold text-ink hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50";
+
+type ReadyOrder = Board["ready"]["delivery"][number];
+type ReadyGroup = { key: string; title: string; orders: ReadyOrder[] };
+
+/**
+ * Ready delivery orders grouped by tanda (ascending), "Sin tanda" last. Null when nobody has a tanda:
+ * a flat list is less noise than a single "Sin tanda" group. "N de M listos": ready now of the tanda's orders.
+ */
+function groupReadyByTanda(orders: ReadyOrder[], tandas: Board["tandas"]): ReadyGroup[] | null {
+  if (!orders.some((o) => o.tanda !== null)) return null;
+  const total = new Map(tandas.map((t) => [t.tanda, t.count]));
+  const byTanda = new Map<number, ReadyOrder[]>();
+  for (const o of orders) if (o.tanda !== null) byTanda.set(o.tanda, [...(byTanda.get(o.tanda) ?? []), o]);
+  const groups: ReadyGroup[] = [...byTanda.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([tanda, list]) => ({ key: String(tanda), title: `Tanda ${tanda} · ${list.length} de ${Math.max(total.get(tanda) ?? 0, list.length)} listos`, orders: list }));
+  const none = orders.filter((o) => o.tanda === null);
+  if (none.length > 0) groups.push({ key: "none", title: "Sin tanda", orders: none });
+  return groups;
+}
 
 /**
  * The dispatch board (lanes of orders after approval). It does NOT open its own event stream: the
@@ -106,6 +127,9 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
   const wide = mainCols === 1;
   const grid3 = mainCols === 3;
 
+  const tandaGroups = useMemo(() => groupReadyByTanda(readyDelivery, board.tandas), [readyDelivery, board.tandas]);
+  const canEditTanda = caps.canAssign;
+
   const selected = readyDelivery.filter((o) => selection.has(o.id));
   const phones = new Map(board.cadets.map((c) => [c.id, c.phone]));
 
@@ -136,6 +160,17 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
   const ids = readyDelivery.map((o) => o.id);
   const allSelected = ids.length > 0 && ids.every((id) => selection.has(id));
 
+  const renderReadyCard = (o: (typeof readyDelivery)[number]) => (
+    <DeliveryReadyCard
+      key={o.id}
+      order={o}
+      now={now}
+      fresh={freshIds.has(o.id)}
+      canCancel={caps.canControlDelivery}
+      canEditTanda={canEditTanda}
+      selectable={caps.canAssign ? { selected: selection.has(o.id), onToggle: () => dispatch({ type: "toggle", id: o.id }) } : undefined}
+    />
+  );
   const deliveryReadyLane = (
     <Lane
       id="ready-delivery"
@@ -158,16 +193,16 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
         ) : null
       }
     >
-      {readyDelivery.map((o) => (
-        <DeliveryReadyCard
-          key={o.id}
-          order={o}
-          now={now}
-          fresh={freshIds.has(o.id)}
-          canCancel={caps.canControlDelivery}
-          selectable={caps.canAssign ? { selected: selection.has(o.id), onToggle: () => dispatch({ type: "toggle", id: o.id }) } : undefined}
-        />
-      ))}
+      {tandaGroups === null
+        ? readyDelivery.map((o) => renderReadyCard(o))
+        : tandaGroups.map((g) => (
+            <section key={g.key} data-testid="tanda-group" aria-labelledby={`tanda-group-${g.key}`} className="col-span-full min-w-0 space-y-3">
+              <h4 id={`tanda-group-${g.key}`} data-testid="tanda-group-title" className="font-display text-lg font-extrabold text-violet-800">
+                {g.title}
+              </h4>
+              <div className={wide ? "grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>{g.orders.map((o) => renderReadyCard(o))}</div>
+            </section>
+          ))}
     </Lane>
   );
   const counterReadyLane = (
@@ -195,6 +230,8 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
         </p>
       )}
 
+      {sector !== "mostrador" && (visible.has("preparing") || showDeliveryReady) && <TandaSummary tandas={board.tandas} />}
+
       {mainCols > 0 && (
         <div
           className={`grid items-start gap-4 ${
@@ -212,7 +249,7 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
               className={grid3 ? "order-3 xl:order-1" : ""}
             >
               {board.preparing.map((o) => (
-                <PreparingCard key={o.id} order={o} now={now} canMark={o.fulfillment === "delivery" ? caps.canControlDelivery : caps.canControlCounter} />
+                <PreparingCard key={o.id} order={o} now={now} canEditTanda={canEditTanda} canMark={o.fulfillment === "delivery" ? caps.canControlDelivery : caps.canControlCounter} />
               ))}
             </Lane>
           )}
