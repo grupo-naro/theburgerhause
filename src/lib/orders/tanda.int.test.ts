@@ -16,6 +16,7 @@ import { AuthError, type AuthSession, type Role } from "@/lib/auth/roles";
 import { setTandaAction } from "@/app/(staff)/despacho/actions";
 import { assignCadet, markReady, returnToDispatch } from "./dispatch";
 import { getDispatchBoard } from "./dispatch-queries";
+import { listRecentlyReady } from "./kitchen-queries";
 import { setOrderTanda } from "./tanda";
 import { makeCadet, orderEventsOf, orderRow, preparingCounterOrder, preparingWebOrder } from "@/test-support/dispatch";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
@@ -137,6 +138,33 @@ describe("concurrency", () => {
     const evs = await tandaEvents(o.id);
     expect(evs).toHaveLength(2);
     expect(evs.some((e) => e.note?.includes("antes:"))).toBe(true);
+    // Serialized: the second event's "antes" is the value the first one wrote.
+    expect(evs[0].note).toMatch(/^Tanda: (1|2)$/);
+    const first = evs[0].note!.replace("Tanda: ", "");
+    const second = first === "1" ? "2" : "1";
+    expect(evs[1].note).toBe(`Tanda: ${second} (antes: ${first})`);
+  });
+});
+
+describe("same-status events do not move the status clocks", () => {
+  it("a tanda edit or a reprint-like event keeps the dispatch board 'since' and the kitchen 'recently ready' order", async () => {
+    const older = await readyDelivery();
+    const newer = await readyDelivery();
+    const at = (min: number) => new Date(Date.now() - min * 60_000);
+    for (const [o, min] of [[older, 20], [newer, 5]] as const) {
+      await db().update(s.orderEvents).set({ at: at(min) }).where(eq(s.orderEvents.orderId, o.id));
+    }
+    const sinceOf = async (id: number) => (await getDispatchBoard(db())).ready.delivery.find((o) => o.id === id)!.statusSince;
+    const before = await sinceOf(older.id);
+    const kitchenBefore = (await listRecentlyReady(db())).map((c) => c.id);
+    expect(kitchenBefore).toEqual([newer.id, older.id]);
+
+    expect((await setTanda(older.id, 1)).ok).toBe(true);
+    expect((await setTanda(older.id, 2)).ok).toBe(true);
+    await db().insert(s.orderEvents).values({ orderId: older.id, fromStatus: "listo_despacho", toStatus: "listo_despacho", userId: fx.userId, note: "Reimpresión (cocina)" });
+
+    expect(await sinceOf(older.id)).toBe(before);
+    expect((await listRecentlyReady(db())).map((c) => c.id)).toEqual(kitchenBefore);
   });
 });
 

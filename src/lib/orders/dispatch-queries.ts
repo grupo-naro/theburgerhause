@@ -96,8 +96,8 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
   const now = ctx.now ?? new Date();
 
   // When the order entered its CURRENT status: the latest event into that status (a return to dispatch
-  // re-enters listo_despacho and resets the clock); legacy rows without such an event fall back to creation.
-  const statusSince = sql<Date | string>`coalesce((select max("order_events"."at") from "order_events" where "order_events"."order_id" = "orders"."id" and "order_events"."to_status" = "orders"."status"), "orders"."created_at")`;
+  // re-enters listo_despacho and resets the clock; same-status events such as a tanda edit or a reprint are not transitions and never move it); legacy rows without such an event fall back to creation.
+  const statusSince = sql<Date | string>`coalesce((select max("order_events"."at") from "order_events" where "order_events"."order_id" = "orders"."id" and "order_events"."to_status" = "orders"."status" and "order_events"."from_status" is distinct from "order_events"."to_status"), "orders"."created_at")`;
   const rows = await db
     .select({ ...orderColumns, cadetId: s.orders.cadetId, tanda: s.orders.tanda, statusSince })
     .from(s.orders)

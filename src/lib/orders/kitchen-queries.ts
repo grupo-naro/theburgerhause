@@ -48,7 +48,7 @@ type Row = {
 };
 
 const eventAt = (agg: "min" | "max", status: string) =>
-  sql<Date | string>`coalesce((select ${sql.raw(agg)}("order_events"."at") from "order_events" where "order_events"."order_id" = "orders"."id" and "order_events"."to_status" = ${status}), "orders"."created_at")`;
+  sql<Date | string>`coalesce((select ${sql.raw(agg)}("order_events"."at") from "order_events" where "order_events"."order_id" = "orders"."id" and "order_events"."to_status" = ${status} and "order_events"."from_status" is distinct from "order_events"."to_status"), "orders"."created_at")`;
 
 async function toCards(db: Db, rows: Row[]): Promise<KitchenCard[]> {
   if (rows.length === 0) return [];
