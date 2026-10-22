@@ -1,4 +1,5 @@
-import { MAX_TANDA_ORDERS, type TandaCount } from "@/lib/orders/tanda";
+import { MAX_TANDA_ORDERS } from "@/lib/orders/tanda-limits";
+import type { TandaCount } from "@/lib/orders/tanda";
 
 /** One chip per tanda ("Tanda 1: 2 de 3") and, when a tanda goes over the recommended max, a text warning. */
 export function TandaSummary({ tandas }: { tandas: TandaCount[] }) {

@@ -7,13 +7,14 @@ import { notifyInTx } from "@/lib/events/notify";
 import { pgErrorCode } from "./create-order";
 import { decideSector, type Sector } from "./sector";
 import { failure, isId, UNEXPECTED_MESSAGE, type OrderResult } from "./transition";
+import { MAX_TANDA_ORDERS } from "./tanda-limits";
 
 /**
  * Tanda: the free number (1-99) the delivery manager writes by hand on approved delivery orders to
  * group the 1-3 orders one cadet carries in one trip. It is never computed or suggested. No next/*.
  */
 
-export const MAX_TANDA_ORDERS = 3;
+export { MAX_TANDA_ORDERS };
 export const TANDA_MIN = 1;
 export const TANDA_MAX = 99;
 export const TANDA_INVALID_MESSAGE = "La tanda debe ser un número entero del 1 al 99.";
