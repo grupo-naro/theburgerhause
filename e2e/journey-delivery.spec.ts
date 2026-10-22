@@ -182,10 +182,11 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
       await expect(recentRow(dispatch, orderNumber).getByTestId("print-chip")).toHaveText("Impresión: ok");
     });
 
-    await test.step("the customer's tracking page moves to 'En preparación' by itself (clock-driven polling)", async () => {
+    await test.step("the customer's tracking page moves to the kitchen stage by itself (clock-driven polling)", async () => {
       await expect(async () => {
         await page.clock.runFor(8000);
-        await expect(currentStep(page)).toContainText("En preparación", { timeout: 1500 });
+        await expect(headline(page)).toHaveText("Estamos preparando tu pedido", { timeout: 1500 });
+        await expect(currentStep(page)).toContainText("Listo");
       }).toPass({ timeout: 45_000 });
       await shot(page, "journey-1-tracking-preparing-mobile");
     });

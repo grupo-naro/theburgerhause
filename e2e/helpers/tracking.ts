@@ -79,3 +79,39 @@ export async function openTracking(page: Page, path: string) {
   await expect(page.locator('[id^="S:"]')).toHaveCount(0);
   return response;
 }
+
+/** The single WhatsApp button sits under the whole timeline (DOM order and geometry). */
+export async function expectWhatsappBelowTimeline(page: Page) {
+  const wa = page.getByTestId("whatsapp-button");
+  await expect(wa).toHaveCount(1);
+  const timeline = (await page.getByTestId("timeline").boundingBox())!;
+  const button = (await wa.boundingBox())!;
+  expect(button.y).toBeGreaterThanOrEqual(timeline.y + timeline.height);
+  const followsInDom = await page.evaluate(() => {
+    const t = document.querySelector('[data-testid="timeline"]')!;
+    const b = document.querySelector('[data-testid="whatsapp-button"]')!;
+    return Boolean(t.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(followsInDom).toBe(true);
+}
+
+/** Green background (computed) and WCAG contrast >= 4.5 between text and background. */
+export async function expectGreenContrast(page: Page) {
+  const { bg, fg } = await page.getByTestId("whatsapp-button").evaluate((el) => {
+    const c = getComputedStyle(el);
+    return { bg: c.backgroundColor, fg: c.color };
+  });
+  const rgb = (s: string) => {
+    const m = s.match(/[\d.]+/g)!.map(Number);
+    return m.slice(0, 3);
+  };
+  const lum = ([r, g, b]: number[]) => {
+    const f = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const [r, g, b] = rgb(bg);
+  expect(g, `background ${bg} is green`).toBeGreaterThan(r + 40);
+  expect(g).toBeGreaterThan(b + 40);
+  const [l1, l2] = [lum(rgb(fg)), lum(rgb(bg))].sort((a, b2) => b2 - a);
+  expect((l1 + 0.05) / (l2 + 0.05)).toBeGreaterThanOrEqual(4.5);
+}

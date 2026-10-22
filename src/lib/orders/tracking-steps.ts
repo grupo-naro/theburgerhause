@@ -7,20 +7,20 @@ export type TrackingStep = { key: string; label: string; state: StepState };
 export type TrackingSteps = { steps: TrackingStep[]; cancelled: boolean; headline: string; hint: string };
 export type TrackedPaymentMethod = "cash" | "transfer";
 
-const STEP_KEYS = ["recibido", "en_preparacion", "listo", "entrega", "entregado"] as const;
+const STEP_KEYS = ["recibido", "listo", "entrega", "entregado"] as const;
 
 function labels(fulfillment: Fulfillment): string[] {
-  return ["Recibido", "En preparación", "Listo", fulfillment === "delivery" ? "En camino" : "Para retirar", "Entregado"];
+  return ["Recibido", "Listo", fulfillment === "delivery" ? "En camino" : "Para retirar", "Entregado"];
 }
 
-/** Index of the current step per status; 5 = everything done. */
+/** Index of the current step per status; 4 = everything done. */
 const POSITION: Record<Exclude<OrderStatus, "cancelado">, number> = {
   pendiente_aprobacion: 0,
-  en_preparacion: 1,
-  listo_despacho: 2,
-  en_camino: 3,
-  para_retirar: 3,
-  entregado: 5,
+  en_preparacion: 1, // no step of its own: the kitchen work is what "Listo" waits for
+  listo_despacho: 1,
+  en_camino: 2,
+  para_retirar: 2,
+  entregado: 4,
 };
 
 const COPY: Record<Exclude<OrderStatus, "cancelado" | "pendiente_aprobacion">, { headline: string; hint: string }> = {

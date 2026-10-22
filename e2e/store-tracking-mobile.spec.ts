@@ -3,7 +3,7 @@ import { formatARS } from "../src/domain/money";
 import { setOrderStatusInDb } from "./helpers/db";
 import { noHorizontalOverflow } from "./helpers/checkout";
 import { shot } from "./helpers/shots";
-import { currentStep, headline, openTracking, placeOrderInDb, steps } from "./helpers/tracking";
+import { currentStep, expectGreenContrast, expectWhatsappBelowTimeline, headline, openTracking, placeOrderInDb, steps } from "./helpers/tracking";
 
 // Public page: no session.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -36,12 +36,28 @@ test("tracking fits a 360px phone: no overflow, readable timeline and summary, b
     expect(box!.x + box!.width).toBeLessThanOrEqual(360);
   }
   await expect(page.getByTestId("order-total")).toHaveText(formatARS(order.total));
+  await expect(steps(page)).toHaveCount(4);
+  await expectWhatsappBelowTimeline(page);
+  await expectGreenContrast(page);
 
   // Tap targets.
   await expectTall(page.getByTestId("whatsapp-button"), "whatsapp");
   await expectTall(page.getByTestId("back-to-menu"), "back to menu");
   await expectTall(page.getByTestId("bank-alias-copy").or(page.getByTestId("bank-cbu-copy")), "copy");
   await shot(page, "tracking-confirmation-mobile");
+});
+
+test("tracking has no horizontal overflow at 390px and the WhatsApp button spans the card @mobile", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 390, height: 780 });
+  const order = await placeOrderInDb({ fulfillment: "delivery", paymentMethod: "cash" });
+  await openTracking(page, `/pedido/${order.token}`);
+  expect(await noHorizontalOverflow(page)).toBe(true);
+  await expectWhatsappBelowTimeline(page);
+  const box = (await page.getByTestId("whatsapp-button").boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(box.width).toBeGreaterThan(250);
 });
 
 test("every stage of the delivery timeline on a phone @mobile", async ({ page }) => {
@@ -51,7 +67,7 @@ test("every stage of the delivery timeline on a phone @mobile", async ({ page })
 
   const stages = [
     { status: "pendiente_aprobacion", step: "Recibido", name: "recibido" },
-    { status: "en_preparacion", step: "En preparación", name: "preparacion" },
+    { status: "en_preparacion", step: "Listo", name: "preparacion" },
     { status: "listo_despacho", step: "Listo", name: "listo" },
     { status: "en_camino", step: "En camino", name: "camino" },
     { status: "entregado", step: null, name: "entregado" },
@@ -61,7 +77,7 @@ test("every stage of the delivery timeline on a phone @mobile", async ({ page })
     await openTracking(page, `/pedido/${order.token}`);
     await expect(page.getByTestId("tracking")).toHaveAttribute("data-status", stage.status);
     if (stage.step) await expect(currentStep(page)).toContainText(stage.step);
-    else await expect(page.locator('[data-testid="timeline-step"][data-state="done"]')).toHaveCount(5);
+    else await expect(page.locator('[data-testid="timeline-step"][data-state="done"]')).toHaveCount(4);
     expect(await noHorizontalOverflow(page)).toBe(true);
     await shot(page, `tracking-stage-${stage.name}-mobile`);
   }

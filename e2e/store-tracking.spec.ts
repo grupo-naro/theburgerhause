@@ -4,7 +4,7 @@ import { currentSettings, ordersOf, setOrderStatusInDb } from "./helpers/db";
 import { choosePayment, fillCustomer, fillDelivery, noHorizontalOverflow, storedCart, submitButton, unique, uniquePhone } from "./helpers/checkout";
 import { shot } from "./helpers/shots";
 import { addProduct, cartCount, gotoStore, orderBar } from "./helpers/store";
-import { currentStep, headline, openTracking, placeOrderInDb, steps } from "./helpers/tracking";
+import { currentStep, expectGreenContrast, expectWhatsappBelowTimeline, headline, openTracking, placeOrderInDb, steps } from "./helpers/tracking";
 
 // Public page: no session.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -47,7 +47,10 @@ test("checkout lands on the tracking page: number, welcome headline, grouped sum
   await expect(page.getByTestId("order-number")).toHaveText(`#${order.number}`);
   await expect(headline(page)).toHaveText("¡Recibimos tu pedido!");
   await expect(page.getByTestId("status-hint")).toHaveText("Estamos verificando tu pago");
-  await expect(steps(page)).toHaveText(["Recibido", "En preparación", "Listo", "En camino", "Entregado"].map((l) => new RegExp(l)));
+  await expect(steps(page)).toHaveText(["Recibido", "Listo", "En camino", "Entregado"].map((l) => new RegExp(l)));
+  await expect(steps(page)).toHaveCount(4);
+  await expect(page.getByText("En preparación")).toHaveCount(0); // headline says "preparando"; no timeline step of that name
+  await expectWhatsappBelowTimeline(page);
   await expect(currentStep(page)).toHaveCount(1);
   await expect(currentStep(page)).toContainText("Recibido");
 
@@ -124,7 +127,7 @@ test("live updates: the timeline follows the order without reloading, and stops 
   expect(documentLoads).toBe(1);
 
   const stages = [
-    { status: "en_preparacion", step: "En preparación", headline: "Estamos preparando tu pedido" },
+    { status: "en_preparacion", step: "Listo", headline: "Estamos preparando tu pedido" },
     { status: "listo_despacho", step: "Listo", headline: "Tu pedido está listo" },
     { status: "en_camino", step: "En camino", headline: "Tu pedido está en camino" },
   ] as const;
@@ -146,7 +149,7 @@ test("live updates: the timeline follows the order without reloading, and stops 
     await page.clock.fastForward(8_000);
     await expect(headline(page)).toHaveText("¡Buen provecho!", { timeout: 1_000 });
   }).toPass({ timeout: 20_000 });
-  await expect(page.locator('[data-testid="timeline-step"][data-state="done"]')).toHaveCount(5);
+  await expect(page.locator('[data-testid="timeline-step"][data-state="done"]')).toHaveCount(4);
   await expect(currentStep(page)).toHaveCount(0);
 
   const callsAtTheEnd = statusCalls.length;
@@ -165,6 +168,8 @@ test("a cancelled order shows the cancelled card with contact buttons and no tim
   await expect(card).toBeVisible();
   await expect(headline(page)).toHaveText("Tu pedido fue cancelado");
   await expect(card.getByTestId("whatsapp-button")).toBeVisible();
+  await expect(page.getByTestId("whatsapp-button")).toHaveCount(1);
+  await expectGreenContrast(page);
   await expect(card.getByTestId("phone-button")).toHaveAttribute("href", `tel:+${settings.storePhone.replace(/\D/g, "")}`);
   await expect(page.getByTestId("timeline")).toHaveCount(0);
   await expect(page.getByTestId("payment-block")).toHaveCount(0);
@@ -178,7 +183,9 @@ test("a takeaway order shows the pickup block and Para retirar instead of En cam
   await setOrderStatusInDb(order.token, "para_retirar");
   await openTracking(page, `/pedido/${order.token}`);
 
-  await expect(steps(page)).toHaveText(["Recibido", "En preparación", "Listo", "Para retirar", "Entregado"].map((l) => new RegExp(l)));
+  await expect(steps(page)).toHaveText(["Recibido", "Listo", "Para retirar", "Entregado"].map((l) => new RegExp(l)));
+  await expect(steps(page)).toHaveCount(4);
+  await expectWhatsappBelowTimeline(page);
   await expect(page.getByText("En camino")).toHaveCount(0);
   await expect(currentStep(page)).toContainText("Para retirar");
   await expect(headline(page)).toHaveText("Tu pedido te espera");

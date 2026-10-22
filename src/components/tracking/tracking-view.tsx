@@ -3,7 +3,7 @@ import type { TrackingOrder } from "@/lib/orders/tracking";
 import { trackingSteps } from "@/lib/orders/tracking-steps";
 import type { CheckoutInfo } from "@/lib/settings/checkout-info";
 import type { PublicStoreInfo } from "@/lib/menu/queries";
-import { ContactButtons } from "./contact-buttons";
+import { ContactButtons, WhatsappButton } from "./contact-buttons";
 import { FulfillmentBlock } from "./fulfillment-block";
 import { OrderSummary } from "./order-summary";
 import { PaymentBlock } from "./payment-block";
@@ -31,7 +31,7 @@ export function TrackingView({
   const view = trackingSteps(order.status, order.fulfillment, order.paymentMethod);
   const headline = justPlaced && order.status === "pendiente_aprobacion" ? "¡Recibimos tu pedido!" : view.headline;
   const contact = (
-    <ContactButtons number={order.number} whatsapp={store.whatsapp} phone={store.storePhone} showPhone={view.cancelled} />
+    <ContactButtons number={order.number} whatsapp={store.whatsapp} phone={store.storePhone} showPhone={view.cancelled} showWhatsapp={view.cancelled} />
   );
 
   return (
@@ -63,6 +63,9 @@ export function TrackingView({
             ) : (
               <div className="mt-6">
                 <Timeline steps={view.steps} />
+                <div className="mt-5 flex">
+                  <WhatsappButton number={order.number} whatsapp={store.whatsapp} />
+                </div>
               </div>
             )}
           </section>

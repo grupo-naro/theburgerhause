@@ -18,6 +18,8 @@
   --color-state-route: #7c3aed;
   --color-state-done: #64748b;
   --color-state-error: #dc2626;
+  --color-whatsapp: #138040; /* WhatsApp green, dark enough for white text (5:1) */
+  --color-whatsapp-hover: #0f6b35;
   --font-display: var(--font-baloo), ui-rounded, system-ui, sans-serif;
   --font-sans: var(--font-dm-sans), system-ui, sans-serif;
 }
