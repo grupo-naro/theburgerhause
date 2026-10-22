@@ -145,6 +145,7 @@ describe("sector rule: staff only act in the sector of their station (before any
       [
         "approveOrderAction",
         "assignCadetAction",
+        "assignTandaAction",
         "cancelOrderAction",
         "markDeliveredAction",
         "markPickupAction",

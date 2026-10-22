@@ -21,6 +21,7 @@ import { cancelOrder, type CancelOrderData } from "@/lib/orders/cancel-order";
 import { MAX_ASSIGN_ORDERS } from "@/lib/orders/dispatch-schemas";
 import { actorRefusal, actorSectorFor, type Sector } from "@/lib/orders/sector";
 import { parseTanda, setOrderTanda, type SetOrderTandaData } from "@/lib/orders/tanda";
+import { assignTanda, parseAssignTandaForm, type AssignTandaData } from "@/lib/orders/assign-tanda";
 
 /**
  * Dispatch Server Actions: thin wrappers. They are PUBLIC endpoints, so each one:
@@ -180,4 +181,32 @@ export async function setTandaAction(_prev: unknown, formData: FormData): Promis
     const r = await setOrderTanda(getDb(), { orderId: id.data, userId: session.user.id, tanda: tanda.tanda, sector });
     return r.ok ? r : { ok: false as const, code: r.code === "STATION_REQUIRED" ? ("UNEXPECTED" as const) : r.code, message: r.message };
   });
+}
+
+export type AssignTandaActionResult =
+  | ActionResult<AssignTandaData>
+  | { ok: false; code: "CHANGED"; message: string; details: NonNullable<DispatchFailure["details"]> }
+  | { ok: false; code: "TANDA_INCOMPLETE"; message: string; ready: number; total: number };
+
+/**
+ * Sends a whole tanda out with one cadet. Form action: `(prev, formData)` with `tanda`, one `orderId` per order the
+ * screen showed ready in that tanda, `cadetId` and `confirmPartial` ("1" once the person confirmed sending the ready
+ * ones of an incomplete tanda). Same roles as the cadet assignment; the core re-checks the tanda in one transaction.
+ */
+export async function assignTandaAction(_prev: unknown, formData: FormData): Promise<AssignTandaActionResult> {
+  const auth = await authorize(ASSIGN_ROLES);
+  if ("result" in auth) return auth.result;
+  const parsed = parseAssignTandaForm(formData);
+  if (!parsed.ok) return invalid();
+  const { session, sector } = auth;
+  try {
+    const r = await assignTanda(getDb(), { ...parsed.data, userId: session.user.id, sector });
+    if (r.ok) return { ok: true, data: r.data };
+    if (r.code === "TANDA_INCOMPLETE") return { ok: false, code: r.code, message: r.message, ready: r.ready, total: r.total };
+    if (r.code === "CHANGED") return { ok: false, code: r.code, message: r.message, details: r.details };
+    return r.details ? { ok: false, code: r.code, message: r.message, details: r.details } : { ok: false, code: r.code, message: r.message };
+  } catch (e) {
+    console.error("[despacho] action failed", pgErrorCode(e) ?? "");
+    return { ok: false, code: "UNEXPECTED", message: GENERIC_ERROR };
+  }
 }

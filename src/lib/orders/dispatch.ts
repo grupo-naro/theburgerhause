@@ -234,6 +234,21 @@ class AbortAssign extends Error {
   }
 }
 
+/** The failure carried by an error thrown out of `assignCadetInTx` (to roll back), or null for any other error. */
+export const assignAbortFailure = (err: unknown): DispatchFailure | null => (err instanceof AbortAssign ? err.failure : null);
+
+/** An order row as `assignCadetInTx` locked it (with its tanda, for callers that check it). */
+export type AssignLockedOrder = LockedOrder & { tanda: number | null };
+
+/** Validated input of the in-transaction core (ids already de-duplicated by `assignCadetInputSchema`). */
+export type AssignCadetTxInput = { orderIds: number[]; cadetId: number; userId: number; sector: Sector | null };
+
+/**
+ * Runs AFTER the cadet and the orders are locked and BEFORE the per-order checks and any write: returning a failure
+ * stops the assignment with nothing written (the caller's transaction only held the locks).
+ */
+export type AssignGuard<F> = (orders: AssignLockedOrder[]) => Promise<F | null>;
+
 /**
  * Assigns 1..50 listo_despacho DELIVERY orders to one active cadet, all or nothing.
  * Lock order (deadlock-free, and cadet deactivation cannot race with it):
@@ -252,76 +267,93 @@ export async function assignCadet(
   const { orderIds, cadetId, userId } = input.data;
 
   try {
-    return await db.transaction(async (tx): Promise<DispatchResult<AssignCadetData>> => {
-      const [cadet] = await tx
-        .select({ id: s.cadets.id, name: s.cadets.name, active: s.cadets.active })
-        .from(s.cadets)
-        .where(eq(s.cadets.id, cadetId))
-        .for("update");
-      if (!cadet) return fail("CADET_NOT_FOUND", "El cadete no existe");
-      if (!cadet.active) return fail("CADET_INACTIVE", `El cadete ${cadet.name} está inactivo y no puede recibir pedidos`);
-
-      const rows = await tx
-        .select(orderColumns)
-        .from(s.orders)
-        .where(inArray(s.orders.id, orderIds))
-        .orderBy(s.orders.id)
-        .for("update");
-      const byId = new Map(rows.map((r) => [r.id, r]));
-
-      const details: DispatchFailureDetail[] = [];
-      const codes = new Set<DispatchFailureCode>();
-      for (const id of [...orderIds].sort((a, b) => a - b)) {
-        const o = byId.get(id);
-        if (!o) {
-          codes.add("NOT_FOUND");
-          details.push({ orderId: id, orderNumber: null, reason: "El pedido no existe" });
-        } else if (raw.sector != null && sectorOfFulfillment(o.fulfillment) !== raw.sector) {
-          codes.add("WRONG_SECTOR");
-          details.push({ orderId: id, orderNumber: o.number, reason: "Es de otro sector: lo gestiona la otra estación" });
-        } else if (o.fulfillment !== "delivery") {
-          codes.add("NOT_DELIVERY");
-          details.push({ orderId: id, orderNumber: o.number, reason: "Es un pedido para retirar: no lleva cadete" });
-        } else if (!canTransition(o.status, "en_camino", o.fulfillment)) {
-          codes.add("INVALID_TRANSITION");
-          details.push({ orderId: id, orderNumber: o.number, reason: `Está ${STATE_LABEL[o.status]}; tiene que estar listo para despacho` });
-        }
-      }
-      if (details.length > 0) {
-        const code: DispatchFailureCode = codes.has("NOT_FOUND")
-          ? "NOT_FOUND"
-          : codes.has("WRONG_SECTOR")
-            ? "WRONG_SECTOR"
-            : codes.has("NOT_DELIVERY")
-              ? "NOT_DELIVERY"
-              : "INVALID_TRANSITION";
-        const list = details.map((d) => `${d.orderNumber === null ? `#${d.orderId}` : `#${d.orderNumber}`} (${d.reason})`).join("; ");
-        return fail(code, `No se asignó ningún pedido. ${list}`, details);
-      }
-
-      const ordered = rows; // already ORDER BY id (the lock order)
-      for (const o of ordered) {
-        const moved = await transitionOrder(tx, { sector: raw.sector,
-          orderId: o.id,
-          to: "en_camino",
-          userId,
-          note: `Asignado a ${cadet.name}`,
-          event: "assigned",
-          patch: { cadetId: cadet.id },
-        });
-        if (!moved.ok) throw new AbortAssign(fromTransition(moved));
-      }
-
-      const out = [...ordered]
-        .sort((a, b) => a.id - b.id)
-        .map((o) => ({ id: o.id, number: o.number, total: o.total, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus }));
-      const cashToCollect = out
-        .filter((o) => o.paymentMethod === "cash" && o.paymentStatus === "pending")
-        .reduce((sum, o) => sum + o.total, 0);
-      return { ok: true, data: { cadet: { id: cadet.id, name: cadet.name }, orders: out, cashToCollect, count: out.length } };
-    });
+    return await db.transaction((tx) => assignCadetInTx(tx, { orderIds, cadetId, userId, sector: raw.sector }));
   } catch (err) {
-    if (err instanceof AbortAssign) return err.failure;
-    return unexpected("assignCadet", err);
+    return assignAbortFailure(err) ?? unexpected("assignCadet", err);
   }
+}
+
+/**
+ * The core of `assignCadet`, inside the caller's transaction (same locks, checks and writes). A failed transition
+ * THROWS (to roll the caller's transaction back): map it with `assignAbortFailure`. `guard` lets a caller add its
+ * own checks on the locked rows (e.g. the tanda assignment) without a second round of locks.
+ */
+export async function assignCadetInTx<F = never>(
+  tx: DbTransaction,
+  input: AssignCadetTxInput,
+  guard?: AssignGuard<F>,
+): Promise<DispatchResult<AssignCadetData> | F> {
+  const { orderIds, cadetId, userId, sector } = input;
+  const [cadet] = await tx
+    .select({ id: s.cadets.id, name: s.cadets.name, active: s.cadets.active })
+    .from(s.cadets)
+    .where(eq(s.cadets.id, cadetId))
+    .for("update");
+  if (!cadet) return fail("CADET_NOT_FOUND", "El cadete no existe");
+  if (!cadet.active) return fail("CADET_INACTIVE", `El cadete ${cadet.name} está inactivo y no puede recibir pedidos`);
+
+  const rows = await tx
+    .select({ ...orderColumns, tanda: s.orders.tanda })
+    .from(s.orders)
+    .where(inArray(s.orders.id, orderIds))
+    .orderBy(s.orders.id)
+    .for("update");
+
+  if (guard) {
+    const stop = await guard(rows);
+    if (stop) return stop;
+  }
+
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const details: DispatchFailureDetail[] = [];
+  const codes = new Set<DispatchFailureCode>();
+  for (const id of [...orderIds].sort((a, b) => a - b)) {
+    const o = byId.get(id);
+    if (!o) {
+      codes.add("NOT_FOUND");
+      details.push({ orderId: id, orderNumber: null, reason: "El pedido no existe" });
+    } else if (sector != null && sectorOfFulfillment(o.fulfillment) !== sector) {
+      codes.add("WRONG_SECTOR");
+      details.push({ orderId: id, orderNumber: o.number, reason: "Es de otro sector: lo gestiona la otra estación" });
+    } else if (o.fulfillment !== "delivery") {
+      codes.add("NOT_DELIVERY");
+      details.push({ orderId: id, orderNumber: o.number, reason: "Es un pedido para retirar: no lleva cadete" });
+    } else if (!canTransition(o.status, "en_camino", o.fulfillment)) {
+      codes.add("INVALID_TRANSITION");
+      details.push({ orderId: id, orderNumber: o.number, reason: `Está ${STATE_LABEL[o.status]}; tiene que estar listo para despacho` });
+    }
+  }
+  if (details.length > 0) {
+    const code: DispatchFailureCode = codes.has("NOT_FOUND")
+      ? "NOT_FOUND"
+      : codes.has("WRONG_SECTOR")
+        ? "WRONG_SECTOR"
+        : codes.has("NOT_DELIVERY")
+          ? "NOT_DELIVERY"
+          : "INVALID_TRANSITION";
+    const list = details.map((d) => `${d.orderNumber === null ? `#${d.orderId}` : `#${d.orderNumber}`} (${d.reason})`).join("; ");
+    return fail(code, `No se asignó ningún pedido. ${list}`, details);
+  }
+
+  const ordered = rows; // already ORDER BY id (the lock order)
+  for (const o of ordered) {
+    const moved = await transitionOrder(tx, {
+      sector,
+      orderId: o.id,
+      to: "en_camino",
+      userId,
+      note: `Asignado a ${cadet.name}`,
+      event: "assigned",
+      patch: { cadetId: cadet.id },
+    });
+    if (!moved.ok) throw new AbortAssign(fromTransition(moved));
+  }
+
+  const out = [...ordered]
+    .sort((a, b) => a.id - b.id)
+    .map((o) => ({ id: o.id, number: o.number, total: o.total, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus }));
+  const cashToCollect = out
+    .filter((o) => o.paymentMethod === "cash" && o.paymentStatus === "pending")
+    .reduce((sum, o) => sum + o.total, 0);
+  return { ok: true, data: { cadet: { id: cadet.id, name: cadet.name }, orders: out, cashToCollect, count: out.length } };
 }

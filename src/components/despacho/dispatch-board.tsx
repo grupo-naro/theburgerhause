@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { assignCadetAction } from "@/app/(staff)/despacho/actions";
+import { assignCadetAction, assignTandaAction } from "@/app/(staff)/despacho/actions";
 import { useGuardedAction } from "@/components/caja/use-guarded-action";
 import { useNow } from "@/components/caja/use-now";
 import { useToast } from "@/components/ui/toast";
@@ -13,11 +13,11 @@ import { canAssign, failureHeadline, formatAssignFailure } from "@/lib/despacho/
 import { cashToCollect } from "@/lib/despacho/cash";
 import { laneCounts } from "@/lib/despacho/lanes";
 import { capabilitiesFor } from "@/lib/despacho/roles";
-import { pruneSelection, selectionReducer } from "@/lib/despacho/selection";
+import { pruneSelection, selectionReducer, type SelectionAction } from "@/lib/despacho/selection";
 import { buildDespachoTitle } from "@/lib/despacho/title";
 import type { DispatchBoard as Board } from "@/lib/orders/dispatch-queries";
 import type { Sector } from "@/lib/orders/sector";
-import { AssignBar, type AssignFailure } from "./assign-bar";
+import { AssignBar, type AssignFailure, type AssignTanda } from "./assign-bar";
 import { CounterReadyCard } from "./counter-ready-card";
 import { DeliveryReadyCard } from "./delivery-ready-card";
 import { EnRouteCard } from "./en-route-card";
@@ -58,7 +58,7 @@ const chip =
   "min-h-12 rounded-full border border-line bg-surface px-4 text-base font-bold text-ink hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50";
 
 type ReadyOrder = Board["ready"]["delivery"][number];
-type ReadyGroup = { key: string; title: string; orders: ReadyOrder[] };
+type ReadyGroup = { key: string; title: string; orders: ReadyOrder[]; tanda: AssignTanda | null };
 
 /**
  * Ready delivery orders grouped by tanda (ascending), "Sin tanda" last. Null when nobody has a tanda:
@@ -71,9 +71,12 @@ function groupReadyByTanda(orders: ReadyOrder[], tandas: Board["tandas"]): Ready
   for (const o of orders) if (o.tanda !== null) byTanda.set(o.tanda, [...(byTanda.get(o.tanda) ?? []), o]);
   const groups: ReadyGroup[] = [...byTanda.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([tanda, list]) => ({ key: String(tanda), title: `Tanda ${tanda} · ${list.length} de ${Math.max(total.get(tanda) ?? 0, list.length)} listos`, orders: list }));
+    .map(([tanda, list]) => {
+      const all = Math.max(total.get(tanda) ?? 0, list.length);
+      return { key: String(tanda), title: `Tanda ${tanda} · ${list.length} de ${all} listos`, orders: list, tanda: { number: tanda, ready: list.length, total: all } };
+    });
   const none = orders.filter((o) => o.tanda === null);
-  if (none.length > 0) groups.push({ key: "none", title: "Sin tanda", orders: none });
+  if (none.length > 0) groups.push({ key: "none", title: "Sin tanda", orders: none, tanda: null });
   return groups;
 }
 
@@ -93,6 +96,8 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
   const [selection, dispatch] = useReducer(selectionReducer, new Set<number>());
   const [cadetPick, setCadetPick] = useState<number | null>(null);
   const [failure, setFailure] = useState<AssignFailure | null>(null);
+  /** Tanda mode: the bar sends this tanda (from its group button) instead of the card selection. */
+  const [tandaPick, setTandaPick] = useState<number | null>(null);
 
   const readyDelivery = board.ready.delivery;
   const allReady = useMemo(() => [...readyDelivery, ...board.ready.takeaway], [readyDelivery, board.ready.takeaway]);
@@ -130,7 +135,22 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
   const tandaGroups = useMemo(() => groupReadyByTanda(readyDelivery, board.tandas), [readyDelivery, board.tandas]);
   const canEditTanda = caps.canAssign;
 
-  const selected = readyDelivery.filter((o) => selection.has(o.id));
+  // The tanda being assigned, from the CURRENT board (a live update moves its counts; once none is ready it ends).
+  const tandaGroup = tandaPick === null ? null : (tandaGroups?.find((g) => g.tanda?.number === tandaPick) ?? null);
+  const tandaMode = tandaGroup?.tanda ?? null;
+  // Its last ready order left (assigned elsewhere, tanda changed...): forget it, so a later tanda with the same number does not reopen the bar.
+  if (tandaPick !== null && tandaGroup === null) setTandaPick(null);
+  const selected = tandaGroup ? tandaGroup.orders : readyDelivery.filter((o) => selection.has(o.id));
+  /** Any change of the card selection leaves the tanda mode. */
+  const select = (action: SelectionAction) => {
+    setTandaPick(null);
+    dispatch(action);
+  };
+  const startTanda = (tanda: number) => {
+    dispatch({ type: "clear" });
+    setFailure(null);
+    setTandaPick(tanda);
+  };
   const phones = new Map(board.cadets.map((c) => [c.id, c.phone]));
 
   const assign = () => {
@@ -156,7 +176,36 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
     });
   };
 
-  const barOpen = caps.canAssign && showDeliveryReady && (selection.size > 0 || failure !== null);
+  const assignTanda = () => {
+    if (cadetId === null || !tandaMode || selected.length === 0) return;
+    setFailure(null);
+    const form = new FormData();
+    form.set("tanda", String(tandaMode.number));
+    for (const o of selected) form.append("orderId", String(o.id));
+    form.set("cadetId", String(cadetId));
+    // The button of an incomplete tanda reads "Asignar igual los N listos": pressing it IS the confirmation.
+    form.set("confirmPartial", tandaMode.ready < tandaMode.total ? "1" : "0");
+    run(() => assignTandaAction(null, form), {
+      onOk: (data) => {
+        const n = data.assigned.length;
+        toast.show({
+          message: `Tanda ${tandaMode.number}: ${n} ${n === 1 ? "pedido en camino" : "pedidos en camino"} con ${data.cadet.name} · Efectivo a rendir ${formatARS(data.cashToCollect)}`,
+          durationMs: 6000,
+        });
+        setTandaPick(null);
+        setCadetPick(null);
+        router.refresh();
+      },
+      onFail: (f) => {
+        const lines = formatAssignFailure(f.details);
+        setFailure({ message: failureHeadline(f.message, lines.length > 0), lines });
+        if (f.code === "CADET_INACTIVE" || f.code === "CADET_NOT_FOUND") setCadetPick(null);
+        router.refresh(); // fresh counts: an incomplete tanda then shows its "Asignar igual" confirmation
+      },
+    });
+  };
+
+  const barOpen = caps.canAssign && showDeliveryReady && (selection.size > 0 || tandaMode !== null || failure !== null);
   const ids = readyDelivery.map((o) => o.id);
   const allSelected = ids.length > 0 && ids.every((id) => selection.has(id));
 
@@ -168,7 +217,7 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
       fresh={freshIds.has(o.id)}
       canCancel={caps.canControlDelivery}
       canEditTanda={canEditTanda}
-      selectable={caps.canAssign ? { selected: selection.has(o.id), onToggle: () => dispatch({ type: "toggle", id: o.id }) } : undefined}
+      selectable={caps.canAssign ? { selected: selection.has(o.id), onToggle: () => select({ type: "toggle", id: o.id }) } : undefined}
     />
   );
   const deliveryReadyLane = (
@@ -183,10 +232,10 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
       actions={
         caps.canAssign && readyDelivery.length > 0 ? (
           <div className="flex gap-2">
-            <button type="button" data-testid="select-all" className={chip} disabled={allSelected || assigning} onClick={() => dispatch({ type: "selectAll", ids })}>
+            <button type="button" data-testid="select-all" className={chip} disabled={allSelected || assigning} onClick={() => select({ type: "selectAll", ids })}>
               Seleccionar todos
             </button>
-            <button type="button" data-testid="clear-selection" className={chip} disabled={selection.size === 0 || assigning} onClick={() => dispatch({ type: "clear" })}>
+            <button type="button" data-testid="clear-selection" className={chip} disabled={(selection.size === 0 && tandaMode === null) || assigning} onClick={() => select({ type: "clear" })}>
               Limpiar
             </button>
           </div>
@@ -197,9 +246,23 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
         ? readyDelivery.map((o) => renderReadyCard(o))
         : tandaGroups.map((g) => (
             <section key={g.key} data-testid="tanda-group" aria-labelledby={`tanda-group-${g.key}`} className="col-span-full min-w-0 space-y-3">
-              <h4 id={`tanda-group-${g.key}`} data-testid="tanda-group-title" className="font-display text-lg font-extrabold text-violet-800">
-                {g.title}
-              </h4>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 id={`tanda-group-${g.key}`} data-testid="tanda-group-title" className="font-display text-lg font-extrabold text-violet-800">
+                  {g.title}
+                </h4>
+                {caps.canAssign && g.tanda && (
+                  <button
+                    type="button"
+                    data-testid="assign-tanda"
+                    aria-pressed={tandaMode?.number === g.tanda.number}
+                    disabled={assigning}
+                    onClick={() => startTanda(g.tanda!.number)}
+                    className={chip}
+                  >
+                    Asignar tanda a cadete
+                  </button>
+                )}
+              </div>
               <div className={wide ? "grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>{g.orders.map((o) => renderReadyCard(o))}</div>
             </section>
           ))}
@@ -314,9 +377,10 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
           inFlight={assigning}
           failure={failure}
           state={canAssign(new Set(selected.map((o) => o.id)), cadetId, assigning)}
+          tanda={tandaMode}
           onCadet={setCadetPick}
-          onClear={() => dispatch({ type: "clear" })}
-          onAssign={assign}
+          onClear={() => select({ type: "clear" })}
+          onAssign={tandaMode ? assignTanda : assign}
           onDismissFailure={() => setFailure(null)}
         />
       )}

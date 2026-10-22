@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { board, order } from "./fixtures";
 import { pruneSelection } from "./selection";
-import { canAssign, failureHeadline, formatAssignFailure } from "./assign";
+import { canAssign, failureHeadline, formatAssignFailure, tandaAssignLabel, tandaProgress } from "./assign";
 
 describe("canAssign", () => {
   it("enabled with a selection, a cadet and nothing in flight", () => {
@@ -48,5 +48,23 @@ describe("failureHeadline", () => {
   it("leaves other messages untouched", () => {
     expect(failureHeadline("El cadete Ana está inactivo y no puede recibir pedidos", false)).toBe("El cadete Ana está inactivo y no puede recibir pedidos");
     expect(failureHeadline("Sin punto", true)).toBe("Sin punto");
+  });
+});
+
+describe("tanda assignment texts", () => {
+  it("progress reads 'R de T listos'", () => {
+    expect(tandaProgress(2, 3)).toBe("2 de 3 listos");
+    expect(tandaProgress(3, 3)).toBe("3 de 3 listos");
+  });
+  it("the confirm button asks to send the ready ones anyway when the tanda is incomplete", () => {
+    expect(tandaAssignLabel({ ready: 2, total: 3, cadetName: "Nahuel", inFlight: false })).toBe("Asignar igual los 2 listos");
+    expect(tandaAssignLabel({ ready: 1, total: 3, cadetName: null, inFlight: false })).toBe("Asignar igual el 1 listo");
+  });
+  it("a complete tanda names the cadet", () => {
+    expect(tandaAssignLabel({ ready: 3, total: 3, cadetName: "Nahuel", inFlight: false })).toBe("Asignar tanda a Nahuel");
+    expect(tandaAssignLabel({ ready: 3, total: 3, cadetName: null, inFlight: false })).toBe("Asignar tanda");
+  });
+  it("in flight wins", () => {
+    expect(tandaAssignLabel({ ready: 2, total: 3, cadetName: "Nahuel", inFlight: true })).toBe("Asignando…");
   });
 });

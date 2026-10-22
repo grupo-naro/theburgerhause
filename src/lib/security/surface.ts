@@ -85,6 +85,7 @@ export const SURFACE: Record<string, Entry> = {
   [`action:${STAFF_DIR}/despacho/actions.ts#cancelOrderAction`]: staffAction(STAFF3, "Cancel/void an order after approval with a mandatory reason (own sector: delivery manager cancels delivery, cashier takeaway and counter; admin all)."),
   [`action:${STAFF_DIR}/despacho/actions.ts#assignCadetAction`]: staffAction(DELIVERY, "Assign orders to a cadet (delivery manager and admin only)."),
   [`action:${STAFF_DIR}/despacho/actions.ts#setTandaAction`]: staffAction(DELIVERY, "Set/change/clear the tanda number of a delivery order in preparation or ready (delivery manager, encargado and admin; own sector)."),
+  [`action:${STAFF_DIR}/despacho/actions.ts#assignTandaAction`]: staffAction(DELIVERY, "Assign the ready orders of one tanda to a cadet in one go (delivery manager, encargado and admin; own sector; re-checked in one transaction, incomplete tanda needs explicit confirmation)."),
   [`action:${STAFF_DIR}/delivery/rendicion/actions.ts#settleCadetAction`]: staffAction(DELIVERY, "Settle a cadet's cash (delivery sector; admin exempt)."),
   [`action:${STAFF_DIR}/mostrador/actions.ts#createCounterOrderAction`]: staffAction(COUNTER, "POS sale (cashier and admin)."),
   [`action:${STAFF_DIR}/mostrador/actions.ts#listActivePagersAction`]: staffAction(COUNTER, "Active pager numbers."),

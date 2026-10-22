@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, type MouseEvent } from "react";
 import { setTandaAction } from "@/app/(staff)/despacho/actions";
 
 type Props = { orderId: number; tanda: number | null; canEdit: boolean; /** Only for the accessible name. */ number?: number };
@@ -32,11 +32,16 @@ export function TandaField({ orderId, tanda, canEdit, number }: Props) {
   }
 
   const shown = draft ?? (tanda === null ? "" : String(tanda));
+  // On a ready card the whole card is the selection checkbox label: a tap on the caption, "Sin tanda" or the error
+  // must not toggle the selection (only the input itself is interactive here).
+  const keepSelection = (e: MouseEvent) => {
+    if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+  };
   const none = <span data-testid="tanda-none" className="text-base font-semibold text-ink-muted">Sin tanda</span>;
 
   if (!canEdit) {
     return (
-      <p data-testid="tanda-readonly" className="mt-2 text-base font-bold text-ink">
+      <p data-testid="tanda-readonly" onClick={keepSelection} className="mt-2 text-base font-bold text-ink">
         {tanda === null ? none : `Tanda ${tanda}`}
       </p>
     );
@@ -69,9 +74,11 @@ export function TandaField({ orderId, tanda, canEdit, number }: Props) {
   };
 
   return (
-    <div data-testid="tanda-field" className="mt-2">
+    <div data-testid="tanda-field" onClick={keepSelection} className="mt-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-base font-bold text-ink">Tanda</span>
+        <span data-testid="tanda-caption" className="text-base font-bold text-ink">
+          Tanda
+        </span>
         <input
           data-testid="tanda-input"
           type="text"

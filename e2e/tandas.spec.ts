@@ -1,7 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { openDelivery } from "./helpers/caja";
+import { setOrderTanda } from "../src/lib/orders/tanda";
+import { openDelivery, orderById } from "./helpers/caja";
 import { noHorizontalOverflow } from "./helpers/checkout";
-import { cleanBoard, dcard, openPedidos, placeApproved, placeReady, runCleanups } from "./helpers/despacho";
+import { db, findUser } from "./helpers/db";
+import { cleanBoard, dcard, ensureCadet, openPedidos, placeApproved, placeReady, routeOrder, runCleanups, tag } from "./helpers/despacho";
 import { authFile } from "./helpers/users";
 
 // Tanda: the free number the delivery manager writes on approved delivery orders. Cards show the number and the real address.
@@ -16,6 +18,15 @@ async function setTanda(page: Page, number: number, value: string) {
   await input.fill(value);
   await input.press("Enter");
 }
+
+async function tandaInDb(orderId: number, tanda: number | null) {
+  const encargada = await findUser("encargada");
+  const r = await setOrderTanda(db(), { orderId, userId: encargada.id, tanda, sector: null });
+  if (!r.ok) throw new Error(`setOrderTanda failed: ${r.message}`);
+}
+
+const group = (page: Page, title: string): Locator =>
+  page.getByTestId("tanda-group").filter({ has: page.getByTestId("tanda-group-title").filter({ hasText: title }) });
 
 async function expectTarget(locator: Locator, what: string) {
   const box = await locator.first().boundingBox();
@@ -103,9 +114,75 @@ test.describe("encargada", () => {
     await dcard(page, a.number).getByTestId("select-order").check();
     await dcard(page, d.number).getByTestId("select-order").check();
     await expect(page.getByTestId("assign-summary")).toContainText("2 pedidos");
-    // Typing in the field does not toggle the selection.
+    // Typing in the field does not toggle the selection, nor does tapping its caption, "Sin tanda" or its error.
     await field(page, a.number).click();
     await expect(dcard(page, a.number).getByTestId("select-order")).toBeChecked();
+    await dcard(page, a.number).getByTestId("tanda-caption").click();
+    await expect(dcard(page, a.number).getByTestId("select-order")).toBeChecked();
+    await dcard(page, d.number).getByTestId("tanda-caption").click();
+    await dcard(page, d.number).getByTestId("tanda-none").click();
+    await expect(dcard(page, d.number).getByTestId("select-order")).toBeChecked();
+    await dcard(page, b.number).getByTestId("tanda-caption").click();
+    await expect(dcard(page, b.number).getByTestId("select-order")).not.toBeChecked();
+    await setTanda(page, b.number, "abc");
+    await dcard(page, b.number).getByTestId("tanda-error").click();
+    await expect(dcard(page, b.number).getByTestId("select-order")).not.toBeChecked();
+    await expect(page.getByTestId("assign-summary")).toContainText("2 pedidos");
+  });
+
+  test("assign a whole tanda to a cadet in one go; one by one still works", async ({ page }) => {
+    const cadet = await ensureCadet(`Tanda ${tag()}`);
+    const [a, b, c] = [await placeReady({ paymentMethod: "cash" }), await placeReady({ paymentMethod: "cash" }), await placeReady({ paymentMethod: "cash" })];
+    const solo = await placeReady({ paymentMethod: "cash" });
+    for (const o of [a, b, c]) await tandaInDb(o.id, 1);
+    await openDelivery(page, "ready");
+    const g = group(page, "Tanda 1");
+    await expect(g.getByTestId("tanda-group-title")).toHaveText("Tanda 1 · 3 de 3 listos");
+    await expect(page.getByTestId("assign-bar")).toHaveCount(0);
+    await g.getByRole("button", { name: "Asignar tanda a cadete" }).click();
+    const bar = page.getByTestId("assign-bar");
+    await expect(bar.getByTestId("assign-summary")).toHaveText("Tanda 1 · 3 pedidos");
+    await expect(bar.getByTestId("assign-tanda-progress")).toHaveCount(0);
+    await expect(bar.getByTestId("assign-button")).toBeDisabled();
+    await bar.getByTestId("cadet-select").selectOption(String(cadet.id));
+    await expect(bar.getByTestId("assign-button")).toHaveText(`Asignar tanda a ${cadet.name}`);
+    await bar.getByTestId("assign-button").click();
+    for (const o of [a, b, c]) await expect(dcard(page, o.number)).toHaveCount(0);
+    await expect(page.getByTestId("assign-bar")).toHaveCount(0);
+    for (const o of [a, b, c]) expect(await orderById(o.id)).toMatchObject({ status: "en_camino", cadetId: cadet.id });
+
+    // One by one still works for an order without tanda.
+    await dcard(page, solo.number).getByTestId("select-order").check();
+    await page.getByTestId("cadet-select").selectOption(String(cadet.id));
+    await page.getByTestId("assign-button").click();
+    await expect(dcard(page, solo.number)).toHaveCount(0);
+    await openDelivery(page, "enroute");
+    for (const o of [a, b, c, solo]) await expect(routeOrder(page, o.number)).toBeVisible();
+  });
+
+  test("a tanda with 2 of 3 ready asks to send the 2 anyway; the third stays in its tanda", async ({ page }) => {
+    const cadet = await ensureCadet(`Parcial ${tag()}`);
+    const [a, b] = [await placeReady({ paymentMethod: "cash" }), await placeReady({ paymentMethod: "cash" })];
+    const c = await placeApproved({ paymentMethod: "cash" });
+    for (const o of [a, b, c]) await tandaInDb(o.id, 1);
+    await openDelivery(page, "ready");
+    const g = group(page, "Tanda 1");
+    await expect(g.getByTestId("tanda-group-title")).toHaveText("Tanda 1 · 2 de 3 listos");
+    await g.getByRole("button", { name: "Asignar tanda a cadete" }).click();
+    const bar = page.getByTestId("assign-bar");
+    await expect(bar.getByTestId("assign-tanda-progress")).toHaveText("2 de 3 listos");
+    await bar.getByTestId("cadet-select").selectOption(String(cadet.id));
+    await expect(bar.getByTestId("assign-button")).toHaveText("Asignar igual los 2 listos");
+    // Selecting a single card leaves the tanda mode.
+    await dcard(page, a.number).getByTestId("select-order").check();
+    await expect(bar.getByTestId("assign-summary")).toHaveText("1 pedido");
+    await page.getByTestId("clear-selection").click();
+    await g.getByRole("button", { name: "Asignar tanda a cadete" }).click();
+    await bar.getByTestId("cadet-select").selectOption(String(cadet.id));
+    await bar.getByTestId("assign-button").click();
+    for (const o of [a, b]) await expect(dcard(page, o.number)).toHaveCount(0);
+    for (const o of [a, b]) expect(await orderById(o.id)).toMatchObject({ status: "en_camino", cadetId: cadet.id });
+    expect(await orderById(c.id)).toMatchObject({ status: "en_preparacion", tanda: 1, cadetId: null });
   });
 
   test("@mobile phone: no overflow at 390 and 360, targets of 44 px, error inside the card", async ({ page }) => {
@@ -126,6 +203,13 @@ test.describe("encargada", () => {
       await expectTarget(field(page, b.number), "campo tanda listos");
       await setTanda(page, b.number, "3");
       await expect(page.getByTestId("tanda-group-title").first()).toHaveText("Tanda 3 · 1 de 2 listos");
+      await expectTarget(page.getByRole("button", { name: "Asignar tanda a cadete" }), "asignar tanda");
+      await page.getByRole("button", { name: "Asignar tanda a cadete" }).click();
+      await expect(page.getByTestId("assign-button")).toHaveText("Asignar igual el 1 listo");
+      await expectTarget(page.getByTestId("assign-button"), "confirmar tanda");
+      await expectTarget(page.getByTestId("cadet-select"), "cadete tanda");
+      expect(await noHorizontalOverflow(page), `overflow tanda bar ${width}`).toBe(true);
+      await page.getByTestId("assign-bar").getByRole("button", { name: "Limpiar" }).click();
       expect(await noHorizontalOverflow(page), `overflow ready ${width}`).toBe(true);
       await setTanda(page, b.number, "");
       await openDelivery(page, "preparing");

@@ -21,3 +21,15 @@ export function failureHeadline(message: string, hasDetails: boolean): string {
   const end = message.indexOf(". ");
   return end === -1 ? message : message.slice(0, end + 1);
 }
+
+/** "2 de 3 listos": ready orders of a tanda out of the ones that have not left yet. */
+export function tandaProgress(ready: number, total: number): string {
+  return `${ready} de ${total} listos`;
+}
+
+/** The tanda assignment button: an incomplete tanda asks to send the ready ones anyway (the explicit confirmation). */
+export function tandaAssignLabel({ ready, total, cadetName, inFlight }: { ready: number; total: number; cadetName: string | null; inFlight: boolean }): string {
+  if (inFlight) return "Asignando…";
+  if (ready < total) return `Asignar igual ${ready === 1 ? "el 1 listo" : `los ${ready} listos`}`;
+  return cadetName ? `Asignar tanda a ${cadetName}` : "Asignar tanda";
+}

@@ -1,10 +1,12 @@
 "use client";
 
 import { formatARS } from "@/domain/money";
-import type { AssignState } from "@/lib/despacho/assign";
+import { tandaAssignLabel, tandaProgress, type AssignState } from "@/lib/despacho/assign";
 import type { DispatchCadet } from "@/lib/orders/dispatch-queries";
 
 export type AssignFailure = { message: string; lines: string[] };
+/** Tanda mode: the bar sends the ready orders of one tanda (`ready` of the `total` that have not left yet). */
+export type AssignTanda = { number: number; ready: number; total: number };
 
 type Props = {
   count: number;
@@ -18,16 +20,26 @@ type Props = {
   onClear: () => void;
   onAssign: () => void;
   onDismissFailure: () => void;
+  /** Present when a whole tanda is being assigned (from its group button). */
+  tanda?: AssignTanda | null;
 };
 
 /** Sticky bottom bar of the delivery lane: appears with the first selected order. */
-export function AssignBar({ count, cash, cadets, cadetId, inFlight, failure, state, onCadet, onClear, onAssign, onDismissFailure }: Props) {
+export function AssignBar({ count, cash, cadets, cadetId, inFlight, failure, state, onCadet, onClear, onAssign, onDismissFailure, tanda = null }: Props) {
   const cadet = cadets.find((c) => c.id === cadetId);
+  const incomplete = tanda !== null && tanda.ready < tanda.total;
+  const label = tanda
+    ? tandaAssignLabel({ ready: tanda.ready, total: tanda.total, cadetName: cadet?.name ?? null, inFlight })
+    : inFlight
+      ? "Asignando…"
+      : cadet
+        ? `Asignar a ${cadet.name}`
+        : "Asignar";
   return (
     <div
       data-testid="assign-bar"
       role="region"
-      aria-label="Asignar pedidos a un cadete"
+      aria-label={tanda ? `Asignar la tanda ${tanda.number} a un cadete` : "Asignar pedidos a un cadete"}
       className="fixed inset-x-0 bottom-0 z-40 animate-bar-in border-t-4 border-cheddar-400 bg-ink text-white shadow-[0_-8px_32px_rgba(11,31,58,0.35)] lg:left-56"
     >
       <div className="mx-auto max-w-[90rem] px-4 py-3 sm:px-6">
@@ -53,8 +65,14 @@ export function AssignBar({ count, cash, cadets, cadetId, inFlight, failure, sta
           <div className="flex items-center gap-3 md:min-w-0 md:flex-1">
             <div className="min-w-0">
               <p data-testid="assign-summary" className="font-display text-2xl leading-tight font-extrabold">
+                {tanda ? `Tanda ${tanda.number} · ` : ""}
                 {count} {count === 1 ? "pedido" : "pedidos"}
               </p>
+              {incomplete && (
+                <p data-testid="assign-tanda-progress" className="text-base leading-tight font-bold text-white">
+                  {tandaProgress(tanda.ready, tanda.total)}
+                </p>
+              )}
               <p data-testid="assign-cash" className="font-display text-lg leading-tight font-bold text-cheddar-400">
                 Efectivo a cobrar {formatARS(cash)}
               </p>
@@ -95,7 +113,7 @@ export function AssignBar({ count, cash, cadets, cadetId, inFlight, failure, sta
               onClick={onAssign}
               className="min-h-14 rounded-full bg-cheddar-400 px-8 font-display text-xl font-extrabold whitespace-nowrap text-ink transition-colors hover:bg-cheddar-600 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/60"
             >
-              {inFlight ? "Asignando…" : cadet ? `Asignar a ${cadet.name}` : "Asignar"}
+              {label}
             </button>
             {!state.enabled && !inFlight && (
               <p id="assign-reason" data-testid="assign-hint" className="self-center text-base font-semibold text-cheddar-400 sm:max-w-40 sm:leading-tight">

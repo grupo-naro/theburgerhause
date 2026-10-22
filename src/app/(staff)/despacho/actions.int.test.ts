@@ -266,6 +266,7 @@ describe("module shape", () => {
     }
     expect(Object.keys(mod).sort()).toEqual([
       "assignCadetAction",
+      "assignTandaAction",
       "cancelOrderAction",
       "markDeliveredAction",
       "markPickupAction",
