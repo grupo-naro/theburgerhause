@@ -80,7 +80,7 @@ export function SummaryPanel({
           return (
             <li key={g.signature} data-testid="summary-line" className="border-b border-line pb-3 last:border-b-0 last:pb-0">
               <div className={row}>
-                <p className="min-w-0 font-bold leading-snug text-ink">
+                <p className="min-w-0 font-bold leading-snug text-ink [overflow-wrap:anywhere]">
                   <span className="tabular-nums">{g.quantity}×</span> {product.name}
                 </p>
                 <p className="shrink-0 font-bold tabular-nums text-ink">{formatARS(lineTotalFor(g, index))}</p>

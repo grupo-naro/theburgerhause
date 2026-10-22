@@ -200,6 +200,55 @@ test("header and category bar stay visible and nothing overflows on a phone @mob
   expect(after).toBeLessThanOrEqual(0);
 });
 
+test("a product with a very long unbroken name does not widen the page on a phone @mobile", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  const u = `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+  const category = `Largos ${u}`;
+  const name = `Larguisimo ${u} ${"w".repeat(120)}`.slice(0, 120);
+  await withAdmin(browser, baseURL, async (admin) => {
+    await admin.goto("/admin/menu/categorias/nueva");
+    await admin.getByLabel("Nombre").fill(category);
+    await admin.getByRole("button", { name: "Guardar" }).click();
+    await expect(admin).toHaveURL(/\/admin\/menu$/);
+    await admin.goto("/admin/menu/productos/nuevo");
+    await admin.getByLabel("Categoría").selectOption({ label: category });
+    await admin.getByLabel("Nombre").fill(name);
+    await admin.getByLabel("Precio (pesos)").fill("5000");
+    await admin.getByRole("button", { name: "Guardar" }).click();
+    await expect(admin).toHaveURL(/\/admin\/menu$/);
+  });
+  const viewport = page.viewportSize()!;
+  const longCard = card(page, name);
+  await page.goto("/");
+  await reloadUntil(page, () => expect(longCard).toHaveCount(1, { timeout: 1000 }));
+  const overflow = () =>
+    page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  await longCard.scrollIntoViewIfNeeded();
+  const box = (await longCard.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+
+  await longCard.click();
+  const sheet = page.getByTestId("product-sheet");
+  await expect(sheet).toBeVisible();
+  expect(await sheet.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  expect((await sheet.boundingBox())!.width).toBeLessThanOrEqual(viewport.width);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  await sheet.getByTestId("sheet-cta").click();
+  await expect(sheet).toBeHidden();
+
+  await page.goto("/carrito");
+  const line = page.getByTestId("cart-line").filter({ hasText: name.slice(0, 22) });
+  await expect(line).toBeVisible();
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  const lineBox = (await line.boundingBox())!;
+  expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(viewport.width);
+  expect(await line.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
 test("a deactivated product disappears from the public menu", async ({ page, browser, baseURL }) => {
   const name = "Aro simple";
   await page.goto("/");

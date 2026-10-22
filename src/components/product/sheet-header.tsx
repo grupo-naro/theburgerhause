@@ -6,7 +6,7 @@ import type { PublicProduct } from "@/lib/menu/public";
 export function SheetHeader({ product, titleId }: { product: PublicProduct; titleId: string }) {
   const text = (
     <div className="min-w-0 flex-1">
-      <h2 id={titleId} className="pr-10 font-display text-2xl font-extrabold leading-tight text-ink">
+      <h2 id={titleId} className="pr-10 font-display text-2xl font-extrabold leading-tight text-ink [overflow-wrap:anywhere]">
         {product.name}
       </h2>
       {product.description && <p className="mt-1 text-sm leading-snug text-ink-muted">{product.description}</p>}

@@ -52,7 +52,7 @@ export function UnitSection({
           className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left"
         >
           <span className="min-w-0 flex-1">
-            <span className="block font-display text-base font-bold leading-tight text-ink">
+            <span className="block font-display text-base font-bold leading-tight text-ink [overflow-wrap:anywhere]">
               {product.name} #{index + 1}
             </span>
             <span data-testid="unit-summary" className="mt-0.5 line-clamp-2 block text-sm leading-snug text-ink-muted">

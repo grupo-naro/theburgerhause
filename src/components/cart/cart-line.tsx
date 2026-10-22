@@ -34,7 +34,7 @@ export function CartLine({ group, index, onQuantity, onEdit, onRemove }: Props) 
           <ProductImage product={{ ...product, imageUrl: product.thumbUrl ?? product.imageUrl }} sizes="80px" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 data-testid="cart-line-name" className="font-display text-lg font-bold leading-tight text-ink">
+          <h3 data-testid="cart-line-name" className="font-display text-lg font-bold leading-tight text-ink [overflow-wrap:anywhere]">
             {product.name}
           </h3>
           {chips.length > 0 && (
