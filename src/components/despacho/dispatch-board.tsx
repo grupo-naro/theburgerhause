@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import { formatARS } from "@/domain/money";
 import type { Role } from "@/lib/auth/roles";
 import type { LaneId } from "@/lib/caja/workspaces";
-import { canAssign, failureHeadline, formatAssignFailure } from "@/lib/despacho/assign";
+import { canAssign, failureHeadline, formatAssignFailure, shouldConfirmPartial, type TandaCounts } from "@/lib/despacho/assign";
 import { cashToCollect } from "@/lib/despacho/cash";
 import { laneCounts } from "@/lib/despacho/lanes";
 import { capabilitiesFor } from "@/lib/despacho/roles";
@@ -151,6 +151,14 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
     setFailure(null);
     setTandaPick(tanda);
   };
+  // What the assign button showed after its last commit: confirmPartial needs the person to have SEEN "Asignar igual".
+  const seenTanda = useRef<TandaCounts | null>(null);
+  const shownNumber = tandaMode?.number;
+  const shownReady = tandaMode?.ready;
+  const shownTotal = tandaMode?.total;
+  useEffect(() => {
+    seenTanda.current = shownNumber === undefined || shownReady === undefined || shownTotal === undefined ? null : { number: shownNumber, ready: shownReady, total: shownTotal };
+  }, [shownNumber, shownReady, shownTotal]);
   const phones = new Map(board.cadets.map((c) => [c.id, c.phone]));
 
   const assign = () => {
@@ -184,7 +192,8 @@ export function DispatchBoard({ board, role, serverNow, sector = null, lanes, sh
     for (const o of selected) form.append("orderId", String(o.id));
     form.set("cadetId", String(cadetId));
     // The button of an incomplete tanda reads "Asignar igual los N listos": pressing it IS the confirmation.
-    form.set("confirmPartial", tandaMode.ready < tandaMode.total ? "1" : "0");
+    // Only if that incomplete state was already on screen; otherwise the server asks and the refreshed button confirms.
+    form.set("confirmPartial", shouldConfirmPartial(tandaMode, seenTanda.current) ? "1" : "0");
     run(() => assignTandaAction(null, form), {
       onOk: (data) => {
         const n = data.assigned.length;

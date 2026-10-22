@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { board, order } from "./fixtures";
 import { pruneSelection } from "./selection";
-import { canAssign, failureHeadline, formatAssignFailure, tandaAssignLabel, tandaProgress } from "./assign";
+import { canAssign, failureHeadline, formatAssignFailure, shouldConfirmPartial, tandaAssignLabel, tandaProgress } from "./assign";
 
 describe("canAssign", () => {
   it("enabled with a selection, a cadet and nothing in flight", () => {
@@ -66,5 +66,23 @@ describe("tanda assignment texts", () => {
   });
   it("in flight wins", () => {
     expect(tandaAssignLabel({ ready: 2, total: 3, cadetName: "Nahuel", inFlight: true })).toBe("Asignando…");
+  });
+});
+
+describe("shouldConfirmPartial", () => {
+  const incomplete = { number: 2, ready: 2, total: 3 };
+  it("confirms only when the incomplete state was already shown", () => {
+    expect(shouldConfirmPartial(incomplete, { ...incomplete })).toBe(true);
+  });
+  it("does not confirm when the incomplete state appeared after the button was shown", () => {
+    expect(shouldConfirmPartial(incomplete, { number: 2, ready: 2, total: 2 })).toBe(false);
+    expect(shouldConfirmPartial(incomplete, null)).toBe(false);
+  });
+  it("does not confirm when the counts shown differ from the current ones", () => {
+    expect(shouldConfirmPartial(incomplete, { number: 2, ready: 1, total: 3 })).toBe(false);
+    expect(shouldConfirmPartial(incomplete, { number: 3, ready: 2, total: 3 })).toBe(false);
+  });
+  it("never confirms a complete tanda", () => {
+    expect(shouldConfirmPartial({ number: 2, ready: 3, total: 3 }, { number: 2, ready: 3, total: 3 })).toBe(false);
   });
 });

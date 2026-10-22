@@ -33,3 +33,16 @@ export function tandaAssignLabel({ ready, total, cadetName, inFlight }: { ready:
   if (ready < total) return `Asignar igual ${ready === 1 ? "el 1 listo" : `los ${ready} listos`}`;
   return cadetName ? `Asignar tanda a ${cadetName}` : "Asignar tanda";
 }
+
+export type TandaCounts = { number: number; ready: number; total: number };
+
+/**
+ * confirmPartial may be sent only when the person SAW the incomplete state ("Asignar igual los N listos") on the
+ * button they pressed: `seen` is what the button showed after its last commit. If the tanda became incomplete
+ * after that (a live update added a not-ready order), the tap does not confirm; the server answers and the
+ * refreshed button then asks explicitly.
+ */
+export function shouldConfirmPartial(current: TandaCounts, seen: TandaCounts | null): boolean {
+  if (current.ready >= current.total) return false;
+  return seen !== null && seen.number === current.number && seen.ready === current.ready && seen.total === current.total;
+}
