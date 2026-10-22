@@ -3,6 +3,7 @@ import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import type { Fulfillment, OrderStatus } from "@/domain/order-status";
 import { hydrate, orderColumns, sectorScopeSql, type PrintState, type SectorScope } from "./caja-queries";
+import { tandaSummary, type TandaCount } from "./tanda";
 import type { TrackingGroup } from "./tracking-groups";
 
 /**
@@ -36,6 +37,8 @@ export type DispatchOrder = {
   address: string | null;
   crossStreets: string | null;
   addressNotes: string | null;
+  /** Delivery orders only: the free number (1-99) the delivery manager wrote to group a cadet's trip (null = sin tanda). */
+  tanda: number | null;
   /** Counter orders only: the pager (llamador) to call. */
   pagerNumber: number | null;
   /** Units grouped as in Caja, with modifier names and kitchen labels. */
@@ -76,6 +79,8 @@ export type DispatchBoard = {
   enRoute: EnRouteGroup[];
   /** Active cadets by name. */
   cadets: DispatchCadet[];
+  /** Orders per tanda (only en_preparacion and listo_despacho count), sorted by number; `overLimit` = more than 3. */
+  tandas: TandaCount[];
 };
 
 export type DispatchQueryContext = { now?: Date } & SectorScope;
@@ -94,12 +99,12 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
   // re-enters listo_despacho and resets the clock); legacy rows without such an event fall back to creation.
   const statusSince = sql<Date | string>`coalesce((select max("order_events"."at") from "order_events" where "order_events"."order_id" = "orders"."id" and "order_events"."to_status" = "orders"."status"), "orders"."created_at")`;
   const rows = await db
-    .select({ ...orderColumns, cadetId: s.orders.cadetId, statusSince })
+    .select({ ...orderColumns, cadetId: s.orders.cadetId, tanda: s.orders.tanda, statusSince })
     .from(s.orders)
     .where(and(inArray(s.orders.status, BOARD_STATUSES), sectorScopeSql(ctx)))
     .orderBy(asc(s.orders.createdAt), asc(s.orders.id));
   const hydrated = await hydrate(db, rows, now);
-  const meta = new Map(rows.map((r) => [r.id, { cadetId: r.cadetId, since: new Date(r.statusSince).getTime() }]));
+  const meta = new Map(rows.map((r) => [r.id, { cadetId: r.cadetId, tanda: r.fulfillment === "delivery" ? r.tanda : null, since: new Date(r.statusSince).getTime() }]));
 
   const toDto = (o: (typeof hydrated)[number]): DispatchOrder => ({
     id: o.id,
@@ -118,6 +123,7 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
     address: o.fulfillment === "delivery" ? o.address : null,
     crossStreets: o.fulfillment === "delivery" ? o.crossStreets : null,
     addressNotes: o.fulfillment === "delivery" ? o.addressNotes : null,
+    tanda: meta.get(o.id)!.tanda,
     pagerNumber: o.pagerNumber,
     items: o.items,
     printState: o.printState,
@@ -140,7 +146,7 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
     .groupBy(s.orders.cadetId);
   const owed = new Map(owedRows.map((r) => [r.cadetId, Number(r.owed)]));
 
-  const board: DispatchBoard = { preparing: [], ready: { delivery: [], takeaway: [] }, pickup: [], enRoute: [], cadets: [] };
+  const board: DispatchBoard = { preparing: [], ready: { delivery: [], takeaway: [] }, pickup: [], enRoute: [], cadets: [], tandas: [] };
   const groups = new Map<number, { orders: { dto: DispatchOrder; at: number }[] }>();
   for (const o of hydrated) {
     const dto = toDto(o);
@@ -185,5 +191,6 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
       enRouteCount: groups.get(c.id)?.orders.length ?? 0,
       cashDelivered: owed.get(c.id) ?? 0,
     }));
+  board.tandas = tandaSummary(hydrated.map((o) => ({ id: o.id, tanda: meta.get(o.id)!.tanda, status: o.status })));
   return board;
 }

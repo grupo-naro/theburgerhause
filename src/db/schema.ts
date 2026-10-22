@@ -5,6 +5,7 @@ import {
   date,
   index,
   integer,
+  smallint,
   jsonb,
   pgEnum,
   pgTable,
@@ -204,6 +205,8 @@ export const orders = pgTable(
     crossStreets: text("cross_streets"),
     addressNotes: text("address_notes"),
     pagerNumber: integer("pager_number"),
+    /** Free number (1-99) the delivery manager writes by hand to group the orders one cadet carries in one trip. Delivery only. */
+    tanda: smallint("tanda"),
     subtotal: integer("subtotal").notNull(),
     deliveryFee: integer("delivery_fee").notNull().default(0),
     total: integer("total").notNull(),
@@ -232,6 +235,7 @@ export const orders = pgTable(
     /** Only counter sales may omit the customer name (web orders always carry one). */
     check("orders_web_requires_name", sql`${t.channel} = 'counter' OR ${t.customerName} IS NOT NULL`),
     check("orders_total_nonneg", sql`${t.total} >= 0`),
+    check("orders_tanda_range", sql`${t.tanda} IS NULL OR ${t.tanda} BETWEEN 1 AND 99`),
   ],
 );
 

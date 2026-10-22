@@ -20,6 +20,7 @@ import {
 import { cancelOrder, type CancelOrderData } from "@/lib/orders/cancel-order";
 import { MAX_ASSIGN_ORDERS } from "@/lib/orders/dispatch-schemas";
 import { actorRefusal, actorSectorFor, type Sector } from "@/lib/orders/sector";
+import { parseTanda, setOrderTanda, type SetOrderTandaData } from "@/lib/orders/tanda";
 
 /**
  * Dispatch Server Actions: thin wrappers. They are PUBLIC endpoints, so each one:
@@ -159,4 +160,24 @@ export async function assignCadetAction(input: unknown): Promise<ActionResult<As
   return run(() =>
     assignCadet(getDb(), { sector, orderIds: parsed.data.orderIds, cadetId: parsed.data.cadetId, userId: session.user.id }),
   );
+}
+
+/**
+ * Writes (or clears, with an empty value) the tanda number of a delivery order. Form action: `(prev, formData)` with
+ * `orderId` and `tanda`. Delivery manager, encargado and admin only (the cashier and the kitchen never edit it);
+ * the sector rule is applied by the core.
+ */
+export async function setTandaAction(_prev: unknown, formData: FormData): Promise<ActionResult<SetOrderTandaData>> {
+  const auth = await authorize(ASSIGN_ROLES);
+  if ("result" in auth) return auth.result;
+  const id = orderId.safeParse(Number(formData.get("orderId")));
+  if (!id.success) return invalid();
+  const raw = formData.get("tanda");
+  const tanda = parseTanda(typeof raw === "string" ? raw : raw === null ? null : "x");
+  if (!tanda.ok) return { ok: false, code: "VALIDATION", message: tanda.message };
+  const { session, sector } = auth;
+  return run(async () => {
+    const r = await setOrderTanda(getDb(), { orderId: id.data, userId: session.user.id, tanda: tanda.tanda, sector });
+    return r.ok ? r : { ok: false as const, code: r.code === "STATION_REQUIRED" ? ("UNEXPECTED" as const) : r.code, message: r.message };
+  });
 }

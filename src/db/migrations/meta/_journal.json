@@ -78,6 +78,13 @@
       "when": 1792433082875,
       "tag": "0010_stock_movement_edits",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792635390353,
+      "tag": "0011_orders_tanda",
+      "breakpoints": true
     }
   ]
 }

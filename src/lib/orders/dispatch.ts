@@ -24,6 +24,7 @@ import { transitionOrder, UNEXPECTED_MESSAGE, type OrderFailure } from "./transi
 export type DispatchFailureCode =
   | "NOT_FOUND"
   | "INVALID_TRANSITION"
+  | "INVALID_STATE"
   | "VALIDATION"
   | "CADET_INACTIVE"
   | "CADET_NOT_FOUND"

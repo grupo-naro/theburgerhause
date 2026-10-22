@@ -1,0 +1,2 @@
+ALTER TABLE "orders" ADD COLUMN "tanda" smallint;--> statement-breakpoint
+ALTER TABLE "orders" ADD CONSTRAINT "orders_tanda_range" CHECK ("orders"."tanda" IS NULL OR "orders"."tanda" BETWEEN 1 AND 99);

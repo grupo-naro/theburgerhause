@@ -28,7 +28,7 @@ afterAll(closeDb);
 
 describe("getDispatchBoard", () => {
   it("is empty on an empty database", async () => {
-    expect(await board()).toEqual({ preparing: [], ready: { delivery: [], takeaway: [] }, pickup: [], enRoute: [], cadets: [] });
+    expect(await board()).toEqual({ preparing: [], ready: { delivery: [], takeaway: [] }, pickup: [], enRoute: [], cadets: [], tandas: [] });
   });
 
   it("places orders in their columns, oldest first, and leaves out other states", async () => {

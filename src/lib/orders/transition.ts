@@ -13,7 +13,7 @@ import { decideSector, type Sector } from "./sector";
  * realtime notification (delivered only if the caller's transaction commits).
  */
 
-export type OrderFailureCode = "NOT_FOUND" | "INVALID_TRANSITION" | "VALIDATION" | "STATION_REQUIRED" | "WRONG_SECTOR" | "UNEXPECTED";
+export type OrderFailureCode = "NOT_FOUND" | "INVALID_TRANSITION" | "INVALID_STATE" | "VALIDATION" | "STATION_REQUIRED" | "WRONG_SECTOR" | "UNEXPECTED";
 export type OrderFailure = { ok: false; code: OrderFailureCode; message: string };
 export type OrderResult<T> = { ok: true; data: T } | OrderFailure;
 

@@ -152,6 +152,7 @@ describe("sector rule: staff only act in the sector of their station (before any
         "rejectOrderAction",
         "reprintOrderAction",
         "returnToDispatchAction",
+        "setTandaAction",
         "settleCadetAction",
       ].sort(),
     );

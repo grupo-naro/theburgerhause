@@ -271,6 +271,7 @@ describe("module shape", () => {
       "markPickupAction",
       "markReadyAction",
       "returnToDispatchAction",
+      "setTandaAction",
     ]);
   });
 });

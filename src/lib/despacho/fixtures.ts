@@ -18,6 +18,7 @@ export function order(over: Partial<DispatchOrder> & { id: number }): DispatchOr
     address: "Calle 1",
     crossStreets: null,
     addressNotes: null,
+    tanda: null,
     pagerNumber: null,
     items: [],
     printState: { pending: 0, failed: 0, done: 0 } as unknown as DispatchOrder["printState"],
@@ -26,5 +27,5 @@ export function order(over: Partial<DispatchOrder> & { id: number }): DispatchOr
 }
 
 export function board(over: Partial<DispatchBoard> = {}): DispatchBoard {
-  return { preparing: [], ready: { delivery: [], takeaway: [] }, pickup: [], enRoute: [], cadets: [], ...over };
+  return { preparing: [], ready: { delivery: [], takeaway: [] }, pickup: [], enRoute: [], cadets: [], tandas: [], ...over };
 }
