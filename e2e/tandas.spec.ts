@@ -138,12 +138,27 @@ test.describe("encargada", () => {
 test.describe("cajera", () => {
   test.use({ storageState: authFile("cajera") });
 
-  test("has no tanda field on her screen", async ({ page }) => {
+  // The counter board must carry none of the tanda UI even when delivery orders have a tanda: if the field, the
+  // summary or the read-only text leaked into /mostrador/pedidos, one of these locators would match.
+  test("a tanda set by the delivery manager does not show on her counter screen", async ({ page, browser }) => {
     const prep = await placeApproved({ paymentMethod: "cash" });
-    await placeReady({ paymentMethod: "cash" });
+    const ready = await placeReady({ paymentMethod: "cash" });
+    const manager = await browser.newContext({ storageState: authFile("encargada") });
+    try {
+      const mp = await manager.newPage();
+      await openDelivery(mp, "preparing");
+      await setTanda(mp, prep.number, "1");
+      await expect(mp.getByTestId("tanda-chip")).toHaveText(["Tanda 1: 1 de 3"]);
+      await openDelivery(mp, "ready");
+      await setTanda(mp, ready.number, "1");
+      await expect(mp.getByTestId("tanda-chip")).toHaveText(["Tanda 1: 2 de 3"]);
+    } finally {
+      await manager.close();
+    }
     await openPedidos(page);
     await expect(dcard(page, prep.number)).toHaveCount(0);
-    await expect(page.getByTestId("tanda-input")).toHaveCount(0);
-    await expect(page.getByTestId("tanda-field")).toHaveCount(0);
+    for (const id of ["tanda-summary", "tanda-chip", "tanda-readonly", "tanda-field", "tanda-input", "tanda-group"]) {
+      await expect(page.getByTestId(id), id).toHaveCount(0);
+    }
   });
 });
