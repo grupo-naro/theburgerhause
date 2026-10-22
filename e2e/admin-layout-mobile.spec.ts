@@ -56,6 +56,9 @@ test("@mobile the admin shell has a sticky bar and a drawer with every section",
 test("@mobile the top bar stays in view after scrolling", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 500 });
   await page.goto("/admin/menu");
+  // The admin layout streams behind a "Cargando…" fallback (cacheComponents): React can reveal the
+  // real content after `load`, so wait for it before scrolling or the page is not tall enough yet.
+  await expect(page.getByRole("heading", { name: "Menú", level: 1 })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   await expect(page.getByTestId("admin-mobile-bar")).toBeInViewport();
