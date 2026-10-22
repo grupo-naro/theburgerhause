@@ -40,6 +40,29 @@ Cuando la cocina termina, toca **LISTO** en su pantalla y el pedido pasa solo a 
 2. Abajo aparece la barra de asignación con el resumen (por ejemplo "3 pedidos") y **Efectivo a cobrar**.
 3. En **Elegí un cadete…** elegí al cadete y apretá **Asignar a <nombre>**. Los pedidos pasan a **En camino**.
 
+### La tanda: agrupar pedidos para un mismo cadete
+
+La **tanda** es un número que ponés vos para juntar los pedidos que va a llevar un mismo cadete en una salida. Es **a mano y libre**: no hay zonas ni números armados, vos decidís (Tanda 1, 2, 7, lo que te sirva).
+
+- **Dónde se pone**: en **Gestión Delivery**, en cada pedido ya aprobado (en **En preparación** y en **Listos / Despacho**) hay un casillero **Tanda**. Escribí el número y apretá Enter o salí del casillero: se guarda solo. Para sacarla, borrá el número. Un pedido sin número figura como **Sin tanda**.
+- **Resumen**: arriba aparecen "chips" como **Tanda 1: 2 de 3** (cuántos pedidos de esa tanda ya están listos sobre el total).
+- **Aviso de más de 3**: si una tanda tiene **más de 3 pedidos** sale un aviso amarillo. **Es solo una advertencia** (3 es lo recomendable para que la comida llegue caliente); no te impide guardar ni asignar nada.
+- **Listos / Despacho** muestra los pedidos agrupados por tanda ("Tanda 2 · 2 de 3 listos"), y los que no tienen número al final en **Sin tanda**.
+
+### Asignar una tanda entera a un cadete
+
+1. En **Listos / Despacho**, en el grupo de la tanda tocá **Asignar tanda a cadete**. Abajo aparece la barra con los pedidos de esa tanda y el **Efectivo a cobrar**.
+2. Elegí el cadete en **Elegí un cadete…** y apretá **Asignar tanda a <nombre>**. Todos los pedidos listos de la tanda pasan a **En camino**.
+3. **Si faltan pedidos por estar listos** (por ejemplo 2 de 3), la barra lo avisa ("2 de 3 listos") y el botón dice **Asignar igual los 2 listos**. Si lo apretás, salen los que están listos y **el que falta se queda en su tanda** para asignarlo después. Si no querés mandar la tanda incompleta, esperá a que la cocina termine o tocá **Limpiar**.
+4. Si mientras mirabas entró otro pedido sin terminar a la tanda, el primer toque **no confirma solo**: el botón cambia a **Asignar igual…** y tenés que volver a tocarlo, ya sabiendo que falta alguno.
+
+Asignar pedido por pedido (tildando) sigue funcionando igual que antes.
+
+**Lo que todavía no hace** (para no confundirte):
+
+- El **ticket impreso no lleva la tanda**: seguí anotándola **a mano con birome** en el ticket de delivery.
+- La **pantalla de cocina todavía no muestra la tanda**; la cocina no la ve.
+
 ### Cancelar un pedido ya aprobado
 
 En **En preparación** y en **Listos / Despacho** cada pedido tiene el botón **Cancelar pedido**: elegí un motivo (**Cliente canceló**, **Error de carga**,

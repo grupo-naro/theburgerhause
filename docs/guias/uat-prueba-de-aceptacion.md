@@ -53,6 +53,11 @@ Roles: **C** cajera (PC Mostrador), **E** encargada (PC Delivery), **A** adminis
 | E8 | Rechazo de delivery | K pide delivery; E: **Rechazar** → **Zona sin cobertura**. | Se cancela con motivo, K lo ve; no imprime. | [ ] OK  [ ] FALLÓ |
 | E9 | Separación por sector | K pide un pedido de **retiro**. | **No aparece** en Gestión Delivery. | [ ] OK  [ ] FALLÓ |
 | E10 | Reimpresión de delivery | En **Recientes**, **Reimprimir → Ticket delivery**, y **Ambos tickets**. | Sale el ticket de delivery (y con "Ambos", los dos). | [ ] OK  [ ] FALLÓ |
+| E11 | Poner la tanda | En **Gestión Delivery**, con 4 pedidos aprobados, escribir **1** en el casillero **Tanda** de tres de ellos y **2** en el cuarto. Recargar la página. | Los números quedan guardados; los chips muestran **Tanda 1: … de 3** y **Tanda 2: … de 1**. Borrar el número deja el pedido en **Sin tanda**. | [ ] OK  [ ] FALLÓ |
+| E12 | Aviso de más de 3 | Poner la misma tanda a un cuarto pedido. | Sale un aviso amarillo (solo advertencia); se puede seguir guardando y asignando. | [ ] OK  [ ] FALLÓ |
+| E13 | Asignar una tanda completa | Con todos los pedidos de una tanda en **Listos / Despacho**, tocar **Asignar tanda a cadete**, elegir cadete y **Asignar tanda a <cadete>**. | Todos pasan a **En camino** con ese cadete; el aviso muestra el **Efectivo a rendir** correcto. | [ ] OK  [ ] FALLÓ |
+| E14 | Tanda incompleta | Con una tanda de 3 donde solo 2 están listos, tocar **Asignar tanda a cadete** y elegir cadete. | La barra dice "2 de 3 listos" y el botón **Asignar igual los 2 listos**. Al apretarlo salen los 2 y el tercero **sigue en su tanda**. | [ ] OK  [ ] FALLÓ |
+| E15 | Papel y cocina | Aprobar un pedido con tanda y mirar el ticket y la pantalla de cocina. | El ticket **no imprime** la tanda (se anota a mano) y la cocina **no la muestra** (esperado por ahora). | [ ] OK  [ ] FALLÓ |
 
 ## Parte 4: Administrador (A) y sistema
 

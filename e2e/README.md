@@ -67,6 +67,7 @@ the final state.
 | `journey-counter.spec.ts` | J2: POS sale with a customized unit, change and pager 7 -> real printing of exactly ONE ticket, the customer one (logo first, `LLAMADOR 7`, `Pago: Efectivo (pagado)`, GRACIAS last) -> pickup lane -> delivered -> pager 7 free again; reusing it before delivery is refused naming the order. |
 | `journey-takeaway.spec.ts` | J3: web takeaway paid in cash (collect dialog on delivery -> `paid`), a rejected order (reason, cancelled, no jobs), a cadet settlement with a shortage. |
 | `journey-print-agent.spec.ts` | J4: no agent (jobs pending, "Sin agente") -> agent starts and prints once (Mostrador station: one ticket per order); a crash after printing but before the ack -> stuck timeout -> redelivery that is NOT printed twice; three failed prints -> red alert -> Reimprimir. |
+| `tandas.spec.ts` | Tandas: the delivery manager writes/clears the tanda per order (warning over 3, invalid input rejected, live in another tab), the ready lane groups by tanda, assigns a whole tanda to a cadete (incomplete tanda asks "Asignar igual"), phone layout, and the cashier does not see it. |
 
 Time is never slept: the 30 s stuck timeout is simulated by moving `claimed_at` in the DB, tracking polls run on
 `page.clock`, and agent output is awaited by polling the temp dir / the DB.
