@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { formatARS } from "../src/domain/money";
 import { audioContexts, beeps, eventsOf, failPrintJob, markJobsDone, openRetiro, orderById, orderCard, parkPendingOrders, placeRetiroOrder, printJobsOf, recentRow, stubAudio } from "./helpers/caja";
 import { findStation, findUser } from "./helpers/db";
-import { currentStep, openTracking } from "./helpers/tracking";
+import { currentStep, headline, openTracking } from "./helpers/tracking";
 import { authFile } from "./helpers/users";
 
 test.use({ storageState: authFile("cajera") });
@@ -154,7 +154,9 @@ test.describe("approve", () => {
     try {
       const cp = await customer.newPage();
       await openTracking(cp, `/pedido/${o.token}`);
-      await expect(currentStep(cp)).toContainText("En preparación");
+      // The customer timeline has no "En preparación" step: while the kitchen works, "Listo" is the current one.
+      await expect(currentStep(cp)).toHaveText(/^Listo/);
+      await expect(headline(cp)).toHaveText("Estamos preparando tu pedido");
     } finally {
       await customer.close();
     }

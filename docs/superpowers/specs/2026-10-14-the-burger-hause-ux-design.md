@@ -113,7 +113,7 @@ En ambos casos **toda la tarjeta es un único botón que abre la hoja de product
 - Validación en línea; errores en el campo; el botón muestra estado de envío para evitar doble pedido.
 
 ### 3.7 Confirmación y seguimiento (`/pedido/[token]`)
-Número de pedido grande, línea de tiempo con los estados (Recibido → Aprobado → En preparación → Listo → En camino/Para retirar → Entregado), actualizada en vivo. Resumen del pedido y botón para escribir por WhatsApp al local. Si está `cancelado`, se muestra claro y con contacto.
+Número de pedido grande, línea de tiempo con los estados (Recibido → Listo → En camino/Para retirar → Entregado; mientras se prepara, el paso actual es Listo), actualizada en vivo. Resumen del pedido y botón para escribir por WhatsApp al local. Si está `cancelado`, se muestra claro y con contacto.
 
 ## 4. Paneles de personal (escritorio, táctil y teclado)
 
