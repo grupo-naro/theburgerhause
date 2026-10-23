@@ -1,6 +1,6 @@
 /**
  * Which tickets a station prints for an order (Task 10.2). Pure: no db, no next/*.
- * Delivery stations print the delivery (dispatch) ticket + the customer ticket; Mostrador stations print only
+ * Delivery stations print the customer ticket first, then the delivery (dispatch) ticket (the agent prints in job-id order); Mostrador stations print only
  * the customer ticket. The kitchen comanda is NOT printed (the KDS screen of a later phase replaces it).
  */
 
@@ -15,7 +15,7 @@ export function hasDeliveryTicket(order: OrderShape): boolean {
 }
 
 export function defaultPrintKinds(stationKind: PrintStationKind, order: OrderShape): PrintKind[] {
-  return stationKind === "delivery" && hasDeliveryTicket(order) ? ["delivery", "customer"] : ["customer"];
+  return stationKind === "delivery" && hasDeliveryTicket(order) ? ["customer", "delivery"] : ["customer"];
 }
 
 /** Reprint selection; null = the order has no such ticket ("delivery" asked for a non-delivery order). */

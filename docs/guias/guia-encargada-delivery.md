@@ -8,9 +8,9 @@ Para quien trabaja en una PC de **Delivery** (Delivery 1 a 5). Las capturas usan
 2. Mirá arriba: **"Impresora lista"** (si dice **"Sin agente"** no sale papel), **"En vivo"**, y tocá **Activar sonido** (una vez por turno).
 3. Tenés dos pantallas a la izquierda: **Gestión Delivery** y **Rendición**.
 
-En esta PC entran **solo** los pedidos web de **delivery**. Al aprobar, **esta estación imprime dos papeles**: el **ticket de delivery**
-(el que viaja con el cadete: número, cliente, teléfono, dirección, productos, cuánto cobrar) y el **ticket del cliente** (con logo
-y "GRACIAS POR TU COMPRA"). No sale comanda de cocina impresa: la cocina lee cada pedido en su **pantalla de cocina** y toca **LISTO** (ver [Guía de cocina](guia-cocina.md)).
+En esta PC entran **solo** los pedidos web de **delivery**. Al aprobar, **esta estación imprime dos papeles**, primero el **ticket del cliente** (con logo y "GRACIAS POR TU COMPRA") y después el **ticket de delivery**
+(el que viaja con el cadete: número, cliente, teléfono, dirección, productos, cuánto cobrar).
+No sale comanda de cocina impresa: la cocina lee cada pedido en su **pantalla de cocina** y toca **LISTO** (ver [Guía de cocina](guia-cocina.md)).
 
 ## 1. Gestión Delivery: cinco pestañas
 

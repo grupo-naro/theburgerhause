@@ -133,7 +133,7 @@ describe("print state aggregation", () => {
     await db().insert(s.printJobs).values({
       orderId: o1.id,
       stationId: fx.otherStationId,
-      type: "delivery",
+      type: "customer",
       payload: {},
       status: "printing",
     });
@@ -161,7 +161,7 @@ describe("listFailedPrintJobs", () => {
     expect(all.find((f) => f.jobId === jobs[0].id)).toMatchObject({
       orderId: o.id,
       orderNumber: o.number,
-      type: "delivery",
+      type: "customer",
       error: "sin papel",
       attempts: 3,
       stationId: fx.otherStationId,

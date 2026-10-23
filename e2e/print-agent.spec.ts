@@ -173,8 +173,8 @@ test.describe("delivery manager flows", () => {
     const mostrador = track(await FakeAgent.connect(baseURL!, mostradorToken));
 
     await approveFromUi(page, o.number);
-    const [delivery, customer] = await agent.jobs(2, 3000);
-    expect([delivery.type, customer.type]).toEqual(["delivery", "customer"]);
+    const [customer, delivery] = await agent.jobs(2, 3000);
+    expect([customer.type, delivery.type]).toEqual(["customer", "delivery"]);
     const d = JSON.stringify(delivery.document);
     expect(d).toContain("DELIVERY");
     expect(d).toContain("Efectivo: cobrar");

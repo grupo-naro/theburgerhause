@@ -126,8 +126,8 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
 
     await test.step("the real agent prints the delivery ticket and the customer ticket with logo and thanks (ESC/POS bytes); no kitchen comanda", async () => {
       await expect.poll(() => printedFiles(agent.outDir).length, { timeout: 15_000 }).toBe(2);
-      const [deliveryJob, customerJob] = await printJobsOf(orderId);
-      expect([deliveryJob.type, customerJob.type]).toEqual(["delivery", "customer"]);
+      const [customerJob, deliveryJob] = await printJobsOf(orderId);
+      expect([customerJob.type, deliveryJob.type]).toEqual(["customer", "delivery"]);
       const station = await findStation(STATION);
       expect(deliveryJob.stationId).toBe(station.id);
       const delivery = readPrinted(agent.outDir, deliveryJob.id);
@@ -262,7 +262,7 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
           return rows.length === 6 && rows.every((j) => j.status === "done" && j.attempts === 1);
         }, { timeout: 20_000 })
         .toBe(true);
-      for (const id of ids) expect((await printJobsOf(id)).map((j) => j.type)).toEqual(["delivery", "customer"]);
+      for (const id of ids) expect((await printJobsOf(id)).map((j) => j.type)).toEqual(["customer", "delivery"]);
 
       // settlement: only the two cash orders, exact, no shortage
       const settlements = await settlementsOf(cadet.id);

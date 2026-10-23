@@ -77,7 +77,7 @@ pendiente_aprobacion ──aprobar──▶ en_preparacion ──▶ listo_despa
 | Transición | Quién | Efectos |
 |---|---|---|
 | (web) crear → `pendiente_aprobacion` | Cliente | `payment_status = pending` |
-| `pendiente_aprobacion → en_preparacion` | Cajera | Transferencia: `paid` ("Aprobado y Pagado"). Efectivo: `pending` ("Aprobado"). Crea los `print_jobs` de la estación que aprobó: Delivery = `delivery` + `customer`, Mostrador = `customer` (sin comanda de cocina; ver addendum Task 10.2) |
+| `pendiente_aprobacion → en_preparacion` | Cajera | Transferencia: `paid` ("Aprobado y Pagado"). Efectivo: `pending` ("Aprobado"). Crea los `print_jobs` de la estación que aprobó: Delivery = `customer` + `delivery` (en ese orden), Mostrador = `customer` (sin comanda de cocina; ver addendum Task 10.2) |
 | `pendiente_aprobacion → cancelado` | Cajera | Motivo registrado en `order_events` |
 | (mostrador) crear → `en_preparacion` | Cajera | `paid`, pager obligatorio, crea `print_jobs` |
 | `en_preparacion → listo_despacho` | Despacho (manual en MVP; en Fase 2 lo hace cocina/KDS) | — |

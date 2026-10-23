@@ -96,8 +96,8 @@ describe("approveOrder: payment rules and state", () => {
 describe("approveOrder: print jobs", () => {
   // fx.stationId = Mostrador station, fx.otherStationId = Delivery station.
   for (const [fulfillment, paymentMethod, station, expected] of [
-    ["delivery", "cash", "otherStationId", ["delivery", "customer"]],
-    ["delivery", "transfer", "otherStationId", ["delivery", "customer"]],
+    ["delivery", "cash", "otherStationId", ["customer", "delivery"]],
+    ["delivery", "transfer", "otherStationId", ["customer", "delivery"]],
     ["takeaway", "cash", "stationId", ["customer"]],
     ["takeaway", "transfer", "stationId", ["customer"]],
     ["delivery", "cash", "stationId", ["customer"]], // admin approving a delivery order at a Mostrador station: station kind rules

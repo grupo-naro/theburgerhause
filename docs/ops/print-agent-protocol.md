@@ -28,7 +28,7 @@ nuevo, cuando el agente (re)conecta: nada se pierde y nada se duplica.
 
 | Estación que aprueba / vende | Trabajos por pedido | Orden |
 | --- | --- | --- |
-| **Delivery** (pedido web de delivery) | `delivery` + `customer` | delivery primero |
+| **Delivery** (pedido web de delivery) | `customer` + `delivery` | cliente primero |
 | **Mostrador** (retiro web o venta de mostrador) | `customer` | — |
 
 - `delivery`: ticket "normal" que viaja con el pedido: número grande, DELIVERY, hora, cliente, WhatsApp, dirección, entre

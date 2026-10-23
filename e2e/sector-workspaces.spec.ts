@@ -99,7 +99,7 @@ test.describe("distribution by order type", () => {
       const mostradorStation = await findStation("Mostrador 1");
       const dJobs = await printJobsOf(d.id);
       const tJobs = await printJobsOf(t.id);
-      expect(dJobs.map((j) => j.type)).toEqual(["delivery", "customer"]); // Delivery station: dispatch ticket + customer ticket
+      expect(dJobs.map((j) => j.type)).toEqual(["customer", "delivery"]); // Delivery station: customer ticket + dispatch ticket
       expect(tJobs.map((j) => j.type)).toEqual(["customer"]); // Mostrador station: only the customer ticket
       expect(dJobs.every((j) => j.stationId === deliveryStation.id)).toBe(true);
       expect(tJobs.every((j) => j.stationId === mostradorStation.id)).toBe(true);

@@ -168,9 +168,9 @@ async function boardChecks(
   await expect(row).toBeVisible();
   const jobs = await printJobsOf(o.longOne.id);
   // Delivery station: dispatch + customer ticket; Mostrador station: the customer ticket only.
-  expect(jobs.map((j) => j.type)).toEqual(workspace === "delivery" ? ["delivery", "customer"] : ["customer"]);
+  expect(jobs.map((j) => j.type)).toEqual(workspace === "delivery" ? ["customer", "delivery"] : ["customer"]);
   try {
-    await failPrintJob(jobs[0].id, "La impresora no responde (sin papel o desconectada)");
+    await failPrintJob((jobs.find((j) => j.type === "delivery") ?? jobs[0]).id, "La impresora no responde (sin papel o desconectada)");
     await expect(page.getByTestId("failed-print-alert")).toBeVisible();
     await expect(page.getByTestId("failed-print")).toContainText(workspace === "delivery" ? "Ticket delivery:" : "Ticket cliente:");
     expect(await noHorizontalOverflow(page)).toBe(true);
@@ -242,20 +242,20 @@ test.describe("delivery manager reprint", () => {
     const row = recentRow(page, o.number);
     await expect(row).toBeVisible();
     try {
-      expect((await printJobsOf(o.id)).map((j) => j.type)).toEqual(["delivery", "customer"]);
+      expect((await printJobsOf(o.id)).map((j) => j.type)).toEqual(["customer", "delivery"]);
       const open = () => row.getByRole("button", { name: `Reimprimir pedido #${o.number}` }).click();
       await open();
       const menu = row.getByRole("group", { name: "Qué reimprimir" });
       await expect(menu.getByRole("button")).toHaveText(["Ticket cliente", "Ticket delivery", "Ambos tickets"]);
       await shotViewport(page, "delivery-reprint-menu");
       await menu.getByRole("button", { name: "Ticket delivery" }).click();
-      await expect.poll(async () => (await printJobsOf(o.id)).map((j) => j.type)).toEqual(["delivery", "customer", "delivery"]);
+      await expect.poll(async () => (await printJobsOf(o.id)).map((j) => j.type)).toEqual(["customer", "delivery", "delivery"]);
       await open();
       await menu.getByRole("button", { name: "Ticket cliente" }).click();
-      await expect.poll(async () => (await printJobsOf(o.id)).map((j) => j.type)).toEqual(["delivery", "customer", "delivery", "customer"]);
+      await expect.poll(async () => (await printJobsOf(o.id)).map((j) => j.type)).toEqual(["customer", "delivery", "delivery", "customer"]);
       await open();
       await menu.getByRole("button", { name: "Ambos tickets" }).click();
-      await expect.poll(async () => (await printJobsOf(o.id)).map((j) => j.type)).toEqual(["delivery", "customer", "delivery", "customer", "delivery", "customer"]);
+      await expect.poll(async () => (await printJobsOf(o.id)).map((j) => j.type)).toEqual(["customer", "delivery", "delivery", "customer", "customer", "delivery"]);
     } finally {
       await markJobsDone(o.id);
     }

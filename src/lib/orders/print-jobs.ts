@@ -30,10 +30,10 @@ export async function enqueuePrintJobs(
   args: { orderId: number; stationId: number; kinds: PrintKind[]; printable: PrintableOrder },
 ): Promise<number[]> {
   const { orderId, stationId, kinds, printable } = args;
-  // Fixed order (delivery ticket first) whatever order the caller listed them in.
+  // Fixed order (customer ticket first, then delivery; the agent prints by job id) whatever order the caller listed them in.
   const rows: { type: PrintKind; payload: unknown }[] = [];
-  if (kinds.includes("delivery")) rows.push({ type: "delivery", payload: renderDeliveryTicket(printable) });
   if (kinds.includes("customer")) rows.push({ type: "customer", payload: renderCustomerTicket(printable) });
+  if (kinds.includes("delivery")) rows.push({ type: "delivery", payload: renderDeliveryTicket(printable) });
   if (rows.length === 0) return [];
 
   const inserted = await tx

@@ -40,7 +40,7 @@ describe("reprintOrder", () => {
     expect(all).toHaveLength(4);
     const fresh = all.slice(2);
     expect(fresh.map((j) => j.id)).toEqual(r.data.printJobIds);
-    expect(fresh.map((j) => j.type)).toEqual(["delivery", "customer"]);
+    expect(fresh.map((j) => j.type)).toEqual(["customer", "delivery"]);
     for (const j of fresh) expect(j).toMatchObject({ stationId: fx.otherStationId, status: "pending", attempts: 0 });
     expect(fresh[0].payload).toEqual(all[0].payload);
     expect(fresh[1].payload).toEqual(all[1].payload);
@@ -90,11 +90,11 @@ describe("reprintOrder", () => {
   it("goes to the CURRENT station, not the approving one", async () => {
     const o = await approved("delivery", fx.stationId); // admin approved it at a Mostrador station: customer ticket only
     expect((await jobs(o.id)).map((j) => [j.type, j.stationId])).toEqual([["customer", fx.stationId]]);
-    const r = await reprint(o.id, "both"); // reprinted at the Delivery station: dispatch + customer there
+    const r = await reprint(o.id, "both"); // reprinted at the Delivery station: customer + dispatch there
     if (!r.ok) throw new Error(r.message);
     expect((await jobs(o.id)).slice(1).map((j) => [j.type, j.stationId])).toEqual([
-      ["delivery", fx.otherStationId],
       ["customer", fx.otherStationId],
+      ["delivery", fx.otherStationId],
     ]);
   });
 

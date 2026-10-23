@@ -5,8 +5,8 @@ const web = (fulfillment: "delivery" | "takeaway") => ({ channel: "web" as const
 const counter = { channel: "counter" as const, fulfillment: "takeaway" as const };
 
 describe("defaultPrintKinds (what an approval/sale prints)", () => {
-  it("Delivery station + web delivery order: delivery ticket first, then the customer ticket", () => {
-    expect(defaultPrintKinds("delivery", web("delivery"))).toEqual(["delivery", "customer"]);
+  it("Delivery station + web delivery order: customer ticket first, then the delivery ticket", () => {
+    expect(defaultPrintKinds("delivery", web("delivery"))).toEqual(["customer", "delivery"]);
   });
   it("Mostrador station: only the customer ticket, whatever the order", () => {
     expect(defaultPrintKinds("mostrador", web("takeaway"))).toEqual(["customer"]);
@@ -35,7 +35,7 @@ describe("resolvePrintKinds (reprint)", () => {
     expect(resolvePrintKinds("delivery", "delivery", web("takeaway"))).toBeNull();
   });
   it("both = what an approval at that station prints", () => {
-    expect(resolvePrintKinds("both", "delivery", web("delivery"))).toEqual(["delivery", "customer"]);
+    expect(resolvePrintKinds("both", "delivery", web("delivery"))).toEqual(["customer", "delivery"]);
     expect(resolvePrintKinds("both", "mostrador", web("takeaway"))).toEqual(["customer"]);
   });
 });
