@@ -57,3 +57,7 @@ Un televisor en el mostrador, "tipo McDonald's", que muestra a clientes y person
 ## A cargo del constructor
 
 Consulta de la pantalla (pedidos de mostrador/retiro por estado), componente a pantalla completa y su comportamiento (tamaños, desplazamiento automático, ding, resaltado, interruptor), ruta y permisos, redirección de `/cocina`, retiro del código de la cocina anterior, generación de los trabajos de impresión de cocina en la creación/aprobación y en reimpresiones, orden de tickets, textos exactos, migración si hiciera falta (por ejemplo ajustes), tests unitarios, de integración y e2e, y guías (cajera, encargada, administrador, cocina).
+
+## Respuesta posterior del dueño (2026-10-24)
+
+- El ticket de cocina sale en la MISMA impresora de cada puesto (Mostrador o Delivery), junto con los demás tickets; la cocina no tiene una impresora aparte ni hace falta una estación nueva.
