@@ -27,7 +27,7 @@ Roles: **C** cajera (PC Mostrador), **E** encargada (PC Delivery), **A** adminis
 
 | N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |
 | --- | --- | --- | --- | --- |
-| C1 | Venta de mostrador en efectivo con llamador | **Venta**: 2 productos (uno con **Personalizar**: quitar un ingrediente), **Efectivo**, tocar el monto recibido, llamador (**Siguiente libre**), nombre, **Cobrar e imprimir**. | Pantalla **Pedido #N / Llamador n**, **Impreso ✓**; salen **dos** papeles, en este orden: primero la **comanda de cocina** (PEDIDO #N, MOSTRADOR, LLAMADOR n, cada producto numerado con su cambio en mayúsculas, sin precios) y después el **ticket del cliente** con logo, productos con su modificación, total, llamador y GRACIAS POR TU COMPRA. Vuelto correcto. El pedido aparece en **Mostrador → En preparación**. | [ ] OK  [ ] FALLÓ |
+| C1 | Venta de mostrador en efectivo con llamador | **Venta**: 2 productos (uno con **Personalizar**: quitar un ingrediente), **Efectivo**, tocar el monto recibido, llamador (**Siguiente libre**), nombre, **Cobrar e imprimir**. | Pantalla **Pedido #N / Llamador n**, **Impreso ✓**; salen **dos** papeles, en este orden: primero el **ticket de cocina** (PEDIDO #N, MOSTRADOR, LLAMADOR n, cada producto numerado con su cambio en mayúsculas, sin precios) y después el **ticket del cliente** con logo, productos con su modificación, total, llamador y GRACIAS POR TU COMPRA. Vuelto correcto. El pedido aparece en **Mostrador → En preparación** y su número en **En preparación** del televisor (`/pantalla`). | [ ] OK  [ ] FALLÓ |
 | C2 | Llamador en uso | Con la venta C1 todavía abierta en **Mostrador**, otra venta con el **mismo** llamador. | El botón queda deshabilitado con "El llamador n está en uso (pedido #N)"; con otro número funciona. | [ ] OK  [ ] FALLÓ |
 | C3 | Venta por transferencia | Venta con **Transferencia**, llamador distinto. | Cobra e imprime igual; el pedido queda pagado. | [ ] OK  [ ] FALLÓ |
 | C4 | Del mostrador a la entrega | En **Mostrador**: **Listo** → **Llamar / Para retirar** → **Entregado**. | El pedido pasa por las tres columnas y desaparece de la pantalla; liberó el llamador. | [ ] OK  [ ] FALLÓ |
@@ -37,7 +37,7 @@ Roles: **C** cajera (PC Mostrador), **E** encargada (PC Delivery), **A** adminis
 | C8 | Rechazo | K pide retiro; C: **Rechazar** → **Pago no acreditado** → **Rechazar pedido**. | Sale de la bandeja; en **Recientes** figura **Cancelado**; K ve el pedido cancelado con el motivo. No se imprime nada. | [ ] OK  [ ] FALLÓ |
 | C9 | Separación por sector | K pide un pedido de **Delivery**. | **No aparece** en ninguna pantalla de Mostrador (ni Retiro en local ni Mostrador); sí en la PC de Delivery. | [ ] OK  [ ] FALLÓ |
 | C10 | Impresora sin papel / apagada | Sacar el papel (o apagar la impresora) y hacer una venta o aprobar un pedido. | Se reintenta; después de 3 intentos aparece el cuadro rojo **"1 impresión falló"** y **Sin agente · 1 fallida** u otra señal. | [ ] OK  [ ] FALLÓ |
-| C11 | Reimpresión | Con el papel repuesto, **Reimprimir** en el cuadro rojo. Luego **Recientes → Reimprimir → Ticket cliente** sobre otro pedido. | Sale **un** papel por cada pedido (si falló también la comanda de cocina, el cuadro rojo la reimprime junto con el ticket); el cuadro rojo desaparece; **Impresión: ok**. | [ ] OK  [ ] FALLÓ |
+| C11 | Reimpresión | Con el papel repuesto, **Reimprimir** en el cuadro rojo. Luego **Recientes → Reimprimir → Ticket cliente** sobre otro pedido. | Sale **un** papel por cada pedido (si falló también el ticket de cocina, el cuadro rojo lo reimprime junto con el del cliente); el cuadro rojo desaparece; **Impresión: ok**. | [ ] OK  [ ] FALLÓ |
 
 ## Parte 3: Encargada de Delivery (E)
 
@@ -52,12 +52,12 @@ Roles: **C** cajera (PC Mostrador), **E** encargada (PC Delivery), **A** adminis
 | E7 | Más de lo debido | En la rendición escribir un monto mayor al que debe. | Dice "No puede ser más que lo que debe rendir" y no deja confirmar. | [ ] OK  [ ] FALLÓ |
 | E8 | Rechazo de delivery | K pide delivery; E: **Rechazar** → **Zona sin cobertura**. | Se cancela con motivo, K lo ve; no imprime. | [ ] OK  [ ] FALLÓ |
 | E9 | Separación por sector | K pide un pedido de **retiro**. | **No aparece** en Gestión Delivery. | [ ] OK  [ ] FALLÓ |
-| E10 | Reimpresión de delivery | En **Recientes**, **Reimprimir → Ticket delivery**, **Cliente + delivery** y **Ticket cocina**. | Sale el ticket de delivery; con "Cliente + delivery", el del cliente y el de delivery (sin comanda); con "Ticket cocina", solo la comanda de cocina. | [ ] OK  [ ] FALLÓ |
+| E10 | Reimpresión de delivery | En **Recientes**, **Reimprimir → Ticket delivery**, **Cliente + delivery** y **Ticket cocina**. | Sale el ticket de delivery; con "Cliente + delivery", el del cliente y el de delivery (sin el de cocina); con "Ticket cocina", solo el ticket de cocina. | [ ] OK  [ ] FALLÓ |
 | E11 | Poner la tanda | En **Gestión Delivery**, con 4 pedidos aprobados, escribir **1** en el casillero **Tanda** de tres de ellos y **2** en el cuarto. Recargar la página. | Los números quedan guardados; los chips muestran **Tanda 1: … de 3** y **Tanda 2: … de 1**. Borrar el número deja el pedido en **Sin tanda**. | [ ] OK  [ ] FALLÓ |
 | E12 | Aviso de más de 3 | Poner la misma tanda a un cuarto pedido. | Sale un aviso amarillo (solo advertencia); se puede seguir guardando y asignando. | [ ] OK  [ ] FALLÓ |
 | E13 | Asignar una tanda completa | Con todos los pedidos de una tanda en **Listos / Despacho**, tocar **Asignar tanda a cadete**, elegir cadete y **Asignar tanda a <cadete>**. | Todos pasan a **En camino** con ese cadete; el aviso muestra el **Efectivo a rendir** correcto. | [ ] OK  [ ] FALLÓ |
 | E14 | Tanda incompleta | Con una tanda de 3 donde solo 2 están listos, tocar **Asignar tanda a cadete** y elegir cadete. | La barra dice "2 de 3 listos" y el botón **Asignar igual los 2 listos**. Al apretarlo salen los 2 y el tercero **sigue en su tanda**. | [ ] OK  [ ] FALLÓ |
-| E15 | Papel y cocina | Aprobar un pedido con tanda y mirar el ticket y la pantalla de cocina. | El ticket **no imprime** la tanda (se anota a mano) y la cocina **no la muestra** (esperado por ahora). | [ ] OK  [ ] FALLÓ |
+| E15 | Papel y cocina | Aprobar un pedido con tanda y mirar el ticket de cocina. | El ticket **no imprime** la tanda (se anota a mano) y la cocina no la ve (esperado por ahora). | [ ] OK  [ ] FALLÓ |
 
 ## Parte 4: Administrador (A) y sistema
 
@@ -71,19 +71,21 @@ Roles: **C** cajera (PC Mostrador), **E** encargada (PC Delivery), **A** adminis
 | A6 | Token rotado | **Estaciones → Rotar token** de una estación de prueba (sin agente en producción) y reinstalar con el nuevo. | El agente anterior deja de imprimir; el nuevo vuelve a **Impresora lista**. | [ ] OK  [ ] FALLÓ |
 | A7 | Vistas generales | Entrar a **Vista general** y **Tablero general**. | Se ven los pedidos de todos los sectores. | [ ] OK  [ ] FALLÓ |
 
-## Parte 4b: Cocina (O)
+## Parte 4b: Ticket de cocina y televisor del mostrador (O)
 
-Con un usuario de rol **Cocina** en el dispositivo de la cocina (sin estación).
+Con el usuario de rol **Cocina** iniciado en el televisor (sin estación) y el ticket de cocina en cada impresora.
 
 | N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |
 | --- | --- | --- | --- | --- |
-| O1 | El pedido llega solo | Con la pantalla de cocina abierta, E aprueba un pedido de **delivery** (2 unidades, una con **Sin cheddar**, con nota) y C aprueba uno de **retiro**. | Aparecen sin recargar, con el cartel **DELIVERY** / **RETIRO**, cada unidad numerada con sus cambios en mayúsculas y la nota resaltada. Suena el aviso si el sonido está activado. | [ ] OK  [ ] FALLÓ |
-| O2 | Venta de mostrador | C hace una venta de mostrador (llamador 7). | Aparece con **MOSTRADOR** y **LLAMADOR 7**. | [ ] OK  [ ] FALLÓ |
-| O3 | Reloj de colores | Dejar un pedido sin marcar más de 8 y de 15 minutos. | El reloj pasa de verde a amarillo y a rojo; el más viejo está primero. | [ ] OK  [ ] FALLÓ |
-| O4 | LISTO | El cocinero toca **LISTO** en el de delivery y en el de mostrador. | Desaparecen de la cocina; el de delivery aparece en **Listos / Despacho** de E y el de mostrador en **Listos** de C, sin recargar. Queda el aviso **Deshacer** unos segundos. | [ ] OK  [ ] FALLÓ |
-| O5 | Deshacer | Tocar **Deshacer** en el aviso, o **Volver a preparación** en la franja **Recién listos**. | El pedido vuelve a la cocina. Si C ya llamó al llamador o E ya lo asignó a un cadete, no se puede deshacer y lo dice. | [ ] OK  [ ] FALLÓ |
-| O6 | Pedido cancelado | E cancela (con motivo) un pedido que está en la cocina. | Desaparece de la pantalla de cocina sin recargar. | [ ] OK  [ ] FALLÓ |
-| O7 | Un solo usuario de cocina | Con el usuario **Cocina** intentar abrir Caja, Retiro, Delivery o Administración. | Solo se ve la pantalla de cocina; ninguna otra. | [ ] OK  [ ] FALLÓ |
+| O1 | El ticket de cocina sale primero | E aprueba un pedido de **delivery** (2 unidades, una con **Sin cheddar**, con nota) y C aprueba uno de **retiro**. | En cada puesto sale primero el **ticket de cocina** (número, tipo DELIVERY / RETIRO, cada unidad con sus cambios en mayúsculas, la nota y la hora), después el del cliente (y en delivery, el de delivery). Mismo papel e impresora que los otros tickets. | [ ] OK  [ ] FALLÓ |
+| O2 | Venta de mostrador | C hace una venta de mostrador (llamador 7). | Sale el ticket de cocina con **MOSTRADOR** y **LLAMADOR 7**. En el televisor aparece su número en **En preparación**, sin recargar. | [ ] OK  [ ] FALLÓ |
+| O3 | Retiro en el televisor, delivery no | Mirar el televisor con los pedidos de O1 y O2. | Aparecen los números del retiro y del mostrador. El de **delivery no aparece** nunca. | [ ] OK  [ ] FALLÓ |
+| O4 | Listo suena y se resalta | C aprieta **Listo** en el pedido de mostrador. | Su número pasa a **¡Listo! Retiralo en el mostrador** (zona grande), suena el aviso y se resalta un momento. Si el navegador no dejaba sonar, un toque en la pantalla lo habilita. | [ ] OK  [ ] FALLÓ |
+| O5 | Entregado | C llama el llamador y aprieta **Entregado** (cobrando si era efectivo). | El número desaparece del televisor sin recargar. | [ ] OK  [ ] FALLÓ |
+| O6 | Pedido cancelado | E o C cancela (con motivo) un pedido en preparación. | Su número desaparece del televisor sin recargar. | [ ] OK  [ ] FALLÓ |
+| O7 | Ticket de cocina que no sale | Sacar el papel de una impresora y aprobar un pedido. | La Caja muestra el cuadro rojo "Ticket cocina: Sin papel"; con papel repuesto, **Reimprimir** lo imprime. También funciona **Recientes → Reimprimir → Ticket cocina**. | [ ] OK  [ ] FALLÓ |
+| O8 | Un solo usuario de televisor | Con el usuario **Cocina** intentar abrir Caja, Retiro, Delivery, Administración o `/cocina`. | Siempre vuelve al televisor (`/pantalla`); no hay botones ni menú. | [ ] OK  [ ] FALLÓ |
+| O9 | Se recupera solo | Con el local cerrado, reiniciar el sistema (`sudo systemctl restart burgerhause`). | El televisor muestra **Reconectando…** y vuelve solo con los números correctos. | [ ] OK  [ ] FALLÓ |
 
 ## Parte 5: Fallas (S con el local)
 

@@ -20,7 +20,7 @@ generales: **Vista general** (`/caja`) y **Tablero general** (`/despacho`). El a
 - **Envío y pedidos**: **Costo de envío ($)**, en pesos enteros (0 = sin cargo). **Cierre del día de trabajo**: la hora (Buenos Aires, por defecto **06:00**) en la que
   el número de pedido vuelve a 1. Una venta de las 23:50 y otra de las 00:05 son del mismo día de trabajo; el número reinicia recién a la hora de cierre.
   Cambiarlo no renumera pedidos ya hechos.
-- **Pantalla de cocina**: **Aviso amarillo** y **Aviso rojo** (minutos): desde cuántos minutos en preparación el reloj de cada pedido se pone amarillo y rojo (por defecto 8 y 15; el rojo tiene que ser mayor que el amarillo).
+
 - Terminá con **Guardar ajustes**.
 
 ### Estaciones (`/admin/estaciones`)
@@ -40,7 +40,7 @@ generales: **Vista general** (`/caja`) y **Tablero general** (`/despacho`). El a
 Una cuenta por persona: **Nombre**, **Usuario** (3 a 40 caracteres, minúsculas), **Rol** (cajera / encargada de delivery / **cocina** / administrador) y
 **Contraseña** (mínimo 8). Desde la lista: **Desactivar** una cuenta (quien se va), **Cerrar sesiones de <usuario>**; al editar, **Nueva contraseña**
 (cierra sus sesiones). Siempre tiene que quedar al menos un administrador activo. La cajera solo puede elegir estaciones de Mostrador y la
-encargada solo de Delivery. El rol **Cocina** es para la PC o tablet de la cocina: no usa estación, entra directo a la pantalla de cocina (`/cocina`) y no ve cobros ni ninguna otra pantalla.
+encargada solo de Delivery. El rol **Cocina** es el login del **televisor del mostrador**: no usa estación, entra directo a `/pantalla` (los números de pedido en preparación y listos), con sesión de 400 días, y no ve cobros ni ninguna otra pantalla (si abre otra URL, vuelve al televisor). Cómo dejarlo en modo kiosco: [Guía de cocina y del televisor](guia-cocina.md).
 
 ### Cadetes (`/admin/cadetes`)
 

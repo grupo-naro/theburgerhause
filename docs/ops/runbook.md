@@ -743,7 +743,7 @@ certificado vence; el disco se mira con `df -h` (sección 5.1) una vez por seman
    estación y rotar el token (sección 6).
 7. La alerta roja dice **"Ticket cliente: documento inválido"** y no sale papel: el agente de esa PC es **anterior al logo**
    (versión 0.1.x sin soporte del bloque `logo`). Actualizarlo con el ZIP nuevo (`update.ps1`, `print-agent-install.md`
-   sección 9) y apretar **Reimprimir**. La comanda de cocina y el ticket de delivery no usan el logo, por eso esos sí salen.
+   sección 9) y apretar **Reimprimir**. El ticket de cocina y el de delivery no usan el logo, por eso esos sí salen.
 
 ---
 
@@ -860,7 +860,7 @@ administrador a `https://<TU_DOMINIO>/admin`:
    **modificadores** (Admin → Modificadores: quitar ingredientes, agregados, cambios) asociados a cada producto.
 7. **Instalar los agentes de impresión** en las 9 PCs (`docs/ops/print-agent-install.md`) y hacer un ticket de
    prueba en cada una (tiene que salir el **logo** arriba y "GRACIAS POR TU COMPRA"; si no, el agente es viejo: `update.ps1`).
-   Delivery imprime ticket de delivery + ticket del cliente; Mostrador imprime solo el del cliente; no hay comanda de cocina impresa: la cocina usa la **pantalla de cocina** (`/cocina`). Crear en Admin → Usuarios un usuario con rol **Cocina** (sin estación) para esa PC o tablet, abrir `/cocina` a pantalla completa (F11) y activar **Sonido** (el navegador pide un toque en la pantalla por carga). Los tiempos del reloj (amarillo / rojo, por defecto 8 y 15 minutos) se cambian en Admin → Ajustes → Pantalla de cocina. Guía: `docs/guias/guia-cocina.md`.
+   Delivery imprime ticket de cocina + ticket del cliente + ticket de delivery; Mostrador, ticket de cocina + ticket del cliente (el de cocina sale **primero**, en la misma impresora del puesto; la cocina no tiene impresora propia). El televisor del mostrador (`/pantalla`) se configura en 10.1 con el usuario **Cocina**. Guía: `docs/guias/guia-cocina.md`.
 8. **Pedido de prueba completo**: hacer un pedido desde el celular, aprobarlo en la pantalla del sector (un pedido de
    **delivery** se aprueba en **Gestión Delivery**; uno de **retiro** en **Retiro en local**), ver que imprime en la
    estación que lo aprobó y cobrarlo. Comprobar también que el de delivery NO aparece en el mostrador y viceversa. Después anularlo/borrarlo según el procedimiento del local.
@@ -888,6 +888,8 @@ conectado al televisor y queda encendida días enteros. Se configura una vez:
    (`msedge.exe` acepta las mismas opciones; `--kiosk` = pantalla completa sin barras; para salir: Alt+F4.)
 3. Desactivar la suspensión / el protector de pantalla de esa PC.
 
+Sin modo kiosco, alcanza con F11. Quien lo usa a diario: `docs/guias/guia-cocina.md`. El usuario Cocina solo ve `/pantalla`: `/cocina` (la pantalla vieja) y cualquier otra URL lo devuelven ahí.
+
 Se recupera sola: refresca los datos en vivo, cada 60 s y al volver la red; durante un deploy (la app se reinicia) Nginx
 muestra "Reconectando…" y recarga cada 10 s (página instalada en 2.11); si la página falla al dibujarse (por ejemplo un corte
 de la base) muestra "Reconectando…" y reintenta sola cada 15 s. Si quedara en blanco o con un error del navegador, recargar
@@ -914,7 +916,7 @@ Principio: **el local nunca deja de vender porque falle el sistema.** El procedi
 
 | Situación | Qué hace el local | Qué hacés vos |
 | --- | --- | --- |
-| **Falla una impresora** | La Caja avisa en rojo y reintenta sola. Resolver papel/cable/tapa y apretar **Reimprimir**. Mientras, el pedido sigue en la pantalla (la comanda de cocina sale en la misma impresora: si falla, la cocina no recibe el papel; reimprimirla desde el cuadro rojo) | Sección 5.3 |
+| **Falla una impresora** | La Caja avisa en rojo y reintenta sola. Resolver papel/cable/tapa y apretar **Reimprimir**. Mientras, el pedido sigue en la pantalla (el ticket de cocina sale en la misma impresora: si falla, la cocina no recibe el papel; reimprimirlo desde el cuadro rojo) | Sección 5.3 |
 | **Se cae el sistema (502/503)** | Tomar pedidos **a mano** en un block (número correlativo, hora, productos, aclaraciones, dirección/teléfono, forma de pago, total) y pasarlos a cocina en papel | Diagnóstico: sección 9 (502). Si no se resuelve en 15 minutos: `sudo systemctl restart burgerhause`; si fue un deploy: `deploy.sh rollback`; si es la base: sección 4.5. Avisar al local el estado cada 15 minutos |
 | **Se cae internet en el local** | Igual: pedidos a mano. Las pantallas y los agentes reconectan solos al volver internet; los pedidos aprobados durante la caída se imprimen en orden, una sola vez cada uno | Nada en el servidor; verificar luego `/api/health` |
 | **Se cae la VPS entera** | Pedidos a mano. Los clientes que piden por la web no pueden entrar: avisar por WhatsApp/redes | Reiniciar desde el panel de Contabo; si no vuelve, reconstruir con 4.5 ("si se perdió la VPS entera") |

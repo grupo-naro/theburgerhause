@@ -66,7 +66,7 @@ Datos a completar: dominio `__________`, IP de la VPS `__________`, responsable 
 | Delivery 5 | | [ ] | [ ] | [ ] | [ ] |
 
 - [ ] **(SIN VERIFICAR: impresora real)** Tiempo de impresión aceptable en la PC más lenta (≤ ~6 s por ticket).
-- [ ] Papeles probados con **pedidos reales**: Mostrador imprime 2 papeles (cocina + cliente con logo); Delivery imprime 3 en pedidos de delivery (cocina + cliente con logo + delivery) y 2 en retiros.
+- [ ] Papeles probados con **pedidos reales**: Mostrador imprime 2 papeles (ticket de cocina + cliente con logo); Delivery imprime 3 en pedidos de delivery (cocina + cliente con logo + delivery) y 2 en retiros.
 - [ ] Antivirus y políticas de las PCs no bloquean el instalador ni la tarea programada.
 
 ## 8. Backups (R sección 4)
@@ -94,7 +94,7 @@ Datos a completar: dominio `__________`, IP de la VPS `__________`, responsable 
 - [ ] Tarjeta **Primer día** impresa y pegada en cada PC, con teléfonos completados.
 - [ ] **Block de contingencia** en cada puesto; plan de contingencia entregado; simulacro hecho (UAT F5).
 - [ ] Rol de cada persona confirmado: ¿cajera en estación Mostrador? ¿encargada en Delivery?
-- [ ] **Dispositivo de cocina** (PC o tablet): usuario con rol **Cocina** creado (Admin → Usuarios), `/cocina` abierta a pantalla completa, **Sonido** activado, un pedido de prueba aparece solo y **LISTO** lo pasa a Listos; guía `guia-cocina.md` leída por el cocinero. **(SIN VERIFICAR: dispositivo real: tamaño, sonido y pantalla completa del navegador.)**
+- [ ] **Televisor del mostrador** (PC o Smart TV con navegador): usuario con rol **Cocina** creado (Admin → Usuarios), `/pantalla` abierta a pantalla completa (modo kiosco, runbook 10.1), **sonido** probado (suena al pasar un pedido a Listo), un pedido de prueba aparece solo en **En preparación** y pasa a **¡Listo!** cuando la cajera aprieta **Listo**; el de delivery no aparece; guía `guia-cocina.md` leída por la cocina. **(SIN VERIFICAR: dispositivo real: tamaño, sonido y pantalla completa del navegador.)**
 
 ## 12. UAT y operación en paralelo
 

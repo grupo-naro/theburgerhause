@@ -7,7 +7,7 @@ versión actual del sistema con datos de prueba (los nombres de clientes y produ
 | --- | --- | --- |
 | [Guía Cajera / Mostrador](guia-cajera-mostrador.md) | Cajeras (PCs de Mostrador) | Capacitación y consulta diaria |
 | [Guía Encargada de Delivery](guia-encargada-delivery.md) | Encargada (PCs de Delivery) | Capacitación y consulta diaria |
-| [Guía de Cocina](guia-cocina.md) | Cocinero / ayudante (pantalla de cocina) | Capacitación y consulta diaria |
+| [Guía de Cocina](guia-cocina.md) | Cocinero / ayudante (ticket de cocina y televisor) | Capacitación y consulta diaria |
 | [Guía Administrador](guia-administrador.md) | Dueño / administrador | Configuración y control |
 | [Tarjeta "Primer día"](primer-dia.md) | Todo el personal | Imprimir y pegar en cada PC |
 | [Carga del menú real](carga-del-menu.md) | Administrador | Antes de abrir |
@@ -27,4 +27,4 @@ Orden sugerido de la puesta en marcha: **checklist de salida** (secciones 1 a 7)
   instalador con permisos de Administrador en Windows real, la VPS real (certbot, systemd, firewall), la copia remota de backups.
 - Cómo se duplican los pedidos web durante la operación en paralelo depende de cómo llegan hoy en pxw: se define con el responsable antes de empezar.
 - **Pausar pedidos** frena solo los pedidos web: las ventas de mostrador (pantalla **Venta**) siguen funcionando (verificado en el código: la venta de mostrador no consulta ese interruptor).
-- **Cocina**: recibe la comanda impresa de cada pedido (sale primero, en la misma impresora que el ticket del cliente) y además lee cada pedido en la **pantalla de cocina** (`/cocina`, usuario con rol **Cocina**) y toca **LISTO**. Procedimiento en [guia-cocina.md](guia-cocina.md). El dispositivo concreto (PC o tablet) y dónde se coloca lo decide el local; sin verificar con el dispositivo real: tamaño de pantalla, sonido del navegador y pantalla completa.
+- **Cocina**: recibe el **ticket de cocina** impreso de cada pedido (sale primero, en la misma impresora que el ticket del cliente) y avisa a la cajera / encargada cuando está armado; ellas marcan **Listo** y **Entregado**. El **televisor del mostrador** (`/pantalla`, usuario con rol **Cocina**) muestra solo los números en preparación y listos. Procedimiento en [guia-cocina.md](guia-cocina.md). El dispositivo del televisor y dónde se coloca lo decide el local; sin verificar con el dispositivo real: tamaño de pantalla, sonido del navegador y pantalla completa.

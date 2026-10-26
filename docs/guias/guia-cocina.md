@@ -1,42 +1,66 @@
-# Guía de Cocina (una página)
+# Guía de Cocina y del televisor (una página)
 
-Para el cocinero y el ayudante. La pantalla de cocina **reemplaza el papel**: ya no sale comanda impresa. Todo lo que antes leías en el ticket está en la pantalla.
+Para el cocinero, el ayudante y quien deja el televisor del mostrador funcionando. Hay **dos cosas** distintas:
 
-## Cómo se entra
+- el **ticket de cocina**: el papel que sale impreso y dice qué preparar;
+- el **televisor del mostrador** (`/pantalla`): muestra a los clientes **solo los números** de pedido, en preparación y listos. **No** tiene botones ni sirve para marcar nada.
 
-- **La pantalla de cocina es solo para cocina**: no tiene menú, ni nombre de estación, ni avisos de pedidos por aprobar. Abrila en una **pestaña o ventana aparte** (desde el menú, **Cocina** se abre en una pestaña nueva) y apretá **F11**: el tablero llena todo el monitor. Quien no es de cocina (cajera, encargada, administrador) tiene un botón **Salir** discreto arriba a la derecha que vuelve a su pantalla; mientras mira la cocina **no ve** el aviso de pedidos nuevos por aprobar, así que no la dejen como pantalla principal.
+La vieja pantalla de cocina (tarjetas con botón **LISTO**) **ya no existe**: si alguien abre `/cocina`, el sistema lo lleva solo al televisor.
 
-- En la PC o tablet de la cocina: **Usuario** y **Contraseña** de cocina (te los da el administrador) → **Ingresar**. Entrás directo a la pantalla de cocina, sin menú. No hay que elegir estación.
-- Dejala abierta a **pantalla completa** (tecla **F11**). Si el navegador pregunta, activá el **Sonido** (botón arriba a la derecha) y tocá una vez la pantalla: sin ese toque el navegador no deja sonar el aviso.
-- Mantené la **hora del dispositivo sincronizada** (hora automática activada): los tiempos del reloj usan la hora del servidor, pero conviene que la tablet/PC no esté atrasada ni adelantada.
-- Arriba dice **En vivo** en verde: los pedidos aparecen solos, **no hace falta recargar**. Si dice **Sin conexión**, avisá a soporte (los pedidos que ya estaban se siguen viendo).
+## El ticket de cocina
 
-## Cómo se lee una tarjeta
+- Sale **en la misma impresora** del puesto donde se aprobó el pedido (Mostrador o Delivery). No hay una impresora aparte para cocina.
+- Sale **primero**: antes del ticket del cliente (y del de delivery). Así podés empezar a preparar enseguida. La cajera o la encargada te lo acercan.
+- Dice: **número de pedido**, el tipo (**MOSTRADOR**, **RETIRO** o **DELIVERY**; en mostrador también el **LLAMADOR**), cada producto **por unidad** (si piden 3 hamburguesas, salen 3 líneas, cada una con sus cambios) con los cambios y adicionales **en mayúsculas** ("SIN CHEDDAR", "+ DIPS"), la **nota del cliente** ("bien cocida", "sin sal"…: leela siempre) y la **hora**.
+- Sale para **todos** los pedidos aprobados: venta de mostrador, retiro y delivery.
 
-Una tarjeta por pedido, **el más viejo primero** (arriba a la izquierda).
+### Si el ticket de cocina no sale
 
-- **Número grande** (#12) y el **reloj**: "hace 7 min". **Verde** hasta 8 minutos, **amarillo** de 8 a 15, **rojo** desde 15 (el administrador puede cambiar esos tiempos).
-- **Cartel de tipo**: **DELIVERY** (naranja), **MOSTRADOR** (azul) o **RETIRO** (verde azulado). En las ventas de mostrador también dice **LLAMADOR n**.
-- **Nota** del cliente en un recuadro amarillo: leela siempre ("bien cocida", "sin sal"…).
-- Los **productos**, uno por uno y **numerados** (si piden 3 hamburguesas, ves 1, 2 y 3, cada una con sus cambios): los cambios y adicionales salen en mayúsculas debajo del producto ("SIN CHEDDAR", "+ DIPS").
-- Si el pedido es largo, la nota y la lista de productos **se deslizan dentro de la tarjeta** (pasá el dedo sobre ellas): el botón **LISTO** queda siempre a la vista.
-- El reloj cuenta desde que el pedido **entró a la cocina**. Si lo deshacés y vuelve, **conserva su reloj original y su lugar** en la fila (no empieza de cero).
+Avisá a la cajera (mostrador) o a la encargada (delivery). Ellas:
 
-## Cuando terminás
+1. Miran el **cuadro rojo de la Caja** (alerta de impresión fallida): dice cuál papel falló ("Ticket cocina: Sin papel", por ejemplo). Se arregla el papel / cable / tapa y se aprieta **Reimprimir** ahí mismo.
+2. Si no hay cuadro rojo, en el POS (**Mostrador**), **Reimprimir** en el pedido.
+3. Desde **Recientes** → **Reimprimir** → **Ticket cocina** (es una opción aparte, para no duplicar la cocina sin querer).
 
-1. Armá el pedido completo, empacalo (bolsa, sello de la marca) y dejalo donde corresponde.
-2. Tocá **LISTO** (el botón verde grande). La tarjeta desaparece y el pedido le aparece a quien lo despacha: a la encargada si es delivery, a la cajera si es de mostrador o retiro. Los botones **Listo** de **Mostrador**, **Retiro en local** y **Gestión Delivery** **se mantienen**: ellas pueden usarlos si la cocina se olvida, pero lo normal es que el pedido ya llegue marcado desde acá.
+Mientras tanto, la cocina puede leer el pedido en la pantalla de la cajera / encargada (**En preparación**). Plan completo: `plan-contingencia.md`.
 
-## Si te equivocaste: Deshacer
+## Quién marca "Listo" y "Entregado"
 
-- Apenas tocás **LISTO** aparece un aviso abajo con **Deshacer** (unos segundos): tocalo y el pedido vuelve a la cocina.
-- Después podés usar la franja **Recién listos** (abajo): muestra **todos** los pedidos marcados LISTO que todavía nadie tomó (los de cualquier persona de la cocina, no solo los tuyos) y cada uno tiene **Volver a preparación**. Un pedido sale de la franja cuando la cajera lo llama o la encargada lo asigna.
-- **No se puede deshacer** si la cajera ya llamó al llamador, o si la encargada ya se lo dio a un cadete: la pantalla te lo avisa. En ese caso, hablá con ellas.
+La cocina **no toca ninguna pantalla** para eso. Cuando el pedido está armado, **le avisás a la cajera** (mostrador y retiro) o **a la encargada** (delivery), y ella usa los botones que ya conoce: **Listo** (el pedido pasa a la zona "¡Listo!" del televisor y suena el aviso) y después, cuando el cliente lo retira, **Entregado** (el número desaparece del televisor).
+
+## El televisor del mostrador
+
+Se ve fijo, a pantalla completa, **sin menú ni nombres**: solo números grandes.
+
+- **En preparación** (zona izquierda, más angosta): los pedidos que se están cocinando.
+- **¡Listo! Retiralo en el mostrador** (zona derecha, más grande): los pedidos para retirar. Cuando uno pasa a listo **suena un aviso** y su número se resalta un momento.
+- **Entran** los pedidos de **mostrador** y de **retiro en local**. Los de **delivery no aparecen** nunca.
+- Un pedido **cancelado o rechazado** o ya **entregado** sale solo del televisor.
+- Si hay muchos números, se achican y, si igual no caben, la lista **se desplaza sola** despacio. Nadie tiene que tocar nada.
+- Arriba/abajo, un cartel **En vivo** significa que se actualiza solo. Si dice **Reconectando…** (se reinició el sistema o se cortó internet), esperá: **vuelve sola**.
+
+### Sonido
+
+El aviso de "Listo" está **activado** por defecto. Hay un único botón discreto para silenciarlo / activarlo. El navegador no deja sonar nada hasta que alguien toca la pantalla **una vez**: mientras no pase, aparece un cartelito abajo a la izquierda. Tocá la pantalla una vez y desaparece. (Con el arranque en modo kiosco de abajo, no hace falta el toque.)
+
+### Cómo dejar el televisor andando
+
+1. En la PC del televisor, abrir el sistema en `/login` y entrar con el usuario **cocina** (el administrador te da usuario y contraseña; no tiene estación). Entra directo a `/pantalla`. Esa sesión **dura 400 días** sin vencer por inactividad; pasado ese plazo, o si el administrador usa "Cerrar sesiones" / cambia la clave, hay que volver a entrar.
+2. Para que quede a pantalla completa y con el sonido sin toque (también después de un corte de luz), el administrador lo configura en el inicio automático (ver `docs/ops/runbook.md`, sección 10.1):
+
+   ```text
+   chrome.exe --kiosk --autoplay-policy=no-user-gesture-required https://<TU_DOMINIO>/pantalla
+   ```
+
+   Sin modo kiosco, alcanza con apretar **F11**.
+3. Desactivar la suspensión y el protector de pantalla de esa PC.
+4. Cualquier otro usuario del personal (cajera, encargada, encargado, administrador) puede abrir la misma pantalla desde el menú (**Pantalla**, se abre en una pestaña nueva), pero **el televisor usa siempre el usuario cocina**.
+
+El televisor **se recupera solo** si se reinicia el sistema o falla un momento. Si quedara en blanco o con un error del navegador, recargá con **F5**.
 
 ## Casos raros
 
-- **"Ese pedido ya no está en preparación"**: otra persona ya lo marcó, o lo cancelaron. La tarjeta se va sola. No pasa nada.
-- **Un pedido desaparece de la cocina sin que lo marques**: lo cancelaron (cajera o encargada). No lo prepares.
-- **Se cae la pantalla o el internet**: seguí con los pedidos que te dicten o que ves en la pantalla de la cajera/encargada (**En preparación**); cuando vuelva, tocá **LISTO** como siempre. Plan completo: `plan-contingencia.md`.
-- **Se te olvidó tocar LISTO**: la cajera o la encargada también pueden marcar **Listo** desde su pantalla.
-- **Cerrá sesión** al terminar el turno (**Cerrar sesión**, arriba a la derecha).
+- **Un número desaparece del televisor sin haber sido retirado**: el pedido se canceló.
+- **Un pedido no aparece en el televisor**: si es de delivery, es lo normal. Si es de mostrador o retiro, revisá que esté aprobado.
+- **Se cae el sistema o internet**: pedidos a mano y papel de contingencia: `plan-contingencia.md`.
+- **No sale ningún papel**: avisar a la cajera / encargada (ver arriba).

@@ -18,7 +18,7 @@ if you changed code); in CI it is always started fresh.
 1. Creates/migrates the test DB (reuses `src/db/global-setup.int.ts`).
 2. Truncates every table and runs the menu seed.
 3. Creates users `admin`, `cajera`, `encargada`, `cocina`, `encargado` (credentials in `e2e/helpers/users.ts`, test-only).
-4. Logs each one in THROUGH THE LOGIN FORM (cashier picks "Mostrador 1", encargada "Delivery 1", the kitchen user has no station and lands on `/cocina`)
+4. Logs each one in THROUGH THE LOGIN FORM (cashier picks "Mostrador 1", encargada "Delivery 1", the TV user `cocina` has no station and lands on `/pantalla`)
    and saves cookies to `e2e/.auth/<role>.json` (git-ignored).
 
 Specs opt into a role with `test.use({ storageState: authFile("admin") })`; for anonymous flows use
@@ -63,8 +63,8 @@ the final state.
 
 | Spec | Journey |
 | --- | --- |
-| `journey-delivery.spec.ts` (`@mobile`) | J1: customer on a phone builds a per-unit order (delivery + transfer) -> the delivery manager sees it live in Gestión Delivery (the cashier never does), verifies, approves -> the Delivery station agent prints the kitchen comanda, the customer ticket with logo (GS v 0) and GRACIAS POR TU COMPRA, and the delivery ticket, in that order (ESC/POS bytes asserted) -> tracking page moves on by itself (Playwright clock) -> she assigns it with two cash orders to ONE cadet -> deliveries -> exact settlement, balance $0, event chain and print jobs asserted. |
-| `journey-counter.spec.ts` | J2: POS sale with a customized unit, change and pager 7 -> real printing of TWO tickets: the kitchen comanda (`MOSTRADOR`, `LLAMADOR 7`) and then the customer one (logo first, `LLAMADOR 7`, `Pago: Efectivo (pagado)`, GRACIAS last) -> pickup lane -> delivered -> pager 7 free again; reusing it before delivery is refused naming the order. |
+| `journey-delivery.spec.ts` (`@mobile`) | J1: customer on a phone builds a per-unit order (delivery + transfer) -> the delivery manager sees it live in Gestión Delivery (the cashier never does), verifies, approves -> the Delivery station agent prints the kitchen ticket, the customer ticket with logo (GS v 0) and GRACIAS POR TU COMPRA, and the delivery ticket, in that order (ESC/POS bytes asserted) -> tracking page moves on by itself (Playwright clock) -> she assigns it with two cash orders to ONE cadet -> deliveries -> exact settlement, balance $0, event chain and print jobs asserted. |
+| `journey-counter.spec.ts` | J2: POS sale with a customized unit, change and pager 7 -> real printing of TWO tickets: the kitchen ticket (`MOSTRADOR`, `LLAMADOR 7`) and then the customer one (logo first, `LLAMADOR 7`, `Pago: Efectivo (pagado)`, GRACIAS last) -> pickup lane -> delivered -> pager 7 free again; reusing it before delivery is refused naming the order. |
 | `journey-takeaway.spec.ts` | J3: web takeaway paid in cash (collect dialog on delivery -> `paid`), a rejected order (reason, cancelled, no jobs), a cadet settlement with a shortage. |
 | `journey-print-agent.spec.ts` | J4: no agent (jobs pending, "Sin agente") -> agent starts and prints once (Mostrador station: kitchen + customer tickets per order); a crash after printing but before the ack -> stuck timeout -> redelivery that is NOT printed twice; three failed prints -> red alert -> Reimprimir. |
 | `tandas.spec.ts` | Tandas: the delivery manager writes/clears the tanda per order (warning over 3, invalid input rejected, live in another tab), the ready lane groups by tanda, assigns a whole tanda to a cadete (incomplete tanda asks "Asignar igual"), phone layout, and the cashier does not see it. |
@@ -91,17 +91,9 @@ Measure or photograph only a settled document: `shot()` and `waitForStablePage()
 Helpers: `openRetiro`, `openDelivery(page, tab?)`, `openPedidos`, `openDespacho` (admin board), `openCaja` (admin general view). `placeApproved` approves
 delivery orders as the encargada at Delivery 1 and takeaway ones as the cajera at Mostrador 1.
 
-## Kitchen screen (KDS)
+## Old kitchen screen
 
-`cocina.spec.ts` (storage state `cocina`, plus cajera and admin blocks): a delivery order approved at Delivery appears LIVE on `/cocina` with the
-exact unit / kitchen-label text (compared with the stored snapshots), the note and the DELIVERY tag; LISTO moves it to the Delivery "Listos" lane
-live (second browser context as the encargada); takeaway (RETIRO) and counter sales (MOSTRADOR + LLAMADOR) likewise; Deshacer (toast) and
-Volver a preparación (strip) with the audit chain; an order already called leaves the strip; double tap = ONE `listo_despacho` event; a stale card
-(order changed behind the screen's back) answers the friendly "ya no está en preparación"; a cancelled order disappears live; green / yellow / red
-clock from backdated `en_preparacion` events; HTML / emoji notes render as inert text; the `cocina` user is sent back to `/cocina` from every other
-URL and has no navigation; exactly one EventSource; layout at 1280 / 1024 / 768 with a 8-unit order and a long note (no horizontal overflow, nothing
-taller than the shell, LISTO / undo / sound targets >= 56 px, units scroll INSIDE the card). The cashier opens it from the Cocina nav link (new tab), the screen is chromeless for every role (no sidebar / navigation / station label / shell alert at 1920x1080 and 1280x720, Salir for non-cocina), and she can only mark her own
-sector (the other cards read "OTRO SECTOR"); admin marks any. Screenshots: `test-results/shots/cocina-*.png`.
+The old kitchen screen (`/cocina`, KDS with LISTO / undo cards) and its `cocina.spec.ts` are gone. `/cocina` is now only a redirect to the counter TV; `pantalla.spec.ts` covers it (a `cocina` / cajera session ends on `/pantalla`, no session goes to `/login`, the staff menu has no "Cocina" link, the `cocina` user is sent back to `/pantalla` from every other URL including `/cocina`). The kitchen reaches its orders through the kitchen ticket (see the print specs).
 
 ## Security (Task 9.3)
 

@@ -58,7 +58,7 @@ una caída larga sin contingencia que funcione. Se corrige y se repite la jornad
 2. Dejar pxw **disponible en modo consulta** al menos una semana (para buscar datos viejos y como respaldo si hubiera que volver).
 3. **Reanudar pedidos** en Ajustes y cambiar el enlace público (redes, WhatsApp) al sistema nuevo.
 4. Primera semana: revisión diaria 5 minutos (`/api/health`, backup, planilla de problemas).
-5. Recién con la semana estable: cierre del MVP y planificación de la **Fase 2** (stock y materia prima; la pantalla de cocina ya está en el MVP). No se escribe código de Fase 2 antes.
+5. Recién con la semana estable: cierre del MVP y planificación de la **Fase 2** (stock y materia prima; el televisor del mostrador y el ticket de cocina ya están en el MVP). No se escribe código de Fase 2 antes.
 
 ## Plan de vuelta atrás (si hay que volver a pxw)
 

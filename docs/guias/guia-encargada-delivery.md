@@ -8,9 +8,9 @@ Para quien trabaja en una PC de **Delivery** (Delivery 1 a 5). Las capturas usan
 2. Mirá arriba: **"Impresora lista"** (si dice **"Sin agente"** no sale papel), **"En vivo"**, y tocá **Activar sonido** (una vez por turno).
 3. Tenés dos pantallas a la izquierda: **Gestión Delivery** y **Rendición**.
 
-En esta PC entran **solo** los pedidos web de **delivery**. Al aprobar, **esta estación imprime tres papeles**, en este orden: la **comanda de cocina** (para llevar a la cocina), el **ticket del cliente** (con logo y "GRACIAS POR TU COMPRA") y el **ticket de delivery**
+En esta PC entran **solo** los pedidos web de **delivery**. Al aprobar, **esta estación imprime tres papeles**, en este orden: el **ticket de cocina** (para llevar a la cocina), el **ticket del cliente** (con logo y "GRACIAS POR TU COMPRA") y el **ticket de delivery**
 (el que viaja con el cadete: número, cliente, teléfono, dirección, productos, cuánto cobrar).
-La comanda de cocina lleva el número, el tipo (DELIVERY), cada producto con sus cambios y la nota, sin precios. Los pedidos de retiro que aprobás acá imprimen cocina + cliente (sin ticket de delivery). Para marcar **LISTO** ver la [Guía de cocina](guia-cocina.md).
+El ticket de cocina lleva el número, el tipo (DELIVERY), cada producto con sus cambios y la nota, sin precios. Los pedidos de retiro que aprobás acá imprimen cocina + cliente (sin ticket de delivery). Quién marca **Listo** y qué muestra el televisor del mostrador: [Guía de cocina y del televisor](guia-cocina.md).
 
 ## 1. Gestión Delivery: cinco pestañas
 
@@ -30,7 +30,7 @@ La comanda de cocina lleva el número, el tipo (DELIVERY), cada producto con sus
 
 ### En preparación
 
-Cuando la cocina termina, toca **LISTO** en su pantalla y el pedido pasa solo a **Listos / Despacho** (lo ves aparecer sin recargar). Si la cocina se olvida, tocá **Listo** vos en ese pedido. Si la cocina se equivoca y lo marca antes de tiempo, puede **deshacerlo** mientras no lo hayas asignado a un cadete.
+Cuando la cocina avisa que el pedido está armado, **vos tocás Listo** en ese pedido (en **En preparación**) y pasa a **Listos / Despacho** (lo ves aparecer sin recargar). Si lo marcaste antes de tiempo, podés deshacerlo mientras no lo hayas asignado a un cadete.
 
 ### Listos / Despacho: asignar al cadete
 
@@ -61,7 +61,7 @@ Asignar pedido por pedido (tildando) sigue funcionando igual que antes.
 **Lo que todavía no hace** (para no confundirte):
 
 - El **ticket impreso no lleva la tanda**: seguí anotándola **a mano con birome** en el ticket de delivery.
-- La **pantalla de cocina todavía no muestra la tanda**; la cocina no la ve.
+- El **ticket de cocina no imprime la tanda** (se anota a mano) y la cocina no la ve.
 
 ### Cancelar un pedido ya aprobado
 

@@ -178,7 +178,7 @@ Si querés **ver qué haría sin cambiar nada**, agregá `-DryRun` al final del 
 Si pasó todo, completá la fila de esta PC en la lista de la sección 12.
 
 > **Actualización 10.2 (logo y nuevos tickets): hay que actualizar los agentes.** Desde esta versión el servidor manda el
-> ticket del cliente con **logo** y "GRACIAS POR TU COMPRA", y el de delivery; **ya no se imprime la comanda de cocina**. El logo
+> ticket del cliente con **logo** y "GRACIAS POR TU COMPRA", y el de delivery; el **ticket de cocina** vuelve a imprimirse (primero, en la misma impresora). El logo
 > viaja dentro del agente, así que **cada PC debe correr `update.ps1` con el ZIP nuevo** (sección 9) antes o al mismo tiempo que
 > el deploy del servidor. Un agente viejo **no** sabe imprimir el bloque del logo: rechaza ese ticket ("documento inválido"),
 > la Caja muestra la alerta roja "Ticket cliente: documento inválido" y no sale papel hasta actualizarlo. Después de actualizar,
@@ -310,7 +310,7 @@ Completar una fila por PC al terminar. "Token rotado" es la fecha en que se gene
 1. La Caja avisa en rojo y reintenta sola (3 veces). Resolver lo básico: papel, cable, encendido, tapa.
 2. Cuando la impresora vuelve, apretar **Reimprimir** en el aviso rojo (o en **Recientes → Reimprimir** y elegir
    ticket del cliente o ticket de delivery). Sale una sola vez.
-3. Mientras tanto, la cocina puede trabajar **leyendo el pedido desde la pantalla de la Caja / Gestión Delivery** o escribiéndolo a mano (no hay comanda impresa: la reemplazará la pantalla de cocina).
+3. Mientras tanto, la cocina puede trabajar **leyendo el pedido desde la pantalla de la Caja / Gestión Delivery** o escribiéndolo a mano (el ticket de cocina sale en la misma impresora que los demás: si esa impresora falla, no sale el papel de cocina).
 4. Si la impresora de una estación no se puede recuperar en el momento, usar la de otra estación: en esa PC
    entrar a la Caja y reimprimir el pedido desde **Recientes** (se imprime en la estación en la que estás).
 
