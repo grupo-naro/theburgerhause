@@ -16,7 +16,6 @@ import { AuthError, type AuthSession, type Role } from "@/lib/auth/roles";
 import { setTandaAction } from "@/app/(staff)/despacho/actions";
 import { assignCadet, markReady, returnToDispatch } from "./dispatch";
 import { getDispatchBoard } from "./dispatch-queries";
-import { listRecentlyReady } from "./kitchen-queries";
 import { setOrderTanda } from "./tanda";
 import { makeCadet, orderEventsOf, orderRow, preparingCounterOrder, preparingWebOrder } from "@/test-support/dispatch";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
@@ -147,7 +146,7 @@ describe("concurrency", () => {
 });
 
 describe("same-status events do not move the status clocks", () => {
-  it("a tanda edit or a reprint-like event keeps the dispatch board 'since' and the kitchen 'recently ready' order", async () => {
+  it("a tanda edit or a reprint-like event keeps the dispatch board 'since'", async () => {
     const older = await readyDelivery();
     const newer = await readyDelivery();
     const at = (min: number) => new Date(Date.now() - min * 60_000);
@@ -156,15 +155,12 @@ describe("same-status events do not move the status clocks", () => {
     }
     const sinceOf = async (id: number) => (await getDispatchBoard(db())).ready.delivery.find((o) => o.id === id)!.statusSince;
     const before = await sinceOf(older.id);
-    const kitchenBefore = (await listRecentlyReady(db())).map((c) => c.id);
-    expect(kitchenBefore).toEqual([newer.id, older.id]);
 
     expect((await setTanda(older.id, 1)).ok).toBe(true);
     expect((await setTanda(older.id, 2)).ok).toBe(true);
     await db().insert(s.orderEvents).values({ orderId: older.id, fromStatus: "listo_despacho", toStatus: "listo_despacho", userId: fx.userId, note: "Reimpresión (cocina)" });
 
     expect(await sinceOf(older.id)).toBe(before);
-    expect((await listRecentlyReady(db())).map((c) => c.id)).toEqual(kitchenBefore);
   });
 });
 

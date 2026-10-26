@@ -3,7 +3,6 @@ import {
   WRONG_SECTOR_MESSAGE,
   actorSectorFor,
   decideSector,
-  kitchenActorSectorFor,
   isWrongSector,
   sectorOfFulfillment,
   sectorOfOrder,
@@ -71,18 +70,8 @@ describe("stationAllowedForRole", () => {
   });
 });
 
-describe("kitchenActorSectorFor (ready / undo from the kitchen screen only)", () => {
-  it("the cocina role is exempt from the sector rule and needs no station", () => {
-    expect(kitchenActorSectorFor("cocina", null)).toEqual({ ok: true, sector: null });
-    expect(kitchenActorSectorFor("cocina", "delivery")).toEqual({ ok: true, sector: null });
-  });
-  it("every other role keeps the normal rule", () => {
-    expect(kitchenActorSectorFor("admin", null)).toEqual({ ok: true, sector: null });
-    expect(kitchenActorSectorFor("cajera", "mostrador")).toEqual({ ok: true, sector: "mostrador" });
-    expect(kitchenActorSectorFor("cajera", null)).toEqual({ ok: false, code: "STATION_REQUIRED" });
-    expect(kitchenActorSectorFor("encargada_delivery", "mostrador")).toEqual({ ok: false, code: "WRONG_SECTOR" });
-  });
-  it("the cocina role is not exempt anywhere else (actorSectorFor still demands a station)", () => {
+describe("cocina role", () => {
+  it("is not exempt anywhere (actorSectorFor demands a station) and has no station", () => {
     expect(actorSectorFor("cocina", null)).toEqual({ ok: false, code: "STATION_REQUIRED" });
     expect(stationAllowedForRole("cocina", "mostrador")).toBe(false);
     expect(stationAllowedForRole("cocina", "delivery")).toBe(false);
@@ -93,7 +82,6 @@ describe("encargado (manager, exempt like admin)", () => {
   it("is exempt from the sector rule, with or without a station", () => {
     expect(actorSectorFor("encargado", null)).toEqual({ ok: true, sector: null });
     expect(actorSectorFor("encargado", "delivery")).toEqual({ ok: true, sector: null });
-    expect(kitchenActorSectorFor("encargado", null)).toEqual({ ok: true, sector: null });
     expect(stationAllowedForRole("encargado", "mostrador")).toBe(true);
     expect(stationAllowedForRole("encargado", "delivery")).toBe(true);
   });

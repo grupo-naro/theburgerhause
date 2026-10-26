@@ -92,16 +92,6 @@ export const SURFACE: Record<string, Entry> = {
   [`action:${STAFF_DIR}/mostrador/actions.ts#createCounterOrderAction`]: staffAction(COUNTER, "POS sale (cashier and admin)."),
   [`action:${STAFF_DIR}/mostrador/actions.ts#listActivePagersAction`]: staffAction(COUNTER, "Active pager numbers."),
   [`action:${STAFF_DIR}/mostrador/actions.ts#getPrintStateAction`]: staffAction(COUNTER, "Print status of one order."),
-  [`action:${STAFF_DIR}/cocina/actions.ts#kitchenReadyAction`]: staffAction(
-    KITCHEN,
-    "Kitchen screen: order ready. The cocina role is exempt from the sector rule (only here); cashier / delivery manager keep their own sector, admin exempt.",
-    ["src/app/(staff)/cocina/actions.int.test.ts", AUTHZ_TEST],
-  ),
-  [`action:${STAFF_DIR}/cocina/actions.ts#kitchenUndoAction`]: staffAction(
-    KITCHEN,
-    "Kitchen screen: put a ready order back in preparation, only while nobody called / assigned it (audited). Same sector rule as kitchenReadyAction.",
-    ["src/app/(staff)/cocina/actions.int.test.ts", AUTHZ_TEST],
-  ),
   [`action:${STAFF_DIR}/estacion/actions.ts#selectStation`]: staffAction(
     STAFF3,
     "Bind the session to a station of the role's kind (guard: requireSessionOrRedirect).",
@@ -195,7 +185,7 @@ export const SURFACE: Record<string, Entry> = {
   ["page:src/app/(staff)/mostrador/page.tsx"]: { access: "staff", roles: COUNTER, note: "POS (mostrador sector).", tests: ["e2e/mostrador-guards.spec.ts"] },
   ["page:src/app/(staff)/mostrador/pedidos/page.tsx"]: { access: "staff", roles: COUNTER, note: "Counter orders board.", tests: ["e2e/despacho-roles.spec.ts"] },
   ["page:src/app/(staff)/retiro/page.tsx"]: { access: "staff", roles: COUNTER, note: "Takeaway approval workspace.", tests: ["e2e/caja.spec.ts"] },
-  ["page:src/app/(staff)/cocina/page.tsx"]: { access: "staff", roles: KITCHEN, note: "Kitchen screen (orders in preparation, no customer data).", tests: ["e2e/cocina.spec.ts"] },
+  ["page:src/app/(staff)/cocina/page.tsx"]: { access: "staff", roles: KITCHEN, note: "Permanent redirect to /pantalla (no data, no actions).", tests: ["e2e/pantalla.spec.ts"] },
   ["page:src/app/(staff)/pantalla/page.tsx"]: {
     access: "staff",
     roles: COUNTER_TV,

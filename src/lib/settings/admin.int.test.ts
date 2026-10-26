@@ -18,8 +18,6 @@ const input = (over: Record<string, unknown> = {}) => ({
   acceptingOrders: true,
   openingHoursText: "Lun a Dom 20 a 00",
   businessDayCutoff: "06:00",
-  kdsWarnMinutes: 8,
-  kdsLateMinutes: 15,
   ...over,
 });
 
@@ -59,8 +57,6 @@ describe("saveSettings", () => {
       acceptingOrders: true,
       openingHoursText: "Lun a Dom 20 a 00",
       businessDayCutoff: "06:00",
-      kdsWarnMinutes: 8,
-      kdsLateMinutes: 15,
     });
     const [fee] = await db().select().from(s.settings).where(eq(s.settings.key, "delivery_fee"));
     expect(fee.value).toBe(150000);

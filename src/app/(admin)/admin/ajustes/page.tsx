@@ -50,8 +50,6 @@ export default async function AdminSettingsPage() {
           acceptingOrders: settings.acceptingOrders,
           openingHoursText: settings.openingHoursText,
           businessDayCutoff: settings.businessDayCutoff,
-          kdsWarnMinutes: settings.kdsWarnMinutes,
-          kdsLateMinutes: settings.kdsLateMinutes,
         }}
       />
     </section>

@@ -19,8 +19,6 @@ export type SettingsFormValues = {
   acceptingOrders: boolean;
   openingHoursText: string;
   businessDayCutoff: string;
-  kdsWarnMinutes: number;
-  kdsLateMinutes: number;
 };
 
 export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
@@ -105,18 +103,6 @@ export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
           />
           Recibiendo pedidos online
         </label>
-      </Card>
-
-      <Card className="flex flex-col gap-4">
-        <h2 className="font-display text-xl font-extrabold">Pantalla de cocina</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Aviso amarillo (minutos)" htmlFor="kdsWarnMinutes" hint="Desde cuántos minutos en preparación el reloj del pedido se pone amarillo." error={fe.kdsWarnMinutes}>
-            <Input id="kdsWarnMinutes" name="kdsWarnMinutes" type="number" inputMode="numeric" min={1} max={480} required defaultValue={pick("kdsWarnMinutes")} hasHint error={fe.kdsWarnMinutes} />
-          </Field>
-          <Field label="Aviso rojo (minutos)" htmlFor="kdsLateMinutes" hint="Desde cuántos minutos se pone rojo (pedido demorado). Tiene que ser mayor que el amarillo." error={fe.kdsLateMinutes}>
-            <Input id="kdsLateMinutes" name="kdsLateMinutes" type="number" inputMode="numeric" min={1} max={480} required defaultValue={pick("kdsLateMinutes")} hasHint error={fe.kdsLateMinutes} />
-          </Field>
-        </div>
       </Card>
 
       <div>

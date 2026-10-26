@@ -235,7 +235,7 @@ test.describe("cocina user", () => {
       // The TV's cookie is long-lived (no 30-day logout).
       const cookie = (await context.cookies()).find((c) => c.name === "bh_session")!;
       expect(cookie.expires * 1000 - Date.now()).toBeGreaterThan(300 * 24 * 3_600_000);
-      for (const path of ["/caja", "/mostrador", "/retiro", "/delivery", "/admin"]) {
+      for (const path of ["/cocina", "/caja", "/mostrador", "/retiro", "/delivery", "/admin"]) {
         await page.goto(path);
         await expect(page, path).toHaveURL(/\/pantalla$/);
       }
@@ -439,6 +439,31 @@ test.describe("other staff", () => {
       }
     });
   }
+
+  test("the old /cocina leads to the TV for a cajera and for the staff menu there is no Cocina link", async ({ browser, baseURL }) => {
+    const ctx = await staffContext(browser, baseURL, "cajera");
+    try {
+      const page = await ctx.newPage();
+      await page.goto("/cocina");
+      await expect(page).toHaveURL(/\/pantalla$/);
+      await expect(page.getByTestId("counter-board")).toBeVisible();
+      await openPos(page);
+      await expect(page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Cocina" })).toHaveCount(0);
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test("/cocina without a session asks for the login and then comes back to the TV", async ({ browser, baseURL }) => {
+    const ctx = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: test.info().project.use.extraHTTPHeaders });
+    try {
+      const page = await ctx.newPage();
+      await page.goto("/cocina");
+      await expect(page).toHaveURL(/\/login\?next=%2Fpantalla$/);
+    } finally {
+      await ctx.close();
+    }
+  });
 
   test("pantalla: without a session it asks for the login", async ({ browser, baseURL }) => {
     const ctx = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: test.info().project.use.extraHTTPHeaders });

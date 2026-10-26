@@ -184,8 +184,8 @@ describe("failed jobs that were handled (superseded)", () => {
       fx = await seedMenuAndStaff();
       const o = await placeWebOrder(fx);
       await approve(o.id);
-      const [kitchen] = await db().select().from(s.printJobs).where(eq(s.printJobs.type, "delivery"));
-      await failJob(kitchen.id);
+      const [deliveryJob] = await db().select().from(s.printJobs).where(eq(s.printJobs.type, "delivery"));
+      await failJob(deliveryJob.id);
       expect(await listFailedPrintJobs(db(), fx.otherStationId)).toHaveLength(1);
       await newJob(o.id, "delivery", fx.otherStationId, status);
       expect(await listFailedPrintJobs(db(), fx.otherStationId)).toEqual([]);
@@ -224,11 +224,11 @@ describe("failed jobs that were handled (superseded)", () => {
   it("a different type, a different station or a later FAILED job do not handle it", async () => {
     const o = await placeWebOrder(fx);
     await approve(o.id);
-    const [kitchen] = await db().select().from(s.printJobs).where(eq(s.printJobs.type, "delivery"));
-    await failJob(kitchen.id);
+    const [deliveryJob] = await db().select().from(s.printJobs).where(eq(s.printJobs.type, "delivery"));
+    await failJob(deliveryJob.id);
     await newJob(o.id, "customer", fx.otherStationId, "done");
     await newJob(o.id, "delivery", fx.stationId, "done");
-    expect((await listFailedPrintJobs(db(), fx.otherStationId)).map((f) => f.jobId)).toEqual([kitchen.id]);
+    expect((await listFailedPrintJobs(db(), fx.otherStationId)).map((f) => f.jobId)).toEqual([deliveryJob.id]);
     await newJob(o.id, "delivery", fx.otherStationId, "failed");
     expect(await listFailedPrintJobs(db(), fx.otherStationId)).toHaveLength(2);
     const [row] = await listRecentProcessed(db());

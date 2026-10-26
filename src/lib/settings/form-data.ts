@@ -3,11 +3,6 @@ const text = (fd: FormData, key: string): string => {
   return typeof v === "string" ? v : "";
 };
 
-const minutes = (fd: FormData, key: string): number => {
-  const v = text(fd, key).trim();
-  return v === "" ? Number.NaN : Number(v);
-};
-
 export function settingsFromForm(fd: FormData) {
   const fee = text(fd, "deliveryFeePesos").trim();
   return {
@@ -21,7 +16,5 @@ export function settingsFromForm(fd: FormData) {
     acceptingOrders: fd.has("acceptingOrders"),
     openingHoursText: text(fd, "openingHoursText"),
     businessDayCutoff: text(fd, "businessDayCutoff"),
-    kdsWarnMinutes: minutes(fd, "kdsWarnMinutes"),
-    kdsLateMinutes: minutes(fd, "kdsLateMinutes"),
   };
 }
