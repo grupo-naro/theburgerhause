@@ -1,7 +1,21 @@
 "use client";
 
-/** Last-resort net (errors in the root layout). Renders its own document, so it carries minimal inline styles. */
+import { useEffect } from "react";
+import { shouldAutoReload, TV_RELOAD_INTERVAL_MS } from "@/lib/pantalla/auto-reload";
+
+/**
+ * Last-resort net (errors in the root layout). Renders its own document, so it carries minimal inline styles.
+ * The counter TV (/pantalla) is unattended: there it reloads the whole page every 15 s (a plain reload, not retry())
+ * so a 500 before streaming never strands it on a manual button. Other routes keep "Reintentar".
+ */
 export default function GlobalError({ retry }: { error: Error & { digest?: string }; retry: () => void }) {
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (shouldAutoReload(window.location.pathname, navigator.onLine)) window.location.reload();
+    }, TV_RELOAD_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, []);
+
   return (
     <html lang="es-AR">
       <body
