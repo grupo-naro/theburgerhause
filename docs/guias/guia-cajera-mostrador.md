@@ -78,6 +78,20 @@ tocar **Entregado** aparece **"Cobrá $… antes de entregar"**: recibí la plat
 
 **Recientes** (abajo): últimos pedidos con su estado y la marca de impresión (**Impresión: ok / pendiente / falló**) y el botón **Reimprimir**.
 
+## Avisar una demora
+
+Si la cocina se atrasa o pasa algo (se pinchó el delivery, falta un ingrediente), podés avisar una demora desde el botón **Demora** de la
+barra de arriba (dice **Sin demora** o **+10 min**). Hay dos clases:
+
+- **Automática**: el sistema calcula solo la espera según los pedidos en preparación. No hacés nada; la ves en el panel como "Estimación automática".
+- **Manual**: la activás vos y se **suma** a la automática. Los clientes ven una espera más larga.
+
+**Activar**: tocá **Demora**, elegí los minutos extra (**+5** a **+60**), escribí el **motivo** y apretá **Activar demora**. Si ya había una,
+la nueva la reemplaza.
+**Desactivar**: tocá **Demora** y **Desactivar demora**. Queda registrado quién la activó y quién la sacó.
+
+El **motivo es interno**: lo ve solo el personal, nunca el cliente.
+
 ## Si algo falla
 
 | Qué pasa | Qué hacés |

@@ -9,6 +9,8 @@ import { navLinksFor } from "@/lib/caja/nav";
 import { listPendingApproval } from "@/lib/orders/caja-queries";
 import { derivePrinterStatus } from "@/lib/caja/printer-status";
 import { getStationHeader } from "@/lib/stations/header";
+import { DelayPanel } from "./delay-panel";
+import { getDelayPanelData } from "./delay-panel-data";
 import { PrinterHeartbeatRefresh } from "./printer-heartbeat-refresh";
 import { PrinterIndicator } from "./printer-indicator";
 import { ShellOrderAlert } from "./shell-order-alert";
@@ -29,7 +31,11 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
   // (nav badge always, beep/title only when the page has no alert of its own: never two beeps).
   const ownSector = session.user.role === "cajera" ? "mostrador" : session.user.role === "encargada_delivery" ? "delivery" : null;
   const sector = ownSector !== null && session.stationKind === ownSector ? ownSector : null;
-  const waiting = sector === null ? [] : await listPendingApproval(getDb(), { sector, channel: "web" });
+  // The delay panel is for the STAFF3 roles; cocina (the TV login) never sees it.
+  const [waiting, delay] = await Promise.all([
+    sector === null ? Promise.resolve([]) : listPendingApproval(getDb(), { sector, channel: "web" }),
+    session.user.role === "cocina" ? Promise.resolve(null) : getDelayPanelData(getDb(), new Date()),
+  ]);
   const badges = sector === null || waiting.length === 0 ? {} : { [sector === "mostrador" ? "/retiro" : "/delivery"]: waiting.length };
 
   return (
@@ -46,6 +52,7 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
           {sector !== null && !ownsOrderAlert && <ShellOrderAlert orders={waiting.map((o) => ({ id: o.id, number: o.number, createdAt: o.createdAt }))} />}
+          {delay && <DelayPanel data={delay} />}
           {printer && <PrinterIndicator status={printer} />}
           <LiveRefresh large />
           <PrinterHeartbeatRefresh />

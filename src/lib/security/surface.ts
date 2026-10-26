@@ -92,6 +92,14 @@ export const SURFACE: Record<string, Entry> = {
   [`action:${STAFF_DIR}/mostrador/actions.ts#createCounterOrderAction`]: staffAction(COUNTER, "POS sale (cashier and admin)."),
   [`action:${STAFF_DIR}/mostrador/actions.ts#listActivePagersAction`]: staffAction(COUNTER, "Active pager numbers."),
   [`action:${STAFF_DIR}/mostrador/actions.ts#getPrintStateAction`]: staffAction(COUNTER, "Print status of one order."),
+  [`action:${STAFF_DIR}/demora/actions.ts#activateDelayAction`]: staffAction(STAFF3, "Announce a manual delay (+5..60 min, staff-only reason); closes the previous one.", [
+    "src/app/(staff)/demora/actions.int.test.ts",
+    AUTHZ_TEST,
+  ]),
+  [`action:${STAFF_DIR}/demora/actions.ts#deactivateDelayAction`]: staffAction(STAFF3, "Clear the active manual delay.", [
+    "src/app/(staff)/demora/actions.int.test.ts",
+    AUTHZ_TEST,
+  ]),
   [`action:${STAFF_DIR}/estacion/actions.ts#selectStation`]: staffAction(
     STAFF3,
     "Bind the session to a station of the role's kind (guard: requireSessionOrRedirect).",
