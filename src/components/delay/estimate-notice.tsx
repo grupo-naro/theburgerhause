@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { Fulfillment } from "@/domain/order-status";
+import { createLivePoller } from "@/lib/delay/live-poller";
 import type { PublicDelay } from "@/lib/delay/public";
 
 const POLL_MS = 60_000;
@@ -25,7 +26,6 @@ function useLiveDelay(initial: PublicDelay | null): PublicDelay | null {
   const [value, setValue] = useState(initial);
   useEffect(() => {
     const controller = new AbortController();
-    let timer: number | undefined;
     const refresh = async () => {
       try {
         const res = await fetch("/api/demora", {
@@ -41,29 +41,20 @@ function useLiveDelay(initial: PublicDelay | null): PublicDelay | null {
         // keep the last good value
       }
     };
-    const stop = () => {
-      window.clearTimeout(timer);
-      timer = undefined;
-    };
-    const loop = () => {
-      stop();
-      if (document.visibilityState !== "visible") return;
-      timer = window.setTimeout(async () => {
-        await refresh();
-        loop();
-      }, POLL_MS);
-    };
-    const wake = () => {
-      if (document.visibilityState !== "visible") return stop();
-      void refresh();
-      loop();
-    };
+    const poller = createLivePoller({
+      intervalMs: POLL_MS,
+      isVisible: () => document.visibilityState === "visible",
+      refresh,
+      schedule: (fn, ms) => window.setTimeout(fn, ms),
+      cancel: (h) => window.clearTimeout(h as number),
+    });
+    const wake = () => poller.wake();
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("online", wake);
-    loop();
+    poller.start();
     return () => {
       controller.abort();
-      stop();
+      poller.stop();
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("online", wake);
     };
