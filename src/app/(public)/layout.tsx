@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import { CartProvider } from "@/components/cart/cart-provider";
 import { OrderBar } from "@/components/cart/order-bar";
 import { PreviousPathTracker } from "@/components/cart/previous-path";
+import { EstimateBanner } from "@/components/delay/estimate-banner";
 import { ClosedBanner } from "@/components/menu/closed-banner";
 import { MenuProvider } from "@/components/menu/menu-provider";
 import { MenuSkeleton } from "@/components/menu/menu-skeleton";
@@ -38,6 +39,9 @@ async function MenuShell({ children }: { children: ReactNode }) {
             </Suspense>
             <Suspense fallback={null}>
               <ClosedBanner />
+            </Suspense>
+            <Suspense fallback={null}>
+              <EstimateBanner />
             </Suspense>
             <main id="contenido" className="flex-1">
               {children}

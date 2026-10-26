@@ -160,6 +160,11 @@ export const SURFACE: Record<string, Entry> = {
     note: "Customer polling. The 256-bit token is the credential; per-IP request limiter plus a miss limiter; uniform 404/429 bodies; no-store.",
     tests: ["src/app/api/pedido/[token]/status/route.test.ts"],
   },
+  ["route:src/app/api/demora/route.ts#GET"]: {
+    access: "public",
+    note: "Read-only estimate, no reason, rate limited: 120 req/min per IP, answers only the takeaway/delivery ranges and a delayed flag; no-store; 503 with empty body on DB failure.",
+    tests: ["src/app/api/demora/route.test.ts", "src/lib/delay/public.int.test.ts"],
+  },
   ["route:src/app/api/uploads/route.ts#POST"]: {
     access: "staff",
     roles: MANAGERS,

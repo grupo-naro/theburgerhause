@@ -1,4 +1,7 @@
+import { EstimateNotice } from "@/components/delay/estimate-notice";
 import { formatARS } from "@/domain/money";
+import type { OrderStatus } from "@/domain/order-status";
+import type { PublicDelay } from "@/lib/delay/public";
 import type { TrackingOrder } from "@/lib/orders/tracking";
 import { trackingSteps } from "@/lib/orders/tracking-steps";
 import type { CheckoutInfo } from "@/lib/settings/checkout-info";
@@ -10,6 +13,9 @@ import { PaymentBlock } from "./payment-block";
 import { StatusPoller } from "./status-poller";
 import { Timeline } from "./timeline";
 
+/** The wait only matters until the food is ready. */
+const HIDE_ESTIMATE: ReadonlySet<OrderStatus> = new Set(["listo_despacho", "para_retirar", "en_camino", "entregado", "cancelado"]);
+
 const card = "rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5";
 
 /** `/pedido/[token]`: number, live status, timeline, payment, address / pickup, summary and contact. */
@@ -19,6 +25,7 @@ export function TrackingView({
   store,
   bank,
   justPlaced,
+  delay,
 }: {
   token: string;
   order: TrackingOrder;
@@ -27,9 +34,12 @@ export function TrackingView({
   bank: Pick<CheckoutInfo, "bankAlias" | "bankCbu"> | null;
   /** First render after checkout: the headline celebrates instead of only informing. */
   justPlaced: boolean;
+  /** Estimated wait (no reason), or null when unavailable. */
+  delay: PublicDelay | null;
 }) {
   const view = trackingSteps(order.status, order.fulfillment, order.paymentMethod);
   const headline = justPlaced && order.status === "pendiente_aprobacion" ? "¡Recibimos tu pedido!" : view.headline;
+  const showEstimate = !HIDE_ESTIMATE.has(order.status);
   const contact = (
     <ContactButtons number={order.number} whatsapp={store.whatsapp} phone={store.storePhone} showPhone={view.cancelled} showWhatsapp={view.cancelled} />
   );
@@ -57,6 +67,11 @@ export function TrackingView({
               <p data-testid="status-hint" className="mt-1 text-ink-muted">
                 {view.hint}
               </p>
+              {showEstimate && (
+                <div className="mt-3">
+                  <EstimateNotice initial={delay} variant="order" fulfillment={order.fulfillment} />
+                </div>
+              )}
             </div>
             {view.cancelled ? (
               <div className="mt-4">{contact}</div>
