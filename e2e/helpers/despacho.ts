@@ -126,7 +126,8 @@ export async function placeReady(o: Parameters<typeof placeCajaOrder>[0] = {}): 
 }
 
 let pagerSeq = 600 + (Date.now() % 300);
-export const nextPager = (): number => ++pagerSeq;
+/** Wraps back to 600 after 999 (the pager limit): a late random start must not run out of numbers mid-file. */
+export const nextPager = (): number => (pagerSeq = pagerSeq >= 999 ? 600 : pagerSeq + 1);
 
 /** A counter sale (POS core) with its pager, in preparation. */
 export const counterOrder = (pager = nextPager()) => seedCounterOrder(pager).then((r) => ({ ...r, pager }));

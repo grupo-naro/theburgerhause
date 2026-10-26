@@ -454,12 +454,12 @@ test.describe("other staff", () => {
     }
   });
 
-  test("/cocina without a session asks for the login and then comes back to the TV", async ({ browser, baseURL }) => {
+  test("/cocina without a session asks for the login (proxy), like every staff URL", async ({ browser, baseURL }) => {
     const ctx = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: test.info().project.use.extraHTTPHeaders });
     try {
       const page = await ctx.newPage();
       await page.goto("/cocina");
-      await expect(page).toHaveURL(/\/login\?next=%2Fpantalla$/);
+      await expect(page).toHaveURL(/\/login\?next=%2Fcocina$/);
     } finally {
       await ctx.close();
     }
