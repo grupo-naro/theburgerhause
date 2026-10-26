@@ -66,7 +66,7 @@ describe("saveSettings", () => {
     await saveSettings(db(), input({ deliveryFeePesos: 0, acceptingOrders: false, bankAlias: "" }));
     const got = await getSettings(db());
     expect(got).toMatchObject({ deliveryFee: 0, acceptingOrders: false, bankAlias: "" });
-    expect(await db().select().from(s.settings)).toHaveLength(12);
+    expect(await db().select().from(s.settings)).toHaveLength(10);
   });
   it("rejects an invalid CBU / alias / fee with field errors and writes nothing", async () => {
     const r = await saveSettings(db(), input({ bankCbu: "123", bankAlias: "no valido", deliveryFeePesos: -5 }));
