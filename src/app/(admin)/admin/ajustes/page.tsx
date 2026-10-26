@@ -50,6 +50,8 @@ export default async function AdminSettingsPage() {
           acceptingOrders: settings.acceptingOrders,
           openingHoursText: settings.openingHoursText,
           businessDayCutoff: settings.businessDayCutoff,
+          basePrepMinutes: settings.basePrepMinutes,
+          deliveryTravelMinutes: settings.deliveryTravelMinutes,
         }}
       />
     </section>

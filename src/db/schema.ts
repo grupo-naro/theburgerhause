@@ -470,6 +470,7 @@ export const stockMovementEdits = pgTable(
  *  - accepting_orders boolean (false shows the "local cerrado" banner)
  *  - (removed) kds_warn_minutes / kds_late_minutes: the old kitchen screen is gone; rows may remain in old databases but are unused
  *  - business_day_cutoff string "HH:MM" (Buenos Aires; numbering and business_date roll here, default 06:00)
+ *  - base_prep_minutes integer 5-180 (default 25); delivery_travel_minutes integer 0-120 (default 15)
  */
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),

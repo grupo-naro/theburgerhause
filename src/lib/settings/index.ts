@@ -14,6 +14,8 @@ import { cutoffMinutes, DEFAULT_BUSINESS_DAY_CUTOFF } from "@/db/order-number";
  *  delivery_fee -> deliveryFee (0, centavos)          accepting_orders -> acceptingOrders (true)
  *  opening_hours_text -> openingHoursText ("")
  *  business_day_cutoff -> businessDayCutoff ("06:00", HH:MM Buenos Aires: orders numbering and business date roll here)
+ *  base_prep_minutes -> basePrepMinutes (25, integer 5-180)
+ *  delivery_travel_minutes -> deliveryTravelMinutes (15, integer 0-120)
  */
 
 export type Settings = {
@@ -29,6 +31,10 @@ export type Settings = {
   openingHoursText: string;
   /** "HH:MM" (America/Argentina/Buenos_Aires): the business day and the order numbering roll over at this time. */
   businessDayCutoff: string;
+  /** Minutes, 5-180: base preparation time used for the customer wait estimate. */
+  basePrepMinutes: number;
+  /** Minutes, 0-120: extra travel margin added to delivery orders. */
+  deliveryTravelMinutes: number;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -42,6 +48,8 @@ export const DEFAULT_SETTINGS: Settings = {
   acceptingOrders: true,
   openingHoursText: "",
   businessDayCutoff: DEFAULT_BUSINESS_DAY_CUTOFF,
+  basePrepMinutes: 25,
+  deliveryTravelMinutes: 15,
 };
 
 /** DB key of each field. */
@@ -56,6 +64,8 @@ export const SETTING_KEYS = {
   acceptingOrders: "accepting_orders",
   openingHoursText: "opening_hours_text",
   businessDayCutoff: "business_day_cutoff",
+  basePrepMinutes: "base_prep_minutes",
+  deliveryTravelMinutes: "delivery_travel_minutes",
 } as const satisfies Record<keyof Settings, string>;
 
 type Conn = Db | DbTransaction;
@@ -63,6 +73,10 @@ type Conn = Db | DbTransaction;
 const asString = (v: unknown, fallback: string) => (typeof v === "string" ? v : fallback);
 const asCents = (v: unknown, fallback: number) =>
   typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : fallback;
+const asMinutes = (min: number, max: number) => (v: unknown, fallback: number) =>
+  typeof v === "number" && Number.isInteger(v) && v >= min && v <= max ? v : fallback;
+const asPrep = asMinutes(5, 180);
+const asTravel = asMinutes(0, 120);
 const asCutoff = (v: unknown, fallback: string) => (typeof v === "string" && cutoffMinutes(v) !== null ? v : fallback);
 const asBool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
 
@@ -82,6 +96,8 @@ export function parseSettings(rows: { key: string; value: unknown }[]): Settings
     acceptingOrders: asBool(raw.get(k.acceptingOrders), d.acceptingOrders),
     openingHoursText: asString(raw.get(k.openingHoursText), d.openingHoursText),
     businessDayCutoff: asCutoff(raw.get(k.businessDayCutoff), d.businessDayCutoff),
+    basePrepMinutes: asPrep(raw.get(k.basePrepMinutes), d.basePrepMinutes),
+    deliveryTravelMinutes: asTravel(raw.get(k.deliveryTravelMinutes), d.deliveryTravelMinutes),
   };
 }
 

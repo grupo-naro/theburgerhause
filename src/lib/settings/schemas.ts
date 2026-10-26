@@ -33,6 +33,16 @@ export const settingsInputSchema = z.object({
     .string()
     .trim()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Ingresá una hora entre 00:00 y 23:59 (ej. 06:00)"),
+  basePrepMinutes: z
+    .number("Ingresá el tiempo base de preparación")
+    .int("Ingresá minutos enteros")
+    .min(5, "Mínimo 5 minutos")
+    .max(180, "Máximo 180 minutos"),
+  deliveryTravelMinutes: z
+    .number("Ingresá el margen de viaje")
+    .int("Ingresá minutos enteros")
+    .min(0, "No puede ser negativo")
+    .max(120, "Máximo 120 minutos"),
 });
 
 export type SettingsInput = z.input<typeof settingsInputSchema>;

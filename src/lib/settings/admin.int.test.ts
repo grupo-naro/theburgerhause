@@ -18,6 +18,8 @@ const input = (over: Record<string, unknown> = {}) => ({
   acceptingOrders: true,
   openingHoursText: "Lun a Dom 20 a 00",
   businessDayCutoff: "06:00",
+  basePrepMinutes: 30,
+  deliveryTravelMinutes: 20,
   ...over,
 });
 
@@ -57,6 +59,8 @@ describe("saveSettings", () => {
       acceptingOrders: true,
       openingHoursText: "Lun a Dom 20 a 00",
       businessDayCutoff: "06:00",
+      basePrepMinutes: 30,
+      deliveryTravelMinutes: 20,
     });
     const [fee] = await db().select().from(s.settings).where(eq(s.settings.key, "delivery_fee"));
     expect(fee.value).toBe(150000);
@@ -66,7 +70,7 @@ describe("saveSettings", () => {
     await saveSettings(db(), input({ deliveryFeePesos: 0, acceptingOrders: false, bankAlias: "" }));
     const got = await getSettings(db());
     expect(got).toMatchObject({ deliveryFee: 0, acceptingOrders: false, bankAlias: "" });
-    expect(await db().select().from(s.settings)).toHaveLength(10);
+    expect(await db().select().from(s.settings)).toHaveLength(12);
   });
   it("rejects an invalid CBU / alias / fee with field errors and writes nothing", async () => {
     const r = await saveSettings(db(), input({ bankCbu: "123", bankAlias: "no valido", deliveryFeePesos: -5 }));
@@ -75,6 +79,12 @@ describe("saveSettings", () => {
       fieldErrors: { bankCbu: expect.any(String), bankAlias: expect.any(String), deliveryFeePesos: expect.any(String) },
     });
     expect(await db().select().from(s.settings)).toHaveLength(0);
+  });
+  it("rejects out-of-range minutes with field errors", async () => {
+    expect(await saveSettings(db(), input({ basePrepMinutes: 4, deliveryTravelMinutes: 121 }))).toMatchObject({
+      ok: false,
+      fieldErrors: { basePrepMinutes: expect.any(String), deliveryTravelMinutes: expect.any(String) },
+    });
   });
   it("rejects fractional pesos", async () => {
     expect(await saveSettings(db(), input({ deliveryFeePesos: 10.5 }))).toMatchObject({

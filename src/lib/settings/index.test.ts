@@ -15,6 +15,8 @@ describe("parseSettings", () => {
       acceptingOrders: true,
       openingHoursText: "",
       businessDayCutoff: "06:00",
+      basePrepMinutes: 25,
+      deliveryTravelMinutes: 15,
     });
   });
   it("reads known keys and merges the rest with defaults", () => {
@@ -47,6 +49,15 @@ describe("parseSettings", () => {
     for (const v of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, "100"]) {
       expect(parseSettings([{ key: "delivery_fee", value: v }]).deliveryFee).toBe(0);
     }
+  });
+  it("falls back to the default for garbage minutes", () => {
+    for (const v of ["abc", -1, 9999, 1.5, null]) {
+      expect(parseSettings([{ key: "base_prep_minutes", value: v }]).basePrepMinutes).toBe(25);
+      expect(parseSettings([{ key: "delivery_travel_minutes", value: v }]).deliveryTravelMinutes).toBe(15);
+    }
+    expect(parseSettings([{ key: "base_prep_minutes", value: 4 }]).basePrepMinutes).toBe(25);
+    expect(parseSettings([{ key: "delivery_travel_minutes", value: 121 }]).deliveryTravelMinutes).toBe(15);
+    expect(parseSettings([{ key: "delivery_travel_minutes", value: 0 }]).deliveryTravelMinutes).toBe(0);
   });
   it("ignores unknown keys", () => {
     expect(parseSettings([{ key: "something_else", value: "x" }])).toEqual(DEFAULT_SETTINGS);

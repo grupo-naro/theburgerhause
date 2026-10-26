@@ -33,6 +33,8 @@ export async function saveSettings(db: Conn, input: unknown): Promise<Result<nul
     acceptingOrders: v.acceptingOrders,
     openingHoursText: v.openingHoursText,
     businessDayCutoff: v.businessDayCutoff,
+    basePrepMinutes: v.basePrepMinutes,
+    deliveryTravelMinutes: v.deliveryTravelMinutes,
   };
   try {
     await asDb(db).transaction((tx) =>

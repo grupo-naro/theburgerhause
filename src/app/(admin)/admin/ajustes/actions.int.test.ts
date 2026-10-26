@@ -42,6 +42,8 @@ const valid = (over: Record<string, string> = {}) =>
     acceptingOrders: "on",
     openingHoursText: "Lun a Dom",
     businessDayCutoff: "06:00",
+    basePrepMinutes: "30",
+    deliveryTravelMinutes: "20",
     ...over,
   });
 

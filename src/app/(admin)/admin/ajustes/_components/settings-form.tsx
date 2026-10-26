@@ -19,6 +19,8 @@ export type SettingsFormValues = {
   acceptingOrders: boolean;
   openingHoursText: string;
   businessDayCutoff: string;
+  basePrepMinutes: number;
+  deliveryTravelMinutes: number;
 };
 
 export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
@@ -91,6 +93,12 @@ export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
             error={fe.businessDayCutoff}
           >
             <Input id="businessDayCutoff" name="businessDayCutoff" type="time" required defaultValue={pick("businessDayCutoff")} hasHint error={fe.businessDayCutoff} />
+          </Field>
+          <Field label="Tiempo base de preparación (min)" htmlFor="basePrepMinutes" hint="Lo que tarda un pedido sin cola. Entre 5 y 180." error={fe.basePrepMinutes}>
+            <Input id="basePrepMinutes" name="basePrepMinutes" type="number" inputMode="numeric" min={5} max={180} step={1} required defaultValue={pick("basePrepMinutes")} hasHint error={fe.basePrepMinutes} />
+          </Field>
+          <Field label="Margen de viaje del delivery (min)" htmlFor="deliveryTravelMinutes" hint="Se suma a los pedidos con envío. Entre 0 y 120." error={fe.deliveryTravelMinutes}>
+            <Input id="deliveryTravelMinutes" name="deliveryTravelMinutes" type="number" inputMode="numeric" min={0} max={120} step={1} required defaultValue={pick("deliveryTravelMinutes")} hasHint error={fe.deliveryTravelMinutes} />
           </Field>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium">

@@ -12,7 +12,18 @@ const base = {
   acceptingOrders: true,
   openingHoursText: "",
   businessDayCutoff: "06:00",
+  basePrepMinutes: 25,
+  deliveryTravelMinutes: 15,
 };
+
+describe("minutes", () => {
+  it("enforces ranges", () => {
+    expect(settingsInputSchema.safeParse({ ...base, basePrepMinutes: 4 }).success).toBe(false);
+    expect(settingsInputSchema.safeParse({ ...base, basePrepMinutes: 181 }).success).toBe(false);
+    expect(settingsInputSchema.safeParse({ ...base, deliveryTravelMinutes: 121 }).success).toBe(false);
+    expect(settingsInputSchema.safeParse({ ...base, deliveryTravelMinutes: 0, basePrepMinutes: 5 }).success).toBe(true);
+  });
+});
 
 describe("settingsInputSchema", () => {
   it("accepts a full valid input and blank optional fields", () => {
