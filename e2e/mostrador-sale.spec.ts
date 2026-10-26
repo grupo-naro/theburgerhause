@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { FakeAgent, freshStationToken, resetStationAgentState } from "./helpers/agent";
 import { countEventSources, failPrintJob, openRetiro, recentRow } from "./helpers/caja";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import * as s from "../src/db/schema";
 import { db, findStation, findUser, setProductActiveInDb } from "./helpers/db";
 import {
@@ -348,7 +348,7 @@ test("exactly one EventSource, and a sale from another terminal does not open a 
 });
 
 
-test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a failed job -> Reimprimir, each customer reprint queues 1 more job", async ({ page }) => {
+test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a failed job -> Reimprimir, an unconfirmed sale reprints what is unconfirmed, a failed customer ticket reprints only itself", async ({ page }) => {
   test.setTimeout(90_000);
   await releaseCounterState();
   await page.clock.install();
@@ -372,7 +372,9 @@ test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a fail
   await expect(reprint).toBeVisible();
   await reprint.click();
   await expect(status).toHaveAttribute("data-status", "printing");
-  await expect(async () => expect(await jobsOf(order.id)).toHaveLength(3)).toPass();
+  // Nothing was confirmed, so both the kitchen comanda and the customer ticket are reprinted (kitchen first).
+  await expect(async () => expect(await jobsOf(order.id)).toHaveLength(4)).toPass();
+  expect((await jobsOf(order.id)).map((j) => j.type)).toEqual(["kitchen", "customer", "kitchen", "customer"]);
 
   // The newest customer-ticket job fails for good: the status turns failed and the button reprints again.
   const jobs = await jobsOf(order.id);
@@ -385,7 +387,56 @@ test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a fail
   await expect(status).toContainText("Falló la impresión");
   await page.getByTestId("reprint").click();
   await expect(status).toHaveAttribute("data-status", "printing");
+  await expect(async () => expect(await jobsOf(order.id)).toHaveLength(5)).toPass();
+  expect((await jobsOf(order.id)).at(-1)!.type).toBe("customer"); // only the failed kind, never the comanda again
+});
+
+/** Sells one Ranchita and returns its order with the status line, on a frozen clock. */
+async function frozenSale(page: Page, pager: string) {
+  await releaseCounterState();
+  await page.clock.install();
+  await openPos(page);
+  await tileMain(page, "Ranchita simple").click();
+  await readySale(page, { pager });
+  await chargeButton(page).click();
+  await expect(overlay(page)).toBeVisible();
+  return { order: await latestCounterOrder(), status: page.getByTestId("print-status") };
+}
+const untilStatus = (page: Page, status: import("@playwright/test").Locator, value: string) =>
+  expect(async () => {
+    await page.clock.runFor(2000);
+    await expect(status).toHaveAttribute("data-status", value, { timeout: 400 });
+  }).toPass({ timeout: 30_000 });
+/** The agent confirms everything still queued (the reprints), leaving the failed jobs as they are. */
+const confirmQueued = (orderId: number) =>
+  db().update(s.printJobs).set({ status: "done", printedAt: new Date() }).where(and(eq(s.printJobs.orderId, orderId), eq(s.printJobs.status, "pending")));
+
+test("POS overlay: a failed KITCHEN job is recovered by Reimprimir (exactly the kitchen comanda is requeued, the failure clears)", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { order, status } = await frozenSale(page, "15");
+  const [kitchen] = await jobsOf(order.id);
+  expect(kitchen.type).toBe("kitchen");
+  await failPrintJob(kitchen.id, "Sin papel");
+  await untilStatus(page, status, "failed");
+  await page.getByTestId("reprint").click();
+  await expect(status).toHaveAttribute("data-status", "printing");
+  await expect(async () => expect(await jobsOf(order.id)).toHaveLength(3)).toPass();
+  expect((await jobsOf(order.id)).map((j) => j.type)).toEqual(["kitchen", "customer", "kitchen"]); // no extra customer ticket
+  await confirmQueued(order.id);
+  await untilStatus(page, status, "done"); // the kitchen failure no longer counts
+});
+
+test("POS overlay: when kitchen AND customer failed, Reimprimir requeues both, kitchen first", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { order, status } = await frozenSale(page, "16");
+  for (const j of await jobsOf(order.id)) await failPrintJob(j.id, "Sin papel");
+  await untilStatus(page, status, "failed");
+  await page.getByTestId("reprint").click();
+  await expect(status).toHaveAttribute("data-status", "printing");
   await expect(async () => expect(await jobsOf(order.id)).toHaveLength(4)).toPass();
+  expect((await jobsOf(order.id)).map((j) => j.type)).toEqual(["kitchen", "customer", "kitchen", "customer"]);
+  await confirmQueued(order.id);
+  await untilStatus(page, status, "done");
 });
 
 test("network error on charge: ticket intact, retry reuses the SAME key (one order); an edited ticket gets a NEW key", async ({ page }) => {

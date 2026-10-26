@@ -1,4 +1,7 @@
-import type { PrintState } from "@/lib/orders/caja-queries";
+import type { OrderPrintState, PrintState } from "@/lib/orders/caja-queries";
+
+/** What the poller needs: the counts, plus (when the server sends them) the ticket kinds behind them. */
+export type PolledPrintState = PrintState & Partial<Pick<OrderPrintState, "failedKinds" | "pendingKinds">>;
 
 export type PrintStatus = "printing" | "done" | "failed" | "waiting";
 
@@ -13,9 +16,9 @@ export function printStatusOf(state: PrintState): Exclude<PrintStatus, "waiting"
 }
 
 export type PrintPollerDeps = {
-  fetchState: () => Promise<PrintState>;
-  /** Called only when the status CHANGES. */
-  onStatus: (status: PrintStatus) => void;
+  fetchState: () => Promise<PolledPrintState>;
+  /** Called only when the status CHANGES, with the last state fetched (undefined if none arrived yet). */
+  onStatus: (status: PrintStatus, state?: PolledPrintState) => void;
   schedule: (fn: () => void, ms: number) => unknown;
   cancel: (handle: unknown) => void;
   now: () => number;
@@ -36,11 +39,12 @@ export function createPrintPoller(deps: PrintPollerDeps) {
   let stopped = false;
   let started = false;
   let last: PrintStatus | null = null;
+  let lastState: PolledPrintState | undefined;
 
   const emit = (status: PrintStatus) => {
     if (status === last) return;
     last = status;
-    deps.onStatus(status);
+    deps.onStatus(status, lastState);
   };
 
   function stop() {
@@ -54,7 +58,9 @@ export function createPrintPoller(deps: PrintPollerDeps) {
     if (stopped) return;
     let status: PrintStatus | null = null;
     try {
-      status = printStatusOf(await deps.fetchState());
+      const state = await deps.fetchState();
+      lastState = state;
+      status = printStatusOf(state);
     } catch {
       status = null; // retry on the next tick
     }

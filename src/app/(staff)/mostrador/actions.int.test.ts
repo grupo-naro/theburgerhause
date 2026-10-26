@@ -224,10 +224,10 @@ describe("getPrintStateAction", () => {
     as("cajera");
     const a = await sell({ pagerNumber: 1 });
     const b = await sell({ pagerNumber: 2 });
-    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 0, done: 0 } });
+    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 0, done: 0, failedKinds: [], pendingKinds: ["kitchen", "customer"] } });
     await testDb().update(s.printJobs).set({ status: "done" }).where(eq(s.printJobs.orderId, a.orderId));
-    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 0, failed: 0, done: 2 } });
-    expect(await getPrintStateAction({ orderId: b.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 0, done: 0 } });
+    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 0, failed: 0, done: 2, failedKinds: [], pendingKinds: [] } });
+    expect(await getPrintStateAction({ orderId: b.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 0, done: 0, failedKinds: [], pendingKinds: ["kitchen", "customer"] } });
   });
 
   it("counts printing as pending and an unhandled failure as failed", async () => {
@@ -237,7 +237,7 @@ describe("getPrintStateAction", () => {
     const [, customer] = a.printJobIds;
     await testDb().insert(s.printJobs).values({ orderId: a.orderId, stationId: fx.stationId, type: "delivery", status: "printing", payload: {} } as never);
     await testDb().update(s.printJobs).set({ status: "failed", attempts: 3 }).where(eq(s.printJobs.id, customer));
-    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 1, done: 0 } }); // kitchen pending + a printing job; the customer ticket failed
+    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 1, done: 0, failedKinds: ["customer"], pendingKinds: ["kitchen", "delivery"] } }); // kitchen pending + a printing job; the customer ticket failed
   });
 
   it("a failure superseded by a later job (reprint) no longer counts", async () => {
@@ -247,6 +247,23 @@ describe("getPrintStateAction", () => {
     await testDb().update(s.printJobs).set({ status: "failed", attempts: 3 }).where(eq(s.printJobs.id, customer));
     await testDb().insert(s.printJobs).values({ orderId: a.orderId, stationId: fx.stationId, type: "customer", status: "pending", payload: {} } as never);
     expect(await getPrintStateAction({ orderId: a.orderId })).toMatchObject({ ok: true, data: { failed: 0 } });
+  });
+
+  it("failedKinds lists exactly the unhandled failed kinds (kitchen first); a later job of the same kind clears only that kind", async () => {
+    as("cajera");
+    const a = await sell();
+    const [kitchen, customer] = a.printJobIds;
+    const fail = (id: number) => testDb().update(s.printJobs).set({ status: "failed", attempts: 3 }).where(eq(s.printJobs.id, id));
+    const add = (type: "kitchen" | "customer", status: "pending" | "done") =>
+      testDb().insert(s.printJobs).values({ orderId: a.orderId, stationId: fx.stationId, type, status, payload: {} } as never);
+    await fail(kitchen);
+    expect(await getPrintStateAction({ orderId: a.orderId })).toMatchObject({ ok: true, data: { failed: 1, failedKinds: ["kitchen"], pendingKinds: ["customer"] } });
+    await fail(customer);
+    expect(await getPrintStateAction({ orderId: a.orderId })).toMatchObject({ ok: true, data: { failed: 2, failedKinds: ["kitchen", "customer"], pendingKinds: [] } });
+    await add("customer", "pending"); // a customer-only reprint does NOT clear the kitchen failure
+    expect(await getPrintStateAction({ orderId: a.orderId })).toMatchObject({ ok: true, data: { failed: 1, failedKinds: ["kitchen"], pendingKinds: ["customer"] } });
+    await add("kitchen", "done");
+    expect(await getPrintStateAction({ orderId: a.orderId })).toMatchObject({ ok: true, data: { failed: 0, failedKinds: [] } });
   });
 
   it("unknown id -> generic not-found result (no detail leaked); bad input -> VALIDATION", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { queueReprints, reprintsFor } from "@/lib/caja/reprint-queue";
 import { reprintOrderAction } from "@/app/(staff)/caja/actions";
 import { formatARS } from "@/domain/money";
 import { AlertIcon, PrinterIcon } from "./pos-icons";
@@ -21,7 +22,9 @@ export function ConfirmationOverlay({ sale, onNewSale }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const newSaleRef = useRef<HTMLButtonElement>(null);
   const uid = useId();
-  const { status, restart } = usePrintStatus(sale.orderId);
+  const { status, state, restart } = usePrintStatus(sale.orderId);
+  /** Reprints already queued in this attempt: a retry after a partial failure never queues the kitchen comanda twice. */
+  const queued = useRef(new Set<string>());
   const [reprinting, setReprinting] = useState(false);
   const [reprintError, setReprintError] = useState<string | null>(null);
 
@@ -36,9 +39,16 @@ export function ConfirmationOverlay({ sale, onNewSale }: Props) {
     setReprinting(true);
     setReprintError(null);
     try {
-      const r = await reprintOrderAction({ orderId: sale.orderId, which: "customer" });
-      if (r.ok) restart();
-      else setReprintError(r.message);
+      // Reprint exactly what failed (kitchen comanda first), or what the agent has not confirmed; never kinds that printed fine.
+      const kinds = status === "failed" ? state?.failedKinds : state?.pendingKinds;
+      const which = reprintsFor(kinds ?? []);
+      const r = await queueReprints(which.length > 0 ? which : ["customer"], queued.current, (w) =>
+        reprintOrderAction({ orderId: sale.orderId, which: w }),
+      );
+      if (r.ok) {
+        queued.current.clear();
+        restart();
+      } else setReprintError("message" in r ? r.message : "No pudimos reimprimir. Probá de nuevo.");
     } catch {
       setReprintError("No pudimos reimprimir. Probá de nuevo.");
     } finally {

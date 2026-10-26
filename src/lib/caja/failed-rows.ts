@@ -1,5 +1,6 @@
 import type { FailedPrintJob } from "@/lib/orders/caja-queries";
 import type { PrintWhich } from "@/lib/orders/print-kinds";
+import { reprintsFor } from "./reprint-queue";
 
 /** The reprint a failed job calls for: its own ticket kind (the legacy `ticket` rows are customer tickets). */
 const whichOf = (type: FailedPrintJob["type"]): "kitchen" | "customer" | "delivery" =>
@@ -22,8 +23,7 @@ export function groupFailedByOrder(jobs: FailedPrintJob[]): FailedRowModel[] {
   return [...byOrder.values()].map((list) => {
     const kinds = new Set(list.map((j) => whichOf(j.type)));
     const latest = Math.max(...list.map((j) => j.jobId));
-    const tickets = (["customer", "delivery"] as const).filter((k) => kinds.has(k));
-    const which: PrintWhich[] = [...(kinds.has("kitchen") ? (["kitchen"] as const) : []), ...(tickets.length > 1 ? (["both"] as const) : tickets)];
+    const which: PrintWhich[] = reprintsFor(kinds);
     return {
       key: `${list[0].orderId}:${latest}`,
       orderId: list[0].orderId,

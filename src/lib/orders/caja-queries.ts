@@ -13,6 +13,9 @@ import { groupTrackingItems, type SnapshotItem, type TrackingGroup } from "./tra
  */
 
 export type PrintState = { pending: number; failed: number; done: number };
+export type PrintKindName = "kitchen" | "customer" | "delivery";
+/** Print state of ONE order plus which ticket kinds are unhandled-failed / still unconfirmed (pending or printing). */
+export type OrderPrintState = PrintState & { failedKinds: PrintKindName[]; pendingKinds: PrintKindName[] };
 export type CajaOrder = {
   id: number;
   number: number;

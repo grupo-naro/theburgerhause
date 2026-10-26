@@ -350,6 +350,32 @@ test.describe("failed prints", () => {
     }
   });
 
+  test("a failed kitchen comanda is reprinted by the red alert on its own; with both failed, kitchen first and the customer ticket after", async ({ page }) => {
+    await parkPendingOrders();
+    const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    await openRetiro(page);
+    await approveFromUi(page, o.number);
+    const [kitchenJob, customerJob] = await printJobsOf(o.id);
+    try {
+      await failPrintJob(kitchenJob.id, "Sin papel");
+      const alert = page.getByTestId("failed-print-alert");
+      await expect(alert.getByTestId("failed-print")).toContainText("Ticket cocina: Sin papel");
+      await alert.getByRole("button", { name: `Reimprimir pedido #${o.number}` }).click();
+      await expect(alert).toHaveCount(0);
+      expect((await printJobsOf(o.id)).map((j) => j.type)).toEqual(["kitchen", "customer", "kitchen"]); // only the comanda
+
+      const again = (await printJobsOf(o.id)).at(-1)!;
+      await failPrintJob(again.id, "Sin papel");
+      await failPrintJob(customerJob.id, "Sin papel");
+      await expect(alert.getByTestId("failed-print")).toContainText("Ticket cocina");
+      await alert.getByRole("button", { name: `Reimprimir pedido #${o.number}` }).click();
+      await expect(alert).toHaveCount(0);
+      expect((await printJobsOf(o.id)).map((j) => j.type)).toEqual(["kitchen", "customer", "kitchen", "kitchen", "customer"]);
+    } finally {
+      await markJobsDone(o.id);
+    }
+  });
+
   test("Reimprimir from Recientes offers the customer and kitchen tickets for a takeaway order and queues the chosen one for the current station", async ({ page }) => {
     await parkPendingOrders();
     const o = await placeRetiroOrder({ paymentMethod: "cash" });

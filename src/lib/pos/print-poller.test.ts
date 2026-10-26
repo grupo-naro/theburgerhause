@@ -56,6 +56,30 @@ function harness(states: (PrintState | "error")[], over: Partial<PrintPollerDeps
   return { poller, advance, seen, calls: () => calls, timers };
 }
 
+describe("createPrintPoller: state handed to the UI", () => {
+  it("onStatus also receives the last fetched state (the kinds that failed / are unconfirmed), including on 'waiting'", async () => {
+    const seen: [string, unknown][] = [];
+    const timers: (() => void)[] = [];
+    let now = 0;
+    const poller = createPrintPoller({
+      fetchState: async () => ({ pending: 1, failed: 0, done: 0, pendingKinds: ["kitchen"] }),
+      onStatus: (st, state) => seen.push([st, state]),
+      schedule: (fn) => timers.push(fn),
+      cancel: () => {},
+      now: () => now,
+      timeoutMs: 1000,
+    });
+    poller.start();
+    await Promise.resolve();
+    await Promise.resolve();
+    now = 2000;
+    timers.shift()!();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(seen.at(-1)).toEqual(["waiting", { pending: 1, failed: 0, done: 0, pendingKinds: ["kitchen"] }]);
+  });
+});
+
 describe("createPrintPoller", () => {
   it("polls immediately on start, then every 2 s", async () => {
     const h = harness([{ pending: 2, failed: 0, done: 0 }]);

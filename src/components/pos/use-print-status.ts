@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getPrintStateAction } from "@/app/(staff)/mostrador/actions";
-import { createPrintPoller, type PrintStatus } from "@/lib/pos/print-poller";
+import { createPrintPoller, type PolledPrintState, type PrintStatus } from "@/lib/pos/print-poller";
 
 /** Print status of one order, polled every 2 s until done / failed / ~30 s (see `createPrintPoller`). */
 export function usePrintStatus(orderId: number) {
   const [status, setStatus] = useState<PrintStatus>("printing");
+  const [state, setState] = useState<PolledPrintState | undefined>(undefined);
   const [run, setRun] = useState(0);
 
   useEffect(() => {
@@ -16,7 +17,10 @@ export function usePrintStatus(orderId: number) {
         if (!r.ok) throw new Error(r.code);
         return r.data;
       },
-      onStatus: setStatus,
+      onStatus: (st, s) => {
+        setStatus(st);
+        setState(s);
+      },
       schedule: (fn, ms) => window.setTimeout(fn, ms),
       cancel: (h) => window.clearTimeout(h as number),
       now: () => Date.now(),
@@ -31,5 +35,6 @@ export function usePrintStatus(orderId: number) {
     setRun((n) => n + 1);
   }, []);
 
-  return { status, restart };
+  /** `state` = the last counts + the ticket kinds that failed / are unconfirmed (to reprint exactly those). */
+  return { status, state, restart };
 }

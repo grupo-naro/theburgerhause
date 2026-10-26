@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
-import { UNHANDLED_FAILED, type PrintState } from "./caja-queries";
+import { UNHANDLED_FAILED, type OrderPrintState, type PrintKindName } from "./caja-queries";
 
 const jobCount = (filter: string) =>
   sql<number>`(select count(*)::int from "print_jobs" where "print_jobs"."order_id" = "orders"."id" and ${sql.raw(filter)})`;
@@ -11,7 +11,16 @@ const jobCount = (filter: string) =>
  * being printed, `failed` only counts failures not superseded by a later reprint. `null` when the
  * order does not exist. No next/*.
  */
-export async function getOrderPrintState(db: Db, orderId: number): Promise<PrintState | null> {
+/** Distinct ticket kinds (kitchen, customer, delivery) of the order's jobs matching `filter`; legacy `ticket` reads as customer. */
+async function kindsOf(db: Db, orderId: number, filter: string): Promise<PrintKindName[]> {
+  const rows = await db.execute(
+    sql`select distinct (case "print_jobs"."type" when 'ticket' then 'customer' else "print_jobs"."type"::text end) as kind from "print_jobs" where "print_jobs"."order_id" = ${orderId} and ${sql.raw(filter)}`,
+  );
+  const found = new Set((rows.rows as { kind: string }[]).map((r) => r.kind));
+  return (["kitchen", "customer", "delivery"] as const).filter((k) => found.has(k));
+}
+
+export async function getOrderPrintState(db: Db, orderId: number): Promise<OrderPrintState | null> {
   const [row] = await db
     .select({
       pending: jobCount(`"print_jobs"."status" in ('pending','printing')`),
@@ -20,5 +29,10 @@ export async function getOrderPrintState(db: Db, orderId: number): Promise<Print
     })
     .from(s.orders)
     .where(eq(s.orders.id, orderId));
-  return row ? { pending: row.pending, failed: row.failed, done: row.done } : null;
+  if (!row) return null;
+  const [failedKinds, pendingKinds] = await Promise.all([
+    kindsOf(db, orderId, UNHANDLED_FAILED),
+    kindsOf(db, orderId, `"print_jobs"."status" in ('pending','printing')`),
+  ]);
+  return { pending: row.pending, failed: row.failed, done: row.done, failedKinds, pendingKinds };
 }

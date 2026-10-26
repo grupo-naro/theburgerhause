@@ -13,7 +13,7 @@ import {
   type CreateCounterOrderFailure,
 } from "@/lib/orders/create-counter-order";
 import { pgErrorCode } from "@/lib/orders/create-order";
-import type { PrintState } from "@/lib/orders/caja-queries";
+import type { OrderPrintState } from "@/lib/orders/caja-queries";
 import { listActivePagers, type ActivePager } from "@/lib/orders/pagers";
 import { getOrderPrintState } from "@/lib/orders/print-state";
 import { fieldErrorsOf } from "@/lib/orders/schemas";
@@ -111,7 +111,7 @@ const printStateSchema = z.object({ orderId: z.number().int().positive().max(2_1
  * Print status of ONE order (job counts), polled by the confirmation overlay of the POS.
  * Same roles as the sale. Unknown ids answer a generic not-found result.
  */
-export async function getPrintStateAction(input: unknown): Promise<CounterActionResult<PrintState>> {
+export async function getPrintStateAction(input: unknown): Promise<CounterActionResult<OrderPrintState>> {
   const auth = await authorize();
   if ("result" in auth) return auth.result;
   const parsed = printStateSchema.safeParse(input);

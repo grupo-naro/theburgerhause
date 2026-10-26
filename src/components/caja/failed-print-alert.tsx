@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { queueReprints } from "@/lib/caja/reprint-queue";
 import { reprintOrderAction } from "@/app/(staff)/caja/actions";
 import type { FailedPrintJob } from "@/lib/orders/caja-queries";
 import { groupFailedByOrder, type FailedRowModel } from "@/lib/caja/failed-rows";
@@ -18,6 +19,8 @@ function FailedRow({ row }: { row: FailedRowModel }) {
   const router = useRouter();
   const { run, pending, error } = useGuardedAction();
   const [queued, setQueued] = useState(false);
+  /** Reprints already queued by this row: a retry after a partial failure only queues the rest. */
+  const sent = useRef(new Set<string>());
   return (
     <li data-testid="failed-print" className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/10 px-4 py-3">
       <div className="min-w-0">
@@ -42,15 +45,8 @@ function FailedRow({ row }: { row: FailedRowModel }) {
         aria-label={`Reimprimir pedido #${row.orderNumber}`}
         onClick={() =>
           run(
-            async () => {
-              // The kitchen comanda and the customer/delivery tickets are separate reprints; queue them in order and stop at the first refusal.
-              let last: Awaited<ReturnType<typeof reprintOrderAction>> | undefined;
-              for (const which of row.which) {
-                last = await reprintOrderAction({ orderId: row.orderId, which });
-                if (!last.ok) return last;
-              }
-              return last!;
-            },
+            // The kitchen comanda and the customer/delivery tickets are separate reprints; queue them in order and stop at the first refusal.
+            async () => (await queueReprints(row.which, sent.current, (which) => reprintOrderAction({ orderId: row.orderId, which }))) as Awaited<ReturnType<typeof reprintOrderAction>>,
             {
               lockOnSuccess: true,
               onOk: () => {
