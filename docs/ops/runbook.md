@@ -337,6 +337,10 @@ sudo install -m 644 conf.d/00-burgerhause-zones.conf /etc/nginx/conf.d/
 sudo install -d /etc/nginx/snippets
 sudo install -m 644 snippets/burgerhause-proxy.conf snippets/burgerhause-headers.conf /etc/nginx/snippets/
 sudo install -m 644 burgerhause.conf /etc/nginx/sites-available/burgerhause.conf
+# Página "Reconectando…" que Nginx muestra mientras la app se reinicia (cada deploy) o está caída (error_page 502 503 504):
+# se recarga sola cada 10 s, así el televisor del mostrador y las pantallas abiertas vuelven sin que nadie toque nada.
+sudo install -d -m 755 /var/www/burgerhause-maintenance
+sudo install -m 644 maintenance/maintenance.html /var/www/burgerhause-maintenance/maintenance.html
 sudo sed -i 's/burgerhause\.example\.com/<TU_DOMINIO>/g' /etc/nginx/sites-available/burgerhause.conf
 sudo grep -c "example.com" /etc/nginx/sites-available/burgerhause.conf      # tiene que dar 0
 sudo rm -f /etc/nginx/sites-enabled/bootstrap
@@ -864,6 +868,36 @@ administrador a `https://<TU_DOMINIO>/admin`:
 10. **Abrir pedidos**: Admin → Ajustes → **Reanudar pedidos** (equivale a la casilla **Recibiendo pedidos online** + **Guardar ajustes**). Probar desde un celular fuera de la red
     del local que `https://<TU_DOMINIO>` carga el menú.
 
+### 10.1 El televisor del mostrador (`/pantalla`)
+
+La pantalla de pedidos del mostrador ("En preparación" / "¡Listo! Retiralo en el mostrador") corre en un navegador
+conectado al televisor y queda encendida días enteros. Se configura una vez:
+
+1. En Admin → Usuarios, un usuario con rol **Cocina** (sin estación). Es el login del televisor: entra directo a `/pantalla`.
+   Su sesión es **larga: dura 400 días desde el último uso y no vence por inactividad** (la cookie dura 400 días desde el
+   login, el máximo del navegador). Pasado ese plazo, o si alguien usa "Cerrar sesiones" / cambia la clave / el rol, hay que
+   volver a iniciar sesión en el televisor.
+2. Arrancar el navegador a pantalla completa y **con el audio permitido sin toque**, para que suene el aviso de "Listo"
+   también después de un corte de luz (si no, el navegador exige tocar la pantalla una vez y la pantalla lo indica abajo a
+   la izquierda). Chrome o Edge, en el inicio automático de la PC del televisor:
+
+   ```text
+   chrome.exe --kiosk --autoplay-policy=no-user-gesture-required https://<TU_DOMINIO>/pantalla
+   ```
+
+   (`msedge.exe` acepta las mismas opciones; `--kiosk` = pantalla completa sin barras; para salir: Alt+F4.)
+3. Desactivar la suspensión / el protector de pantalla de esa PC.
+
+Se recupera sola: refresca los datos en vivo, cada 60 s y al volver la red; durante un deploy (la app se reinicia) Nginx
+muestra "Reconectando…" y recarga cada 10 s (página instalada en 2.11); si la página falla al dibujarse (por ejemplo un corte
+de la base) muestra "Reconectando…" y reintenta sola cada 15 s. Si quedara en blanco o con un error del navegador, recargar
+con F5.
+
+En un servidor instalado antes de que existiera la página "Reconectando…", instalarla una vez: repetir en 2.11 las dos
+líneas de `/var/www/burgerhause-maintenance`, volver a copiar `burgerhause.conf` con su `sed` del dominio, y
+`sudo nginx -t && sudo systemctl reload nginx`. Comprobar (con el local cerrado): `sudo systemctl stop burgerhause`, abrir el sitio (debe decir
+"Reconectando…"), `sudo systemctl start burgerhause` (vuelve solo en unos segundos).
+
 `pnpm db:init-prod` deja en la base una marca (`deployment = production` en los ajustes): desde ese momento el seed de demo
 se **niega** a correr sobre esa base aunque alguien lo intente desde SSH sin `NODE_ENV` (solo `ALLOW_DEMO_SEED=1` lo
 fuerza; no lo uses en el servidor).
@@ -962,6 +996,9 @@ Procedimiento para pasar a **bloquear** (después de ~1 semana de uso real):
 - El navegador la conserva 30 días, pero **la fila en la base manda**: 12 h de vigencia que se renuevan con la actividad. Cerrar
   sesión, desactivar a la persona o "Cerrar sesiones" en Admin la borran al instante; una sesión vencida o revocada se rechaza en
   páginas, Server Actions y `/api/events`. Cada login emite un token NUEVO (no hay fijación de sesión).
+- Excepción: el rol **Cocina** (login del televisor del mostrador, `/pantalla`) tiene sesión de **400 días** que se renueva con
+  el uso y cookie de 400 días desde el login (10.1). Si a ese usuario se le cambia el rol, la sesión se recorta sola a las 12 h del
+  rol nuevo.
 - Login: 5 intentos / 15 min por IP+usuario y 20 / 15 min por IP (el 6.º se bloquea aunque la clave sea correcta); Nginx suma un tope de volumen.
 - Contraseñas: scrypt **N=2^15, r=8, p=3** (32 MiB, ~180 ms en esta PC; antes N=2^14, p=1 = 16 MiB, ~30 ms). Es una de las
   configuraciones equivalentes de OWASP; la de N=2^17 pedía 128 MiB por intento, demasiado si alguien inunda el login en una VPS chica.

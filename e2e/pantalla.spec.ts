@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import * as s from "../src/db/schema";
 import { approveOrder } from "../src/lib/orders/approve-order";
 import { beeps, countEventSources, orderById, placeCajaOrder, stubAudio } from "./helpers/caja";
@@ -196,6 +197,22 @@ for (const [width, height] of VIEWPORTS) {
       }
       await expect(page.getByTestId("zone-ready").getByTestId("board-number").first()).toHaveText(String(made[1]));
     });
+
+    test(`pantalla: many ready and few in preparation, the ready numbers are still the bigger ones (${width})`, async ({ page }) => {
+      test.setTimeout(90_000);
+      for (let i = 0; i < 2; i++) await counterOrder();
+      for (let i = 0; i < 18; i++) await readyInDb((await counterOrder()).orderId);
+      await openScreen(page);
+      await expect(page.getByTestId("board-number")).toHaveCount(20);
+      await page.waitForTimeout(500);
+      const fonts = async (zone: string) =>
+        page.getByTestId(zone).getByTestId("board-number").evaluateAll((els) => els.map((e) => Number.parseFloat(getComputedStyle(e).fontSize)));
+      const prep = await fonts("zone-preparing");
+      const ready = await fonts("zone-ready");
+      expect(prep).toHaveLength(2);
+      expect(ready).toHaveLength(18);
+      expect(Math.min(...ready), `ready ${ready[0]} px vs preparation ${prep[0]} px`).toBeGreaterThan(Math.max(...prep));
+    });
   });
 }
 
@@ -238,7 +255,87 @@ test.describe("cocina user", () => {
     await page.clock.runFor(5_000);
     await expect(prepNum(page, pos.number)).toBeVisible();
     await page.clock.runFor(61_000);
-    await expect(readyNum(page, pos.number)).toBeVisible();
+    // The tick first checks /api/health (real network), then refreshes through the (fake-clock) debounce.
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(300);
+        return readyNum(page, pos.number).count();
+      })
+      .toBe(1);
+  });
+
+  test("pantalla: opened with orders ALREADY ready, nothing chimes or flashes", async ({ page }) => {
+    await stubAudio(page);
+    const a = await counterOrder();
+    const b = await counterOrder();
+    await readyInDb(a.orderId);
+    await readyInDb(b.orderId);
+    await openScreen(page);
+    await page.mouse.click(200, 200); // audio unlocked
+    await expect(page.getByTestId("sound-hint")).toHaveCount(0);
+    await expect(readyNum(page, a.number)).toBeVisible();
+    await expect(readyNum(page, b.number)).toBeVisible();
+    await pingOrders(a.orderId); // a refresh with the same lists
+    await page.waitForTimeout(1500);
+    expect(await beeps(page)).toBe(0);
+    await expect(page.getByTestId("ready-highlight")).toHaveCount(0);
+  });
+
+  test("pantalla: a zone with more numbers than fit scrolls itself gently (no scrollbar)", async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 480, height: 900 }); // a narrow screen: the preparation column holds one number per row
+    for (let i = 0; i < 24; i++) await counterOrder();
+    await openScreen(page);
+    await expect(page.getByTestId("board-number")).toHaveCount(24);
+    const viewport = page.getByTestId("zone-preparing").getByTestId("zone-viewport");
+    await expect(viewport).toHaveAttribute("data-autoscroll", "true");
+    expect(await viewport.evaluate((el) => getComputedStyle(el).overflowY)).toBe("hidden");
+    expect(await viewport.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    // After the initial pause it starts moving down by itself.
+    await expect.poll(() => viewport.evaluate((el) => el.scrollTop), { timeout: 15_000 }).toBeGreaterThan(5);
+    const overflow = await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("pantalla: a 502 while the app restarts (deploy) shows Reconectando and the TV comes back by itself", async ({ page }) => {
+    test.setTimeout(90_000);
+    const maintenance = readFileSync("deploy/nginx/maintenance/maintenance.html", "utf8");
+    let down = false;
+    // What nginx answers while the app is down: 502 + its maintenance page (error_page 502 503 504).
+    await page.route(/\/pantalla(\?|$)/, (route) =>
+      down ? route.fulfill({ status: 502, contentType: "text/html; charset=utf-8", body: maintenance }) : route.continue(),
+    );
+    await openScreen(page);
+    const pos = await counterOrder();
+    await expect(prepNum(page, pos.number)).toBeVisible();
+    down = true;
+    await pingOrders(pos.orderId); // the live refresh hits the 502
+    await expect(page.getByText("Reconectando…")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("vuelve en unos segundos")).toBeVisible(); // nginx's page, not a dead browser error
+    await expect(page).toHaveURL(/\/pantalla$/);
+    down = false;
+    // The maintenance page reloads itself (meta refresh): the board is back without anyone touching the TV.
+    await expect(page.getByTestId("counter-board")).toBeVisible({ timeout: 30_000 });
+    await expect(prepNum(page, pos.number)).toBeVisible();
+  });
+
+  test("pantalla: a server error while rendering (DB hiccup) shows Reconectando and recovers by itself", async ({ page }) => {
+    test.setTimeout(120_000);
+    await openScreen(page);
+    const pos = await counterOrder();
+    await expect(prepNum(page, pos.number)).toBeVisible();
+    try {
+      await db().execute(sql`alter table order_events rename to order_events_e2e_down`);
+      await pingOrders(pos.orderId);
+      const notice = page.getByTestId("pantalla-reconnecting");
+      await expect(notice).toBeVisible({ timeout: 15_000 });
+      await expect(notice).toHaveText("Reconectando…");
+      await expect(page.getByRole("button")).toHaveCount(0); // no manual "Reintentar": it retries by itself
+    } finally {
+      await db().execute(sql`alter table order_events_e2e_down rename to order_events`);
+    }
+    await expect(page.getByTestId("counter-board")).toBeVisible({ timeout: 60_000 });
+    await expect(prepNum(page, pos.number)).toBeVisible();
   });
 
   test("pantalla: the mute switch is the single discreet control and persists", async ({ page }) => {

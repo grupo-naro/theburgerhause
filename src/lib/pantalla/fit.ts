@@ -12,6 +12,17 @@ export const cellWidthEm = (digits: number): number => 0.62 * Math.max(1, digits
 
 export type Fit = { font: number; columns: number; scroll: boolean };
 
+/** The preparation numbers never exceed this share of the ready numbers' size ("¡Listo!" is the big one). */
+export const PREPARING_RATIO = 0.7;
+
+/** Caps the preparation zone's font bounds below the ready zone's current font (null = not measured yet). */
+export function capBelowReady(bounds: { maxFont: number; minFont: number }, readyFont: number | null): { maxFont: number; minFont: number } {
+  if (readyFont === null) return bounds;
+  const cap = Math.floor(readyFont * PREPARING_RATIO);
+  const maxFont = Math.min(bounds.maxFont, cap);
+  return { maxFont, minFont: Math.min(bounds.minFont, maxFont) };
+}
+
 export function fitNumbers(o: { count: number; width: number; height: number; maxFont: number; minFont: number; digits: number }): Fit {
   const cw = cellWidthEm(o.digits);
   const columnsAt = (font: number) => Math.max(1, Math.floor(o.width / (font * cw)));

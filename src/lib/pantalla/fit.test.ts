@@ -1,7 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { CELL_H_EM, cellWidthEm, fitNumbers } from "./fit";
+import { capBelowReady, CELL_H_EM, cellWidthEm, fitNumbers, PREPARING_RATIO } from "./fit";
 
 const zone = { width: 1200, height: 800, maxFont: 200, minFont: 48 };
+
+describe("capBelowReady (the ready numbers are always the bigger ones)", () => {
+  it("caps the preparation sizes at ~70% of the ready font", () => {
+    expect(capBelowReady({ maxFont: 119, minFont: 43 }, 88)).toEqual({ maxFont: 61, minFont: 43 });
+    expect(PREPARING_RATIO).toBe(0.7);
+  });
+  it("leaves them alone when the ready numbers are huge (few or none ready)", () => {
+    expect(capBelowReady({ maxFont: 119, minFont: 43 }, 238)).toEqual({ maxFont: 119, minFont: 43 });
+  });
+  it("never lets the minimum pass the cap (the zone auto-scrolls instead)", () => {
+    expect(capBelowReady({ maxFont: 119, minFont: 43 }, 50)).toEqual({ maxFont: 35, minFont: 35 });
+  });
+  it("without a measured ready font it changes nothing", () => {
+    expect(capBelowReady({ maxFont: 119, minFont: 43 }, null)).toEqual({ maxFont: 119, minFont: 43 });
+  });
+});
 
 describe("fitNumbers", () => {
   it("few numbers (or none) use the biggest size, no scrolling", () => {

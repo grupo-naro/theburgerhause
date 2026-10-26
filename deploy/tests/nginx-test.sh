@@ -27,11 +27,13 @@ MOUNTS=(
   -v "$ROOT/snippets:/etc/nginx/snippets:ro"
   -v "$ROOT/burgerhause.conf:/etc/nginx/sites-enabled/burgerhause.conf:ro"
   -v "$HERE/nginx/nginx.test.conf:/etc/nginx/nginx.conf:ro"
-  -v "$HERE/nginx/stub-upstream.conf:/etc/nginx/stub/stub.conf:ro"
+  -v "$HERE/nginx/stub-upstream.conf:/etc/nginx/stub-src/stub.conf:ro"
+  -v "$ROOT/maintenance:/var/www/burgerhause-maintenance:ro"
 )
 
 # Runs inside the container before nginx: fake certificate (same paths certbot would create), uploads, ACME webroot.
 SETUP='set -e
+mkdir -p /etc/nginx/stub && cp /etc/nginx/stub-src/stub.conf /etc/nginx/stub/stub.conf
 d=/etc/letsencrypt/live/burgerhause.example.com
 mkdir -p "$d" /var/lib/burgerhause/uploads /var/www/certbot/.well-known/acme-challenge /var/log/nginx
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=burgerhause.example.com \
@@ -189,6 +191,22 @@ b="$(cx -H 'x-middleware-subrequest: middleware' https://127.0.0.1/x)"
 check "x-middleware-subrequest from the client is blanked" bash -c '[[ "$1" == *"mw=|"* ]]' _ "$b"
 r="$(burst /pedido 80)"
 check "/pedido WITHOUT trailing slash is rate limited too ($r)" bash -c '[[ "$1" == *429* ]] && grep -qE "[0-9] (200|301)" <<<"$1"' _ "$r"
+
+# -- app down (deploy restart): Nginx's own 502 serves the self-reloading maintenance page ---------------------------
+c="$(code https://127.0.0.1/maintenance.html)"
+check "/maintenance.html is internal: not reachable directly (got $c)" bash -c '[[ "$1" == 404 ]]' _ "$c"
+check "the app's own answers pass through while it is up (no error_page interception)"   bash -c '[[ "$1" == 200 ]]' _ "$(code https://127.0.0.1/pantalla)"
+docker exec "$NAME" sh -c 'rm /etc/nginx/stub/stub.conf && nginx -s reload' >/dev/null 2>&1   # the fake app goes away
+for _ in $(seq 1 50); do
+  [ "$(code https://127.0.0.1/pantalla)" = 502 ] && break
+  sleep 0.2
+done
+c="$(code https://127.0.0.1/pantalla)"
+check "app down: 502 status kept (got $c)" bash -c '[[ "$1" == 502 ]]' _ "$c"
+b="$(cx https://127.0.0.1/pantalla)"
+check "app down: the maintenance page, reloading itself every 10 s"   bash -c '[[ "$1" == *"Reconectando"* && "$1" == *"http-equiv=\"refresh\" content=\"10\""* ]]' _ "$b"
+hdr="$(cx -sI https://127.0.0.1/pantalla)"
+check "app down: maintenance page is never cached and keeps the security headers"   bash -c 'grep -qi "cache-control: no-store" <<<"$1" && grep -qi "x-frame-options: deny" <<<"$1" && grep -qi "content-type: text/html" <<<"$1"' _ "$hdr"
 
 echo
 if [ "$FAILS" -ne 0 ]; then echo "nginx behavior tests: $FAILS FAILED"; exit 1; fi

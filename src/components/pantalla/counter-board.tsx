@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { LiveRefresh } from "@/components/live/live-refresh";
-import { CELL_H_EM, fitNumbers } from "@/lib/pantalla/fit";
+import { capBelowReady, CELL_H_EM, fitNumbers } from "@/lib/pantalla/fit";
+import { recoveryState } from "./recovery-state";
 import { useReadyChime } from "./use-ready-chime";
 import { useSafetyRefresh } from "./use-safety-refresh";
 
@@ -25,6 +26,12 @@ export function CounterBoard({ preparing, ready }: Props) {
     preparing.map((o) => o.id),
     ready.map((o) => o.id),
   );
+  // The ready numbers are always the bigger ones: the preparation zone is capped below the ready zone's font.
+  const [readyFont, setReadyFont] = useState<number | null>(null);
+  // Rendering again means the error screen (if any) recovered: its next failure starts with a quick in-place retry.
+  useEffect(() => {
+    recoveryState.attempts = 0;
+  }, []);
 
   return (
     <div data-testid="counter-board" data-tv-board="" className="fixed inset-0 grid grid-cols-[1fr_2fr] grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-[#0b1220] text-white">
@@ -37,7 +44,7 @@ export function CounterBoard({ preparing, ready }: Props) {
         <h2 id="zone-preparing-title" className="font-display text-[4.2vh] leading-tight font-extrabold text-white/90">
           En preparación
         </h2>
-        <Zone kind="preparing" numbers={preparing} highlighted={chime.highlighted} />
+        <Zone kind="preparing" numbers={preparing} highlighted={chime.highlighted} capFont={readyFont} />
       </section>
       <section
         data-testid="zone-ready"
@@ -47,7 +54,7 @@ export function CounterBoard({ preparing, ready }: Props) {
         <h2 id="zone-ready-title" className="font-display text-[5.4vh] leading-tight font-extrabold text-cheddar-400">
           ¡Listo! Retiralo en el mostrador
         </h2>
-        <Zone kind="ready" numbers={ready} highlighted={chime.highlighted} />
+        <Zone kind="ready" numbers={ready} highlighted={chime.highlighted} onFont={setReadyFont} />
       </section>
       <footer className="col-span-2 flex min-h-10 items-center gap-4 bg-black/40 px-[1.5vw] py-1">
         {chime.hint === "locked" && (
@@ -88,7 +95,17 @@ const BOUNDS = {
 const SCROLL_SPEED = 30;
 const SCROLL_PAUSE_MS = 3000;
 
-function Zone({ kind, numbers, highlighted }: { kind: "preparing" | "ready"; numbers: BoardNumber[]; highlighted: ReadonlySet<number> }) {
+type ZoneProps = {
+  kind: "preparing" | "ready";
+  numbers: BoardNumber[];
+  highlighted: ReadonlySet<number>;
+  /** Preparation zone: the ready zone's font, to stay below it. */
+  capFont?: number | null;
+  /** Ready zone: reports its font once measured. */
+  onFont?: (font: number) => void;
+};
+
+function Zone({ kind, numbers, highlighted, capFont = null, onFont }: ZoneProps) {
   const viewport = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0, vh: 0 });
 
@@ -104,15 +121,13 @@ function Zone({ kind, numbers, highlighted }: { kind: "preparing" | "ready"; num
 
   const digits = Math.max(2, ...numbers.map((o) => String(o.number).length));
   const vh = box.vh || 1080;
-  const fit = fitNumbers({
-    count: numbers.length,
-    width: box.w,
-    height: box.h,
-    maxFont: Math.round(vh * BOUNDS[kind].max),
-    minFont: Math.round(vh * BOUNDS[kind].min),
-    digits,
-  });
+  const bounds = capBelowReady({ maxFont: Math.round(vh * BOUNDS[kind].max), minFont: Math.round(vh * BOUNDS[kind].min) }, capFont);
+  const fit = fitNumbers({ count: numbers.length, width: box.w, height: box.h, ...bounds, digits });
   const measured = box.w > 0;
+
+  useEffect(() => {
+    if (measured) onFont?.(fit.font);
+  }, [measured, fit.font, onFont]);
 
   // Gentle ping-pong scroll, only when even the smallest size does not fit.
   useEffect(() => {
