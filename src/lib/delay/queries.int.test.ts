@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
@@ -63,6 +63,27 @@ describe("loadPrepSamples", () => {
       await events(o.id, [["pendiente_aprobacion", "en_preparacion", 100 - i * 2], ["en_preparacion", "listo_despacho", 90 - i * 2]]);
     }
     expect(await loadPrepSamples(db(), NOW)).toHaveLength(20);
+  });
+});
+
+describe("loadPrepSamples on a large history", () => {
+  it("ignores thousands of old orders and stays fast", async () => {
+    const a = await placeWebOrder(fx);
+    await events(a.id, [["pendiente_aprobacion", "en_preparacion", 50], ["en_preparacion", "listo_despacho", 30]]);
+    await db().execute(sql`
+      INSERT INTO orders (business_date, number, public_token, channel, fulfillment, status, payment_method, payment_status,
+                          customer_name, subtotal, delivery_fee, total, created_at)
+      SELECT '2020-01-01', 1000 + g, 'old' || g, 'web', 'takeaway', 'entregado', 'cash', 'paid', 'Old', 0, 0, 0, ${at(60 * 24 * 30)}::timestamptz
+      FROM generate_series(1, 3000) g`);
+    await db().execute(sql`
+      INSERT INTO order_events (order_id, from_status, to_status, at)
+      SELECT o.id, 'pendiente_aprobacion'::order_status, 'en_preparacion'::order_status, ${at(60 * 24 * 30)}::timestamptz FROM orders o WHERE o.public_token LIKE 'old%'
+      UNION ALL
+      SELECT o.id, 'en_preparacion'::order_status, 'listo_despacho'::order_status, ${at(60 * 24 * 30 - 20)}::timestamptz FROM orders o WHERE o.public_token LIKE 'old%'`);
+    const t0 = performance.now();
+    const samples = await loadPrepSamples(db(), NOW);
+    expect(performance.now() - t0).toBeLessThan(500);
+    expect(samples).toEqual([20]);
   });
 });
 

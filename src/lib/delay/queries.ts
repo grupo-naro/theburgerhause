@@ -3,6 +3,9 @@ import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { SAMPLE_MAX_AGE_MIN, SAMPLE_WINDOW } from "./constants";
 
+/** Events older than this cannot belong to a sample (ready_at is capped at SAMPLE_MAX_AGE_MIN): keeps the scan bounded. */
+const EVENT_LOOKBACK_HOURS = 6;
+
 /**
  * Kitchen minutes per order: latest entry into `en_preparacion` to the first later
  * ready event. Tanda edits (from_status = to_status) are ignored.
@@ -12,6 +15,7 @@ export async function loadPrepSamples(db: Db, now: Date): Promise<number[]> {
     WITH ev AS (
       SELECT order_id, to_status, at FROM order_events
       WHERE from_status IS DISTINCT FROM to_status
+        AND at > ${now}::timestamptz - make_interval(hours => ${EVENT_LOOKBACK_HOURS})
     ),
     started AS (
       SELECT order_id, max(at) AS start_at FROM ev WHERE to_status = 'en_preparacion' GROUP BY order_id

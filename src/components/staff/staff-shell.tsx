@@ -16,6 +16,16 @@ import { PrinterIndicator } from "./printer-indicator";
 import { ShellOrderAlert } from "./shell-order-alert";
 import { StaffNav } from "./staff-nav";
 
+/** The chip is a convenience: if its data fails, the shell renders without it. */
+async function loadDelayChip() {
+  try {
+    return await getDelayPanelData(getDb(), new Date());
+  } catch {
+    console.error("staff-shell: delay chip unavailable");
+    return null;
+  }
+}
+
 /**
  * Common frame of the staff screens: role navigation, top bar (station, printer, live connection,
  * user, logout) and the page. It owns the page's ONE live connection (`LiveRefresh`): screens
@@ -34,7 +44,7 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
   // The delay panel is for the STAFF3 roles; cocina (the TV login) never sees it.
   const [waiting, delay] = await Promise.all([
     sector === null ? Promise.resolve([]) : listPendingApproval(getDb(), { sector, channel: "web" }),
-    session.user.role === "cocina" ? Promise.resolve(null) : getDelayPanelData(getDb(), new Date()),
+    session.user.role === "cocina" ? Promise.resolve(null) : loadDelayChip(),
   ]);
   const badges = sector === null || waiting.length === 0 ? {} : { [sector === "mostrador" ? "/retiro" : "/delivery"]: waiting.length };
 

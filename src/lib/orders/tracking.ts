@@ -28,6 +28,8 @@ export type TrackingOrder = {
   paymentStatus: "pending" | "paid";
   /** ISO 8601. */
   createdAt: string;
+  /** ISO 8601: latest entry into en_preparacion (creation time when there is none). Start of the countdown. */
+  prepStartedAt: string;
   /** First word of the customer's name; the rest of it stays private. */
   firstName: string;
   /** Delivery only: the address field, nothing else (no cross streets, no notes). */
@@ -60,6 +62,10 @@ export async function getOrderForTracking(db: Db, token: string): Promise<Tracki
       paymentMethod: s.orders.paymentMethod,
       paymentStatus: s.orders.paymentStatus,
       createdAt: s.orders.createdAt,
+      // Raw, fully qualified names (see getTrackingStatus).
+      prepStartedAt: sql<Date | null>`(select max(e.at) from order_events e where e.order_id = orders.id and e.to_status = 'en_preparacion' and e.from_status is distinct from e.to_status)`.mapWith(
+        (v) => (v === null ? null : new Date(v as string | Date)),
+      ),
       customerName: s.orders.customerName,
       address: s.orders.address,
       subtotal: s.orders.subtotal,
@@ -105,6 +111,7 @@ export async function getOrderForTracking(db: Db, token: string): Promise<Tracki
     paymentMethod: head.paymentMethod,
     paymentStatus: head.paymentStatus,
     createdAt: head.createdAt.toISOString(),
+    prepStartedAt: (head.prepStartedAt ?? head.createdAt).toISOString(),
     firstName: firstWord(head.customerName),
     addressLine: head.fulfillment === "delivery" ? head.address : null,
     groups,

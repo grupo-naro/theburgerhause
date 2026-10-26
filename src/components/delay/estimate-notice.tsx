@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { Fulfillment } from "@/domain/order-status";
 import { createLivePoller } from "@/lib/delay/live-poller";
+import { elapsedMinutes, orderNoticeText } from "@/lib/delay/order-text";
 import type { PublicDelay } from "@/lib/delay/public";
 
 const POLL_MS = 60_000;
@@ -22,8 +23,9 @@ function parse(body: unknown): PublicDelay | null {
 }
 
 /** Keeps the last good value: a failed poll changes nothing. Polls only while the tab is visible. */
-function useLiveDelay(initial: PublicDelay | null): PublicDelay | null {
+function useLiveDelay(initial: PublicDelay | null): { value: PublicDelay | null; now: number } {
   const [value, setValue] = useState(initial);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const controller = new AbortController();
     const refresh = async () => {
@@ -37,6 +39,7 @@ function useLiveDelay(initial: PublicDelay | null): PublicDelay | null {
         if (!res.ok) return;
         const next = parse(await res.json());
         if (next) setValue(next);
+        setNow(Date.now());
       } catch {
         // keep the last good value
       }
@@ -51,15 +54,18 @@ function useLiveDelay(initial: PublicDelay | null): PublicDelay | null {
     const wake = () => poller.wake();
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("online", wake);
-    poller.start();
+    // Nothing to show yet (the server read failed): do not wait a full interval for the first value.
+    if (initial === null) poller.wake();
+    else poller.start();
     return () => {
       controller.abort();
       poller.stop();
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("online", wake);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the first value decides how polling starts
   }, []);
-  return value;
+  return { value, now };
 }
 
 /**
@@ -70,13 +76,16 @@ export function EstimateNotice({
   initial,
   variant,
   fulfillment,
+  since,
 }: {
   initial: PublicDelay | null;
   variant: "menu" | "order";
   fulfillment?: Fulfillment;
+  /** order variant: ISO instant the order entered the kitchen; the wait counts down from it. */
+  since?: string;
 }) {
   const pathname = usePathname();
-  const delay = useLiveDelay(initial);
+  const { value: delay, now } = useLiveDelay(initial);
   if (!delay) return null;
   if (variant === "menu" && (pathname.startsWith("/pedido") || pathname === "/checkout")) return null;
 
@@ -88,6 +97,7 @@ export function EstimateNotice({
       role="status"
       data-testid="estimate-notice"
       data-variant={variant}
+      suppressHydrationWarning
       data-delayed={delay.delayed ? "true" : "false"}
       className={`rounded-xl border px-3 py-2 text-sm font-semibold leading-snug ${tone} ${variant === "menu" ? "mx-auto mt-2 w-[calc(100%-2rem)] max-w-[1100px] text-center" : ""}`}
     >
@@ -97,8 +107,12 @@ export function EstimateNotice({
         </>
       ) : (
         <>
-          Tu pedido llega en aprox. {range(fulfillment === "delivery" ? delay.delivery : delay.takeaway)}
-          {delay.delayed && " (hay más demora de lo normal)"}
+          {orderNoticeText({
+            range: fulfillment === "delivery" ? delay.delivery : delay.takeaway,
+            elapsedMinutes: elapsedMinutes(since, now),
+            fulfillment,
+            delayed: delay.delayed,
+          })}
         </>
       )}
     </div>

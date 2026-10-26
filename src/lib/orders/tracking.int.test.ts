@@ -147,6 +147,7 @@ describe("getOrderForTracking", () => {
         "number",
         "paymentMethod",
         "paymentStatus",
+        "prepStartedAt",
         "status",
         "subtotal",
         "total",

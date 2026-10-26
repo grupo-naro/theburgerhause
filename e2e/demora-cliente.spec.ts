@@ -77,7 +77,7 @@ test("Tu pedido shows the estimate while preparing and hides it once the order i
 
   await openTracking(page, `/pedido/${order.token}`);
   const notice = page.getByTestId("estimate-notice");
-  await expect(notice).toContainText(/Tu pedido llega en aprox\. \d+–\d+ min \(hay más demora de lo normal\)/);
+  await expect(notice).toContainText(/Tu pedido estará listo (en aprox\. \d+–\d+ min|en unos minutos) \(hay más demora de lo normal\)/);
   await expect(notice).toHaveAttribute("data-variant", "order");
   expect(await page.content()).not.toContain(REASON);
 

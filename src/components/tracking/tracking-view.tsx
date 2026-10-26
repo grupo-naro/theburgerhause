@@ -69,7 +69,7 @@ export function TrackingView({
               </p>
               {showEstimate && (
                 <div className="mt-3">
-                  <EstimateNotice initial={delay} variant="order" fulfillment={order.fulfillment} />
+                  <EstimateNotice initial={delay} variant="order" fulfillment={order.fulfillment} since={order.prepStartedAt} />
                 </div>
               )}
             </div>

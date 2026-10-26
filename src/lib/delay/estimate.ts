@@ -1,13 +1,14 @@
 import type { Fulfillment } from "@/domain/order-status";
 import {
+  BLEND_WEIGHT_BASE,
   DELAYED_THRESHOLD,
   FREE_QUEUE,
   MAX_KITCHEN_MINUTES,
   MAX_QUEUE_SURCHARGE,
   MIN_PER_EXTRA_ORDER,
-  MIN_SAMPLES,
   RANGE_HALF_WIDTH,
   ROUND_TO,
+  SAMPLE_WINDOW,
 } from "./constants";
 
 export type EstimateInput = {
@@ -30,7 +31,9 @@ function median(xs: number[]): number {
 
 export function computeEstimate(input: EstimateInput): Estimate {
   const { samplesMinutes, inPreparation, baseMinutes, travelMinutes, manualExtraMinutes, fulfillment } = input;
-  let kitchen = samplesMinutes.length >= MIN_SAMPLES ? median(samplesMinutes) : baseMinutes;
+  // Smoothing: the more samples, the more the median weighs against the base time (no hard switch).
+  const k = Math.min(samplesMinutes.length, SAMPLE_WINDOW);
+  let kitchen = k === 0 ? baseMinutes : (k * median(samplesMinutes) + BLEND_WEIGHT_BASE * baseMinutes) / (k + BLEND_WEIGHT_BASE);
   kitchen += Math.min(MAX_QUEUE_SURCHARGE, Math.ceil(Math.max(0, inPreparation - FREE_QUEUE) * MIN_PER_EXTRA_ORDER));
   kitchen = Math.min(kitchen, MAX_KITCHEN_MINUTES);
   const raw = kitchen + manualExtraMinutes + (fulfillment === "delivery" ? travelMinutes : 0);

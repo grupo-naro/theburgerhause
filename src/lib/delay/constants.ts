@@ -1,7 +1,8 @@
 /** Tunables of the delay estimate (see computeEstimate). */
 export const SAMPLE_WINDOW = 20;
 export const SAMPLE_MAX_AGE_MIN = 180;
-export const MIN_SAMPLES = 5;
+/** Weight of the base time when blended with the measured median (see computeEstimate). */
+export const BLEND_WEIGHT_BASE = 5;
 export const FREE_QUEUE = 6;
 export const MIN_PER_EXTRA_ORDER = 1.5;
 export const MAX_QUEUE_SURCHARGE = 60;
