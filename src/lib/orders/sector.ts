@@ -51,6 +51,6 @@ export function decideSector(actor: Sector | null | undefined, fulfillment: Fulf
 /** Supported role/station combinations: staff work at the station kind of their own sector (admin anywhere). */
 export function stationAllowedForRole(role: Role, kind: StationKindName): boolean {
   if (isManager(role)) return true;
-  if (role === "cocina") return false; // the kitchen has no station: it only uses the kitchen screen
+  if (role === "cocina") return false; // the kitchen has no station: it only uses the TV screen (/pantalla)
   return role === "cajera" ? kind === "mostrador" : kind === "delivery";
 }

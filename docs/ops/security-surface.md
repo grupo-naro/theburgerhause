@@ -90,7 +90,7 @@ Every page under `src/app/(admin)/admin/**` is guarded: the page (or, for the in
 | `src/app/(staff)/mostrador/page.tsx` | staff | cajera, admin, encargado | POS (mostrador sector). | `e2e/mostrador-guards.spec.ts` |
 | `src/app/(staff)/mostrador/pedidos/page.tsx` | staff | cajera, admin, encargado | Counter orders board. | `e2e/despacho-roles.spec.ts` |
 | `src/app/(staff)/retiro/page.tsx` | staff | cajera, admin, encargado | Takeaway approval workspace. | `e2e/caja.spec.ts` |
-| `src/app/(staff)/cocina/page.tsx` | staff | cocina, cajera, encargada_delivery, admin, encargado | Permanent redirect to /pantalla (no data, no actions). | `e2e/pantalla.spec.ts` |
+| `src/app/(staff)/cocina/page.tsx` | staff | cocina, cajera, encargada_delivery, admin, encargado | Temporary redirect to /pantalla (no data, no actions). | `e2e/pantalla.spec.ts` |
 | `src/app/(staff)/pantalla/page.tsx` | staff | cocina, cajera, encargada_delivery, encargado, admin | Counter TV, read only: order numbers in preparation / ready (counter + web takeaway, never delivery); no customer data, no actions. | `e2e/pantalla.spec.ts`<br>`src/lib/orders/counter-board.int.test.ts` |
 | `src/app/(staff)/delivery/page.tsx` | staff | encargada_delivery, admin, encargado | Delivery workspace. | `e2e/delivery-workspace.spec.ts` |
 | `src/app/(staff)/delivery/rendicion/page.tsx` | staff | encargada_delivery, admin, encargado | Cadet settlement screen. | `e2e/rendicion-roles-print.spec.ts` |

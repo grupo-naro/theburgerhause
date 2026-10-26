@@ -30,7 +30,7 @@ El ticket de cocina lleva el número, el tipo (DELIVERY), cada producto con sus 
 
 ### En preparación
 
-Cuando la cocina avisa que el pedido está armado, **vos tocás Listo** en ese pedido (en **En preparación**) y pasa a **Listos / Despacho** (lo ves aparecer sin recargar). Si lo marcaste antes de tiempo, podés deshacerlo mientras no lo hayas asignado a un cadete.
+Cuando la cocina avisa que el pedido está armado, **vos tocás Listo** en ese pedido (en **En preparación**) y pasa a **Listos / Despacho** (lo ves aparecer sin recargar). **Listo no se puede deshacer desde la pantalla**: si lo marcaste por error, avisale a la cajera o al administrador antes de asignarlo a un cadete. Hoy no existe un botón para volver un pedido de Listo a En preparación ("Devolver a despacho" solo sirve para un pedido que ya salió En camino); si hace falta, pedile al administrador que lo resuelva.
 
 ### Listos / Despacho: asignar al cadete
 

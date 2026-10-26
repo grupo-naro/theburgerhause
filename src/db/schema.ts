@@ -43,7 +43,7 @@ export const printJobStatus = pgEnum("print_job_status", [
   "done",
   "failed",
 ]);
-/** `kitchen` and `ticket` are legacy/future: history rows (ticket = the old customer ticket) and the KDS phase. Task 10.2 enqueues only `delivery` and `customer`. */
+/** `kitchen` and `ticket` are legacy/future: history rows (ticket = the old customer ticket) and the KDS phase. Orders enqueue `kitchen`, `customer` and `delivery` (`ticket` only exists in history). */
 export const printJobType = pgEnum("print_job_type", ["kitchen", "ticket", "delivery", "customer"]);
 export const modifierKind = pgEnum("modifier_kind", ["remove", "add", "swap"]);
 export const stationKind = pgEnum("station_kind", ["mostrador", "delivery"]);
@@ -468,7 +468,7 @@ export const stockMovementEdits = pgTable(
  *  - bank_cbu        string   (transfer payments)
  *  - delivery_fee    number   (centavos)
  *  - accepting_orders boolean (false shows the "local cerrado" banner)
- *  - kds_warn_minutes / kds_late_minutes number (kitchen screen yellow / red clock, defaults 8 / 15)
+ *  - (removed) kds_warn_minutes / kds_late_minutes: the old kitchen screen is gone; rows may remain in old databases but are unused
  *  - business_day_cutoff string "HH:MM" (Buenos Aires; numbering and business_date roll here, default 06:00)
  */
 export const settings = pgTable("settings", {

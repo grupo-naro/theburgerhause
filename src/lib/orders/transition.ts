@@ -55,7 +55,7 @@ export type TransitionInput = {
   sector: Sector | null;
   /** Realtime hint for the ORDERS notify (default "status"; dispatch uses "assigned"). */
   event?: "status" | "assigned";
-  /** The kitchen's undo: replaces the forward table by `canUndoReady` (only listo_despacho -> en_preparacion). */
+  /** Currently unused; kept for a possible "Deshacer Listo" action. The kitchen's undo: replaces the forward table by `canUndoReady` (only listo_despacho -> en_preparacion). */
   undo?: boolean;
 };
 export type TransitionedOrder = {

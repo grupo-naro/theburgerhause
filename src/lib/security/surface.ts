@@ -185,7 +185,7 @@ export const SURFACE: Record<string, Entry> = {
   ["page:src/app/(staff)/mostrador/page.tsx"]: { access: "staff", roles: COUNTER, note: "POS (mostrador sector).", tests: ["e2e/mostrador-guards.spec.ts"] },
   ["page:src/app/(staff)/mostrador/pedidos/page.tsx"]: { access: "staff", roles: COUNTER, note: "Counter orders board.", tests: ["e2e/despacho-roles.spec.ts"] },
   ["page:src/app/(staff)/retiro/page.tsx"]: { access: "staff", roles: COUNTER, note: "Takeaway approval workspace.", tests: ["e2e/caja.spec.ts"] },
-  ["page:src/app/(staff)/cocina/page.tsx"]: { access: "staff", roles: KITCHEN, note: "Permanent redirect to /pantalla (no data, no actions).", tests: ["e2e/pantalla.spec.ts"] },
+  ["page:src/app/(staff)/cocina/page.tsx"]: { access: "staff", roles: KITCHEN, note: "Temporary redirect to /pantalla (no data, no actions).", tests: ["e2e/pantalla.spec.ts"] },
   ["page:src/app/(staff)/pantalla/page.tsx"]: {
     access: "staff",
     roles: COUNTER_TV,

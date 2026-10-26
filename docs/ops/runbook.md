@@ -489,6 +489,20 @@ nueva lleva su etiqueta (`v1.0.1`, `v1.1.0`...): las etiquetas no se mueven ni s
 (Recordá lanzarlo con `systemd-run` o `tmux`, ver 2.13. `REF` acepta nombres de rama o etiqueta —letras, números, `. _ / -`—;
 los hashes de commit no se aceptan.)
 
+**Checklist del deploy que retira la pantalla de cocina vieja y agrega el ticket de cocina y `/pantalla`:**
+
+1. Antes de recargar la configuración nueva de Nginx, instalar la página de mantenimiento (2.11 y 10.1):
+   `sudo install -d -m 755 /var/www/burgerhause-maintenance` y
+   `sudo install -m 644 maintenance/maintenance.html /var/www/burgerhause-maintenance/maintenance.html`; recién después
+   `sudo nginx -t && sudo systemctl reload nginx`.
+2. Los pedidos **En preparación** al momento del deploy se aprobaron antes de que existiera el ticket de cocina: no tienen papel
+   de cocina y la pantalla de cocina vieja ya no existe. Desplegar con el local cerrado o, justo después, reimprimir
+   **Ticket cocina** (Caja → Recientes) de cada pedido en preparación.
+3. Volver a iniciar sesión en el televisor con el usuario `cocina`: una cookie existente de 30 días no pasa a durar 400 días. Iniciar
+   el navegador con `--kiosk --autoplay-policy=no-user-gesture-required https://<TU_DOMINIO>/pantalla` (10.1).
+4. Trabajos de impresión `kitchen` fallidos de antes pueden aparecer una vez como alertas rojas en Caja: reimprimirlos o descartarlos una vez.
+5. Dejar (o crear) un usuario `cocina` **sin estación** (Admin → Usuarios).
+
 Hacelo **fuera del horario de servicio** (el reinicio corta unos segundos las conexiones en vivo; los agentes y
 las pantallas reconectan solos). Resultado esperado: la última línea dice `DEPLOY_OK`.
 

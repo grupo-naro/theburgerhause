@@ -4,8 +4,7 @@ Sistema de pedidos y despacho de The Burger House 828: tienda online para los cl
 para aprobar y cobrar, impresión automática de tickets, despacho con cadetes y rendición de efectivo.
 
 El ciclo completo que cubre (criterio de éxito del MVP): pedido del cliente → aprobación en caja → tickets
-impresos solos en la impresora USB de la PC correspondiente (Delivery: ticket de cocina + ticket del cliente con logo + ticket de delivery; Mostrador y retiro: ticket de cocina + ticket del cliente
-ticket de cocina primero en cada puesto; el televisor `/pantalla` muestra los números en preparación / listos) → la cajera o encargada marca LISTO → despacho → cadete → rendición del efectivo.
+impresos solos en la impresora USB de la PC correspondiente (Delivery: ticket de cocina + ticket del cliente con logo + ticket de delivery; Mostrador y retiro: ticket de cocina + ticket del cliente; el ticket de cocina sale primero en cada puesto, y el televisor `/pantalla` muestra los números en preparación / listos) → la cajera o encargada marca LISTO → despacho → cadete → rendición del efectivo.
 
 ## Arquitectura
 
