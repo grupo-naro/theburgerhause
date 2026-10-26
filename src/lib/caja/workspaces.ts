@@ -47,7 +47,7 @@ export function tabLanes(tab: TabId): LaneId[] {
 /** Where the old general URLs send staff (null = admin keeps the general view). */
 export function legacyRedirectTarget(legacy: "caja" | "despacho", role: Role): string | null {
   if (isManager(role)) return null;
-  if (role === "cocina") return "/cocina";
+  if (role === "cocina") return "/pantalla";
   if (role === "encargada_delivery") return "/delivery";
   return legacy === "caja" ? "/retiro" : "/mostrador/pedidos";
 }

@@ -44,8 +44,8 @@ describe("legacyRedirectTarget (old URLs)", () => {
     expect(legacyRedirectTarget("despacho", "encargada_delivery")).toBe("/delivery");
     expect(legacyRedirectTarget("caja", "admin")).toBeNull();
     expect(legacyRedirectTarget("despacho", "admin")).toBeNull();
-    expect(legacyRedirectTarget("caja", "cocina")).toBe("/cocina");
-    expect(legacyRedirectTarget("despacho", "cocina")).toBe("/cocina");
+    expect(legacyRedirectTarget("caja", "cocina")).toBe("/pantalla");
+    expect(legacyRedirectTarget("despacho", "cocina")).toBe("/pantalla");
     expect(legacyRedirectTarget("caja", "encargado")).toBeNull();
     expect(legacyRedirectTarget("despacho", "encargado")).toBeNull();
   });

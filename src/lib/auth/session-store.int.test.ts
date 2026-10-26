@@ -7,6 +7,9 @@ import { resetDb, testDb } from "@/db/test-utils";
 import {
   createSession,
   deleteExpiredSessions,
+  KIOSK_SESSION_TTL_MS,
+  SESSION_TTL_MS,
+  sessionTtlMs,
   revokeSession,
   revokeUserSessions,
   setSessionStation,
@@ -122,6 +125,39 @@ describe("session-store", () => {
     expect(await validateSessionToken(db(), "nope", NOW)).toBeNull();
     expect(await validateSessionToken(db(), "", NOW)).toBeNull();
     expect(await validateSessionToken(db(), "%%%\u0000x".repeat(50), NOW)).toBeNull();
+  });
+
+  it("the cocina user (the counter TV) gets a long session that does not expire by inactivity", async () => {
+    const tv = await makeUser({ role: "cocina", name: "Pantalla" });
+    const { token, expiresAt } = await createSession(db(), { userId: tv.id, now: NOW });
+    expect(expiresAt).toEqual(at(KIOSK_SESSION_TTL_MS / HOUR));
+    expect(KIOSK_SESSION_TTL_MS).toBeGreaterThanOrEqual(365 * 24 * HOUR);
+    // Left alone for days (TV off over a long weekend): still valid.
+    expect(await validateSessionToken(db(), token, at(24 * 10))).not.toBeNull();
+    // Used again after half its life: slides to a full new term.
+    const later = at(KIOSK_SESSION_TTL_MS / HOUR / 2 + 1);
+    expect(await validateSessionToken(db(), token, later)).not.toBeNull();
+    expect((await rowFor(token)).expiresAt).toEqual(new Date(later.getTime() + KIOSK_SESSION_TTL_MS));
+  });
+
+  it("only the cocina role: other roles keep the 12 h sliding session", async () => {
+    for (const role of ["cajera", "encargada_delivery", "encargado", "admin"] as const) {
+      expect(sessionTtlMs(role)).toBe(SESSION_TTL_MS);
+      const u = await makeUser({ role });
+      const { token, expiresAt } = await createSession(db(), { userId: u.id, now: NOW });
+      expect(expiresAt).toEqual(at(12));
+      expect(await validateSessionToken(db(), token, at(13))).toBeNull();
+    }
+    expect(sessionTtlMs("cocina")).toBe(KIOSK_SESSION_TTL_MS);
+  });
+
+  it("a long session whose user is no longer cocina is cut down to the 12 h of the new role", async () => {
+    const u = await makeUser({ role: "cocina" });
+    const { token } = await createSession(db(), { userId: u.id, now: NOW });
+    await db().update(s.users).set({ role: "cajera" }).where(eq(s.users.id, u.id));
+    expect(await validateSessionToken(db(), token, at(1))).not.toBeNull();
+    expect((await rowFor(token)).expiresAt).toEqual(at(13));
+    expect(await validateSessionToken(db(), token, at(14))).toBeNull();
   });
 
   it("deleteExpiredSessions removes only expired rows", async () => {

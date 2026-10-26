@@ -61,7 +61,7 @@ const ROLE_HOME: Record<Role, string> = {
   admin: "/admin",
   cajera: "/mostrador",
   encargada_delivery: "/delivery",
-  cocina: "/cocina",
+  cocina: "/pantalla",
   encargado: "/mostrador",
 };
 

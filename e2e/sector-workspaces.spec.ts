@@ -277,7 +277,7 @@ test.describe("layout of each workspace", () => {
         await expect(page.getByTestId("lane-ready-delivery")).toHaveCount(0);
         await expect(page.getByTestId("lane-enroute")).toHaveCount(0);
         const nav = page.getByRole("navigation", { name: "Secciones" });
-        await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local", "Cocina"]);
+        await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local", "Pantalla"]);
         for (const link of await nav.getByRole("link").all()) await expectTarget(link, "nav link");
         await expectTarget(page.getByTestId("approve"), "Aprobar");
         await expectTarget(page.getByTestId("reject"), "Rechazar");
@@ -313,7 +313,7 @@ test.describe("layout of each workspace", () => {
         await openDelivery(page);
         await waitForStablePage(page); // measure the settled document, never one that is still navigating
         const nav = page.getByRole("navigation", { name: "Secciones" });
-        await expect(nav.getByRole("link")).toHaveText(["Gestión Delivery", "Rendición", "Cocina"]);
+        await expect(nav.getByRole("link")).toHaveText(["Gestión Delivery", "Rendición", "Pantalla"]);
         for (const link of await nav.getByRole("link").all()) await expectTarget(link, "nav link");
         for (const tab of await page.getByRole("tab").all()) await expectTarget(tab, "tab");
 

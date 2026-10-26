@@ -5,12 +5,14 @@
  */
 
 type AudioContextCtor = new () => AudioContext;
-export type BeepKind = "new" | "reminder" | "confirm";
+/** `ready` is the counter TV's "ding" when an order number moves to "¡Listo!". */
+export type BeepKind = "new" | "reminder" | "confirm" | "ready";
 
 const SHAPES: Record<BeepKind, { f1: number; f2: number; tone: number; gain: number }> = {
   new: { f1: 880, f2: 1175, tone: 0.18, gain: 0.35 },
   reminder: { f1: 660, f2: 660, tone: 0.14, gain: 0.15 },
   confirm: { f1: 740, f2: 988, tone: 0.1, gain: 0.2 },
+  ready: { f1: 1319, f2: 1047, tone: 0.22, gain: 0.4 },
 };
 
 export type Beeper = {

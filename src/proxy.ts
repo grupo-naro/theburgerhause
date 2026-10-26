@@ -30,5 +30,7 @@ export const config = {
     "/estacion",
     "/cocina",
     "/cocina/:path*",
+    "/pantalla",
+    "/pantalla/:path*",
   ],
 };

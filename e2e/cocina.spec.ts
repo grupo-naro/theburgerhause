@@ -192,11 +192,12 @@ test.describe("cocina", () => {
     expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();
   });
 
-  test("the cook cannot open the other screens: every URL leads back to /cocina", async ({ page }) => {
+  test("the cocina user cannot open the other screens: every URL leads to its home, the counter TV (/pantalla)", async ({ page }) => {
     for (const path of ["/caja", "/retiro", "/delivery", "/despacho", "/mostrador", "/mostrador/pedidos", "/admin", "/estacion"]) {
       await page.goto(path);
-      await expect(page, path).toHaveURL(/\/cocina$/);
+      await expect(page, path).toHaveURL(/\/pantalla$/);
     }
+    await page.goto("/cocina");
     await expect(page.getByRole("navigation", { name: "Secciones" })).toHaveCount(0); // fullscreen: no navigation
     await expect(page.getByTestId("kitchen-shell")).toBeVisible();
   });
@@ -309,7 +310,7 @@ test.describe("cocina", () => {
     await expect(clock).toHaveAttribute("data-color", "red");
   });
 
-  test("login through the form: no station hop, straight to /cocina", async ({ browser, baseURL }) => {
+  test("login through the form: no station hop, straight to the counter TV (/pantalla)", async ({ browser, baseURL }) => {
     const context = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: test.info().project.use.extraHTTPHeaders });
     try {
       const page = await context.newPage();
@@ -319,8 +320,8 @@ test.describe("cocina", () => {
       await page.getByLabel("Usuario").fill(USERS.cocina.username);
       await page.getByLabel("Contraseña").fill(USERS.cocina.password);
       await page.getByRole("button", { name: "Ingresar" }).click();
-      await expect(page).toHaveURL(/\/cocina$/);
-      await expect(page.getByTestId("kitchen-board")).toBeVisible();
+      await expect(page).toHaveURL(/\/pantalla$/);
+      await expect(page.getByTestId("counter-board")).toBeVisible();
       expect(visited).not.toContain("/estacion");
     } finally {
       await context.close();
@@ -343,15 +344,11 @@ test.describe("cocina", () => {
 test.describe("cajera", () => {
   test.use({ storageState: authFile("cajera") });
 
-  test("the Cocina link opens the kitchen screen in a NEW tab; she acts on her own sector only", async ({ page, context }) => {
+  test("she can still open /cocina directly (the menu link is now Pantalla); she acts on her own sector only", async ({ page }) => {
     const delivery = await placeApproved({ fulfillment: "delivery" });
     const takeaway = await placeApproved({ fulfillment: "takeaway" });
-    await page.goto("/mostrador");
-    const link = page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Cocina" });
-    await expect(link).toHaveAttribute("target", "_blank");
-    const popup = context.waitForEvent("page");
-    await link.click();
-    const kitchen = await popup;
+    const kitchen = page;
+    await kitchen.goto("/cocina");
     await expect(kitchen).toHaveURL(/\/cocina$/);
     await expect(kcard(kitchen, delivery.number)).toBeVisible();
     await expect(kcard(kitchen, delivery.number).getByTestId("kitchen-ready")).toBeDisabled();

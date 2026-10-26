@@ -103,6 +103,12 @@ body:has([data-floating-ui]) {
 html {
   scrollbar-gutter: stable;
 }
+/* The counter TV (/pantalla) fills the whole screen and never scrolls: no reserved scrollbar strip at the edge. */
+html:has([data-tv-board]) {
+  scrollbar-gutter: auto;
+  overflow: hidden;
+  background: #0b1220;
+}
 
 @keyframes bar-in {
   from { transform: translateY(100%); }

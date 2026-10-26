@@ -9,14 +9,14 @@ describe("navLinksFor (role x station kind)", () => {
       ["/mostrador", "Venta"],
       ["/mostrador/pedidos", "Mostrador"],
       ["/retiro", "Retiro en local"],
-      ["/cocina", "Cocina"],
+      ["/pantalla", "Pantalla"],
     ]);
   });
-  it("encargada on a Delivery station: Gestión Delivery, Rendición and Cocina", () => {
+  it("encargada on a Delivery station: Gestión Delivery, Rendición and Pantalla", () => {
     expect(links("encargada_delivery", "delivery")).toEqual([
       ["/delivery", "Gestión Delivery"],
       ["/delivery/rendicion", "Rendición"],
-      ["/cocina", "Cocina"],
+      ["/pantalla", "Pantalla"],
     ]);
   });
   it("admin sees every workspace, the general views and Administración, whatever the station", () => {
@@ -26,7 +26,7 @@ describe("navLinksFor (role x station kind)", () => {
       ["/retiro", "Retiro en local"],
       ["/delivery", "Gestión Delivery"],
       ["/delivery/rendicion", "Rendición"],
-      ["/cocina", "Cocina"],
+      ["/pantalla", "Pantalla"],
       ["/caja", "Vista general"],
       ["/despacho", "Tablero general"],
       ["/admin", "Administración"],
@@ -35,20 +35,27 @@ describe("navLinksFor (role x station kind)", () => {
     expect(links("admin", "mostrador")).toEqual(expected);
     expect(links("admin", "delivery")).toEqual(expected);
   });
-  it("encargado sees both workspaces, Cocina, the general views and Administración, whatever the station", () => {
+  it("encargado sees both workspaces, Pantalla, the general views and Administración, whatever the station", () => {
     const expected = links("admin", null);
     expect(links("encargado", null)).toEqual(expected);
     expect(links("encargado", "mostrador")).toEqual(expected);
     expect(links("encargado", "delivery")).toEqual(expected);
-    expect(expected.map((l) => l[1])).toEqual(expect.arrayContaining(["Venta", "Gestión Delivery", "Cocina", "Administración"]));
+    expect(expected.map((l) => l[1])).toEqual(expect.arrayContaining(["Venta", "Gestión Delivery", "Pantalla", "Administración"]));
   });
   it("staff without a station get the workspaces of their role (the pages send them to pick a station)", () => {
-    expect(links("cajera", null).map((l) => l[0])).toEqual(["/mostrador", "/mostrador/pedidos", "/retiro", "/cocina"]);
-    expect(links("encargada_delivery", null).map((l) => l[0])).toEqual(["/delivery", "/delivery/rendicion", "/cocina"]);
+    expect(links("cajera", null).map((l) => l[0])).toEqual(["/mostrador", "/mostrador/pedidos", "/retiro", "/pantalla"]);
+    expect(links("encargada_delivery", null).map((l) => l[0])).toEqual(["/delivery", "/delivery/rendicion", "/pantalla"]);
   });
-  it("the cocina role only sees the kitchen screen", () => {
-    expect(links("cocina", null)).toEqual([["/cocina", "Cocina"]]);
-    expect(links("cocina", "mostrador")).toEqual([["/cocina", "Cocina"]]);
+  it("the counter screen link opens in a new tab and no link points at the old kitchen screen", () => {
+    for (const [role, kind] of [["cajera", "mostrador"], ["encargada_delivery", "delivery"], ["admin", null], ["encargado", null], ["cocina", null]] as const) {
+      const all = navLinksFor(role, kind);
+      expect(all.find((l) => l.href === "/pantalla")?.newTab, role).toBe(true);
+      expect(all.some((l) => l.href === "/cocina" || l.label === "Cocina"), role).toBe(false);
+    }
+  });
+  it("the cocina role only sees the counter screen", () => {
+    expect(links("cocina", null)).toEqual([["/pantalla", "Pantalla"]]);
+    expect(links("cocina", "mostrador")).toEqual([["/pantalla", "Pantalla"]]);
   });
   it("a role/kind mismatch (unsupported combination) only offers to change the station", () => {
     expect(links("cajera", "delivery")).toEqual([["/estacion", "Cambiar estación"]]);
@@ -65,7 +72,7 @@ describe("activeNavHref", () => {
     expect(activeNavHref("/delivery/rendicion", all)).toBe("/delivery/rendicion");
     expect(activeNavHref("/delivery/rendicion/x", all)).toBe("/delivery/rendicion");
     expect(activeNavHref("/caja", all)).toBe("/caja");
-    expect(activeNavHref("/cocina", all)).toBe("/cocina");
+    expect(activeNavHref("/pantalla", all)).toBe("/pantalla");
   });
   it("is not fooled by a shared prefix", () => {
     expect(activeNavHref("/cajas", all)).toBeNull();

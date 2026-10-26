@@ -30,6 +30,8 @@ const ADMIN: Role[] = ["admin"];
 const MANAGERS: Role[] = ["admin", "encargado"];
 const STAFF3: Role[] = ["cajera", "encargada_delivery", "admin", "encargado"];
 const KITCHEN: Role[] = ["cocina", "cajera", "encargada_delivery", "admin", "encargado"];
+/** The counter TV (/pantalla): the `cocina` user is its login; every staff role can open it. */
+const COUNTER_TV: Role[] = ["cocina", "cajera", "encargada_delivery", "encargado", "admin"];
 const DELIVERY: Role[] = ["encargada_delivery", "admin", "encargado"];
 const COUNTER: Role[] = ["cajera", "admin", "encargado"];
 
@@ -194,6 +196,12 @@ export const SURFACE: Record<string, Entry> = {
   ["page:src/app/(staff)/mostrador/pedidos/page.tsx"]: { access: "staff", roles: COUNTER, note: "Counter orders board.", tests: ["e2e/despacho-roles.spec.ts"] },
   ["page:src/app/(staff)/retiro/page.tsx"]: { access: "staff", roles: COUNTER, note: "Takeaway approval workspace.", tests: ["e2e/caja.spec.ts"] },
   ["page:src/app/(staff)/cocina/page.tsx"]: { access: "staff", roles: KITCHEN, note: "Kitchen screen (orders in preparation, no customer data).", tests: ["e2e/cocina.spec.ts"] },
+  ["page:src/app/(staff)/pantalla/page.tsx"]: {
+    access: "staff",
+    roles: COUNTER_TV,
+    note: "Counter TV, read only: order numbers in preparation / ready (counter + web takeaway, never delivery); no customer data, no actions.",
+    tests: ["e2e/pantalla.spec.ts", "src/lib/orders/counter-board.int.test.ts"],
+  },
   ["page:src/app/(staff)/delivery/page.tsx"]: { access: "staff", roles: DELIVERY, note: "Delivery workspace.", tests: ["e2e/delivery-workspace.spec.ts"] },
   ["page:src/app/(staff)/delivery/rendicion/page.tsx"]: { access: "staff", roles: DELIVERY, note: "Cadet settlement screen.", tests: ["e2e/rendicion-roles-print.spec.ts"] },
 };

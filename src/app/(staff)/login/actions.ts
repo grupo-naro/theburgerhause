@@ -43,10 +43,11 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const rawNext = formData.get("next");
   const next = typeof rawNext === "string" ? rawNext : null;
 
-  const { token } = await createSession(db, { userId: user.id });
+  const { token } = await createSession(db, { userId: user.id, role: user.role });
   // Housekeeping: expired sessions are dead weight; every login (a few dozen a day) sweeps them. Never blocks a login.
   await deleteExpiredSessions(db).catch(() => console.error("[login] expired session purge failed"));
-  await setSessionCookie(token);
+  // The counter TV (`cocina`) keeps a long session: it must not be logged out by inactivity.
+  await setSessionCookie(token, { long: user.role === "cocina" });
 
   let destination: string;
   if (isManager(user.role) || user.role === "cocina") {

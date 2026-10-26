@@ -8,15 +8,17 @@ export const SESSION_COOKIE = "bh_session";
 
 /** Long browser lifetime; the DB row is the only authority on session expiry (12 h sliding). */
 export const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+/** The counter TV's cookie (`cocina` user): 400 days, the browser maximum, matching its long DB session. */
+export const KIOSK_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400;
 
-/** Thin Next glue: all session logic lives in session-store.ts. */
-export async function setSessionCookie(token: string): Promise<void> {
+/** Thin Next glue: all session logic lives in session-store.ts. `long` is the counter TV's session. */
+export async function setSessionCookie(token: string, { long = false }: { long?: boolean } = {}): Promise<void> {
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
     secure: process.env.NODE_ENV === "production",
-    maxAge: COOKIE_MAX_AGE_SECONDS,
+    maxAge: long ? KIOSK_COOKIE_MAX_AGE_SECONDS : COOKIE_MAX_AGE_SECONDS,
   });
 }
 

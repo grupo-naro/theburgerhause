@@ -38,8 +38,8 @@ export const USERS = {
     password: "encargado-e2e-pass-1",
     home: "/mostrador",
   },
-  // The kitchen device: no station, lands straight on the kitchen screen.
-  cocina: { role: "cocina", name: "Cocina E2E", username: "cocina", password: "cocina-e2e-pass-1", home: "/cocina" },
+  // The counter TV's login (role cocina): no station, lands straight on /pantalla.
+  cocina: { role: "cocina", name: "Cocina E2E", username: "cocina", password: "cocina-e2e-pass-1", home: "/pantalla" },
 } as const satisfies Record<string, E2EUser>;
 
 export type UserKey = keyof typeof USERS;

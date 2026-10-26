@@ -32,7 +32,7 @@ test.describe("cashier", () => {
     await page.goto("/retiro");
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
     const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local", "Cocina"]);
+    await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local", "Pantalla"]);
     await expect(nav.getByRole("link", { name: "Retiro en local" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("station-name")).toHaveText("Estación: Mostrador 1");
 
@@ -189,7 +189,7 @@ test.describe("delivery manager", () => {
     await page.goto("/delivery");
     await expect(page.getByTestId("station-name")).toHaveText("Estación: Delivery 1");
     const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Gestión Delivery", "Rendición", "Cocina"]);
+    await expect(nav.getByRole("link")).toHaveText(["Gestión Delivery", "Rendición", "Pantalla"]);
     await expect(nav.getByRole("link", { name: "Gestión Delivery" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { name: "Gestión Delivery", exact: true })).toBeAttached();
 
@@ -314,7 +314,7 @@ test.describe("admin", () => {
   test("sees every workspace, both general views and Administración", async ({ page }) => {
     await page.goto("/caja");
     const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local", "Gestión Delivery", "Rendición", "Cocina", "Vista general", "Tablero general", "Administración"]);
+    await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local", "Gestión Delivery", "Rendición", "Pantalla", "Vista general", "Tablero general", "Administración"]);
     await expect(nav.getByRole("link", { name: "Vista general" })).toHaveAttribute("aria-current", "page");
   });
 });

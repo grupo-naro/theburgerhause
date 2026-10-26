@@ -80,13 +80,23 @@ describe("login action", () => {
     expect(await redirectOf(login(prev, form({ username: "cora", password: PASSWORD, next })))).toBe("/mostrador");
   });
 
-  it("the kitchen user goes straight to /cocina (or a safe next), no station hop, even with a stale station cookie", async () => {
+  it("the cocina user (counter TV) goes straight to /pantalla, no station hop, even with a stale station cookie", async () => {
     const { hashPassword } = await import("@/lib/auth/password");
     await testDb().insert(s.users).values({ name: "Coco", username: "coco", passwordHash: await hashPassword(PASSWORD), role: "cocina" });
-    expect(await redirectOf(login(prev, form({ username: "coco", password: PASSWORD })))).toBe("/cocina");
+    expect(await redirectOf(login(prev, form({ username: "coco", password: PASSWORD })))).toBe("/pantalla");
     jar.set("bh_station", String(fx.deliveryStation));
-    expect(await redirectOf(login(prev, form({ username: "coco", password: PASSWORD })))).toBe("/cocina");
+    expect(await redirectOf(login(prev, form({ username: "coco", password: PASSWORD })))).toBe("/pantalla");
     expect((await sessions()).every((r) => r.stationId === null)).toBe(true);
+    // The TV's session is the long one (no idle expiry): far beyond the staff 12 h.
+    const yearAhead = Date.now() + 365 * 24 * 3_600_000;
+    expect((await sessions()).every((r) => r.expiresAt.getTime() > yearAhead)).toBe(true);
+  });
+
+  it("a cashier's login session stays the 12 h one", async () => {
+    jar.set("bh_station", String(fx.station));
+    await redirectOf(login(prev, form({ username: "cora", password: PASSWORD })));
+    const [row] = await sessions();
+    expect(row.expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + 12 * 3_600_000 + 1000);
   });
 
   it("rate-limits the 6th attempt for the same ip|username", async () => {
