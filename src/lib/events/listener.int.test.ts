@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { closeDb } from "@/db/client";
 import { testDb } from "@/db/test-utils";
-import { ORDERS_CHANNEL, PRINT_CHANNEL, STOCK_CHANNEL, type OrdersEvent } from "./channels";
+import { DELAY_CHANNEL, ORDERS_CHANNEL, PRINT_CHANNEL, STOCK_CHANNEL, type OrdersEvent } from "./channels";
 import { resetBus, subscribe } from "./bus";
 import { LISTENER_APP_NAME, listenerStatus, startListener, stopListener } from "./listener";
 
@@ -96,6 +96,13 @@ describe("pg listener", () => {
     const got = once<{ itemId: number; reason: string }>((cb) => subscribe(STOCK_CHANNEL, cb));
     await db().execute(sql`select pg_notify(${STOCK_CHANNEL}, ${JSON.stringify({ itemId: 5, reason: "consumo" })})`);
     expect(await got).toEqual({ itemId: 5, reason: "consumo" });
+  });
+
+  it("publishes delay events on the bus too", async () => {
+    await startLive();
+    const got = once<{ active: boolean }>((cb) => subscribe(DELAY_CHANNEL, cb));
+    await db().execute(sql`select pg_notify(${DELAY_CHANNEL}, ${JSON.stringify({ active: true })})`);
+    expect(await got).toEqual({ active: true });
   });
 
   it("ignores garbage payloads without crashing, and keeps working", async () => {

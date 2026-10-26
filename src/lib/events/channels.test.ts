@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ORDERS_CHANNEL, PRINT_CHANNEL, STOCK_CHANNEL, parseEventPayload } from "./channels";
+import { DELAY_CHANNEL, ORDERS_CHANNEL, PRINT_CHANNEL, STOCK_CHANNEL, parseEventPayload } from "./channels";
 
 describe("parseEventPayload", () => {
   it("parses a valid orders event", () => {
@@ -42,6 +42,14 @@ describe("parseEventPayload", () => {
     expect(parseEventPayload(STOCK_CHANNEL, JSON.stringify({ itemId: 2, reason: "robo" }))).toBeNull();
     expect(parseEventPayload(STOCK_CHANNEL, JSON.stringify({ itemId: 0, reason: "venta" }))).toBeNull();
     expect(parseEventPayload(STOCK_CHANNEL, JSON.stringify({ reason: "venta" }))).toBeNull();
+  });
+
+  it("parses delay events and rejects garbage", () => {
+    expect(parseEventPayload(DELAY_CHANNEL, JSON.stringify({ active: true }))).toEqual({ active: true });
+    expect(parseEventPayload(DELAY_CHANNEL, JSON.stringify({ active: false }))).toEqual({ active: false });
+    expect(parseEventPayload(DELAY_CHANNEL, JSON.stringify({ active: "yes" }))).toBeNull();
+    expect(parseEventPayload(DELAY_CHANNEL, JSON.stringify({}))).toBeNull();
+    expect(parseEventPayload(DELAY_CHANNEL, "not json")).toBeNull();
   });
 
   it("rejects unknown channels and oversized payloads", () => {

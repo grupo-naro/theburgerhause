@@ -293,6 +293,31 @@ export const orderEvents = pgTable(
   (t) => [index("order_events_order_idx").on(t.orderId), index("order_events_user_idx").on(t.userId)],
 );
 
+// ---------------------------------------------------------------- delay notices
+/** Manual "demora" notices. History is kept: a notice is closed (ended_at), never deleted. At most one is active. */
+export const delayNotices = pgTable(
+  "delay_notices",
+  {
+    id: serial("id").primaryKey(),
+    extraMinutes: smallint("extra_minutes").notNull(),
+    /** Staff-only: never shown to customers. */
+    reason: text("reason").notNull(),
+    startedBy: integer("started_by")
+      .notNull()
+      .references(() => users.id),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    endedBy: integer("ended_by").references(() => users.id),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+  },
+  (t) => [
+    check("delay_notices_extra_minutes_valid", sql`${t.extraMinutes} BETWEEN 5 AND 60 AND ${t.extraMinutes} % 5 = 0`),
+    check("delay_notices_reason_len", sql`char_length(${t.reason}) BETWEEN 1 AND 120`),
+    uniqueIndex("delay_notices_one_active").on(sql`(true)`).where(sql`${t.endedAt} IS NULL`),
+    index("delay_notices_started_by_idx").on(t.startedBy),
+    index("delay_notices_ended_by_idx").on(t.endedBy),
+  ],
+);
+
 // ---------------------------------------------------------------- settlements
 export const settlements = pgTable(
   "settlements",

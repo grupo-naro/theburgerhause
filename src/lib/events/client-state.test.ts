@@ -36,6 +36,7 @@ function setup() {
   const onOrders = vi.fn();
   const onResync = vi.fn();
   const onStock = vi.fn();
+  const onDelay = vi.fn();
   const states: string[] = [];
   const client = createLiveClient({
     url: "/api/events",
@@ -44,11 +45,12 @@ function setup() {
     cancel: clock.cancel,
     onOrders,
     onStock,
+    onDelay,
     onResync,
     onState: (s) => states.push(s),
   });
   const src = () => FakeSource.all[FakeSource.all.length - 1];
-  return { clock, onOrders, onStock, onResync, states, client, src };
+  return { clock, onOrders, onStock, onDelay, onResync, states, client, src };
 }
 
 const ev = { orderId: 5, status: "en_preparacion", event: "status" };
@@ -85,6 +87,18 @@ describe("live client state machine", () => {
     t.src().emit("stock", JSON.stringify({ itemId: "3" }));
     expect(t.onStock).toHaveBeenCalledTimes(1);
     expect(t.onStock).toHaveBeenCalledWith(stock);
+    expect(t.onOrders).not.toHaveBeenCalled();
+  });
+
+  it("forwards parsed delay events and ignores malformed ones", () => {
+    const t = setup();
+    t.client.start();
+    t.src().open();
+    t.src().emit("delay", JSON.stringify({ active: true }));
+    t.src().emit("delay", "not json");
+    t.src().emit("delay", JSON.stringify({ active: "x" }));
+    expect(t.onDelay).toHaveBeenCalledTimes(1);
+    expect(t.onDelay).toHaveBeenCalledWith({ active: true });
     expect(t.onOrders).not.toHaveBeenCalled();
   });
 

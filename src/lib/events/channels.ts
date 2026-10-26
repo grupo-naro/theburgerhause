@@ -8,7 +8,10 @@ export const PRINT_CHANNEL = "print_job_created";
 /** The stock balance of one item changed (refetch hint for the shortage alert and the stock screens). */
 export const STOCK_CHANNEL = "stock_changed";
 
-export type Channel = typeof ORDERS_CHANNEL | typeof PRINT_CHANNEL | typeof STOCK_CHANNEL;
+/** A manual delay notice was activated or deactivated (refetch hint for the estimate and the staff banner). */
+export const DELAY_CHANNEL = "delay_changed";
+
+export type Channel = typeof ORDERS_CHANNEL | typeof PRINT_CHANNEL | typeof STOCK_CHANNEL | typeof DELAY_CHANNEL;
 
 const KNOWN_ORDER_EVENTS = ["created", "status", "assigned", "settled", "updated"] as const;
 
@@ -35,6 +38,10 @@ const stockEventSchema = z.object({
   reason: z.enum(STOCK_EVENT_REASONS),
 });
 
+const delayEventSchema = z.object({ active: z.boolean() });
+
+export type DelayEvent = z.infer<typeof delayEventSchema>;
+
 export { STOCK_EVENT_REASONS };
 export type StockEvent = { itemId: number; reason: StockEventReason };
 
@@ -42,6 +49,7 @@ export type ChannelPayloads = {
   [ORDERS_CHANNEL]: OrdersEvent;
   [PRINT_CHANNEL]: PrintEvent;
   [STOCK_CHANNEL]: StockEvent;
+  [DELAY_CHANNEL]: DelayEvent;
 };
 
 /** Postgres caps a NOTIFY payload at 8000 bytes; anything near that is not ours. */
@@ -61,6 +69,7 @@ export function parseEventPayload(channel: string, raw: string): ChannelPayloads
     [ORDERS_CHANNEL]: ordersEventSchema,
     [PRINT_CHANNEL]: printEventSchema,
     [STOCK_CHANNEL]: stockEventSchema,
+    [DELAY_CHANNEL]: delayEventSchema,
   };
   const schema = Object.hasOwn(schemas, channel) ? schemas[channel as Channel] : null;
   if (!schema) return null;

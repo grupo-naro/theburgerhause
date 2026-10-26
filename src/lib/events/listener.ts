@@ -2,7 +2,7 @@ import { Client } from "pg";
 import { getEnv } from "@/lib/env";
 import { DEFAULT_BACKOFF, reconnectDelay, type Backoff } from "./backoff";
 import { publish } from "./bus";
-import { ORDERS_CHANNEL, PRINT_CHANNEL, STOCK_CHANNEL, parseEventPayload } from "./channels";
+import { DELAY_CHANNEL, ORDERS_CHANNEL, PRINT_CHANNEL, STOCK_CHANNEL, parseEventPayload } from "./channels";
 
 /**
  * ONE dedicated LISTEN connection per process (never from the pool: pooled clients are recycled
@@ -93,7 +93,7 @@ async function connect(state: State): Promise<void> {
   client.on("end", () => onLost());
   client.on("notification", (msg) => {
     const channel = msg.channel;
-    if (channel !== ORDERS_CHANNEL && channel !== PRINT_CHANNEL && channel !== STOCK_CHANNEL) return;
+    if (channel !== ORDERS_CHANNEL && channel !== PRINT_CHANNEL && channel !== STOCK_CHANNEL && channel !== DELAY_CHANNEL) return;
     const payload = parseEventPayload(channel, msg.payload ?? "");
     if (payload === null) {
       console.error("[events] ignored malformed notification");
@@ -101,6 +101,7 @@ async function connect(state: State): Promise<void> {
     }
     if (channel === ORDERS_CHANNEL) publish(ORDERS_CHANNEL, payload as never);
     else if (channel === STOCK_CHANNEL) publish(STOCK_CHANNEL, payload as never);
+    else if (channel === DELAY_CHANNEL) publish(DELAY_CHANNEL, payload as never);
     else publish(PRINT_CHANNEL, payload as never);
   });
 
@@ -109,6 +110,7 @@ async function connect(state: State): Promise<void> {
     await client.query(`LISTEN ${ORDERS_CHANNEL}`);
     await client.query(`LISTEN ${PRINT_CHANNEL}`);
     await client.query(`LISTEN ${STOCK_CHANNEL}`);
+    await client.query(`LISTEN ${DELAY_CHANNEL}`);
   } catch (err) {
     onLost(err);
     return;

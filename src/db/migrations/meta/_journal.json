@@ -85,6 +85,13 @@
       "when": 1792635390353,
       "tag": "0011_orders_tanda",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793042322727,
+      "tag": "0012_delay_notices",
+      "breakpoints": true
     }
   ]
 }

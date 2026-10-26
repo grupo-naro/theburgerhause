@@ -18,7 +18,7 @@ export function LiveRefresh({ indicator = true, large = false, dark = false }: {
   const refresh = useCallback(() => requestRefresh(router), [router]);
   useEffect(() => cancelRefresh, []);
 
-  const state = useLiveEvents({ onOrders: refresh, onResync: refresh });
+  const state = useLiveEvents({ onOrders: refresh, onDelay: refresh, onResync: refresh });
 
   // Anything that happened between the server render and the stream opening was not announced:
   // catch up once, the first time the connection is live.

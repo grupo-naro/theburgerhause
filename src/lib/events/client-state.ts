@@ -1,4 +1,4 @@
-import type { OrdersEvent, StockEvent } from "./channels";
+import type { DelayEvent, OrdersEvent, StockEvent } from "./channels";
 import { STOCK_EVENT_REASONS } from "./stock-reasons";
 
 /**
@@ -34,6 +34,7 @@ export type LiveClientDeps = {
   cancel: (handle: unknown) => void;
   onOrders?: (event: OrdersEvent) => void;
   onStock?: (event: StockEvent) => void;
+  onDelay?: (event: DelayEvent) => void;
   onResync?: () => void;
   onState?: (state: LiveState) => void;
 };
@@ -49,6 +50,17 @@ function parseOrders(data: string | undefined): OrdersEvent | null {
     if (v && typeof v.orderId === "number" && typeof v.status === "string" && typeof v.event === "string") {
       return v as OrdersEvent;
     }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
+function parseDelay(data: string | undefined): DelayEvent | null {
+  if (typeof data !== "string") return null;
+  try {
+    const v = JSON.parse(data) as Partial<DelayEvent> | null;
+    if (v && typeof v.active === "boolean") return { active: v.active };
   } catch {
     // fall through
   }
@@ -156,6 +168,11 @@ export function createLiveClient(deps: LiveClientDeps): LiveClient {
       if (!current()) return;
       const ev = parseStock(e.data);
       if (ev) deps.onStock?.(ev);
+    });
+    s.addEventListener("delay", (e) => {
+      if (!current()) return;
+      const ev = parseDelay(e.data);
+      if (ev) deps.onDelay?.(ev);
     });
     s.addEventListener("resync", () => {
       if (current()) deps.onResync?.();

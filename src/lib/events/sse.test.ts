@@ -5,7 +5,7 @@ const requireRole = vi.fn();
 vi.mock("@/lib/auth/require-role", () => ({ requireRole: (...a: unknown[]) => requireRole(...a) }));
 
 import { listenerCount, publish, resetBus } from "./bus";
-import { ORDERS_CHANNEL, PRINT_CHANNEL, STOCK_CHANNEL } from "./channels";
+import { DELAY_CHANNEL, ORDERS_CHANNEL, PRINT_CHANNEL, STOCK_CHANNEL } from "./channels";
 import { connectionStats, createEventsHandler, resetConnectionStats } from "./sse";
 
 const session = (id = 1, role = "cajera") => ({ user: { id, role, name: "x", username: "x" }, stationId: null, stationKind: null, sessionId: "s" });
@@ -126,6 +126,17 @@ describe("events handler: stream", () => {
     const stock = { itemId: 4, reason: "venta" as const };
     publish(STOCK_CHANNEL, stock);
     await c.read(`event: stock\ndata: ${JSON.stringify(stock)}\n\n`);
+    c.ac.abort();
+  });
+
+  it("forwards delay events as `event: delay`", async () => {
+    const c = await open(handlerWith());
+    await c.read("event: hello");
+    publish(DELAY_CHANNEL, { active: true });
+    await c.read(`event: delay
+data: ${JSON.stringify({ active: true })}
+
+`);
     c.ac.abort();
   });
 
