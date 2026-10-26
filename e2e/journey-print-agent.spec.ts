@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { expect, test, type Page } from "@playwright/test";
 import * as s from "../src/db/schema";
 import { FileBackend } from "../packages/print-agent/src/printer/file";
@@ -55,24 +55,25 @@ test("J4 station without agent: pending jobs, delivery once the agent starts, cr
 
   await openRetiro(page);
 
-  await test.step("with NO agent: approving leaves the customer ticket pending and the indicator says 'Sin agente'", async () => {
+  await test.step("with NO agent: approving leaves the kitchen and customer tickets pending and the indicator says 'Sin agente'", async () => {
     const a = await placeRetiroOrder({ paymentMethod: "cash", single: true });
     await expect(orderCard(page, a.number)).toBeVisible();
     await approve(page, a.number);
     expect((await printJobsOf(a.id)).map((j) => [j.type, j.status, j.attempts])).toEqual([
+      ["kitchen", "pending", 0],
       ["customer", "pending", 0],
     ]);
     await expect(page.getByTestId("printer-indicator")).toHaveAttribute("data-online", "false");
     await expect(page.getByTestId("printer-indicator")).toContainText("Sin agente");
     await expect(recentRow(page, a.number).getByTestId("print-chip")).not.toHaveText("Impresión: ok");
 
-    // the agent starts: exactly that job prints, once
+    // the agent starts: exactly those two jobs print, once
     const agent = launchAgent(baseURL!, token);
-    await expect.poll(() => printedFiles(agent.outDir).length, { timeout: 15_000 }).toBe(1);
+    await expect.poll(() => printedFiles(agent.outDir).length, { timeout: 15_000 }).toBe(2);
     await expect(recentRow(page, a.number).getByTestId("print-chip")).toHaveText("Impresión: ok");
     await expect(page.getByTestId("printer-indicator")).toHaveAttribute("data-online", "true");
     await agent.agent.stop();
-    expect(printedFiles(agent.outDir)).toHaveLength(1);
+    expect(printedFiles(agent.outDir)).toHaveLength(2);
     expect((await printJobsOf(a.id)).every((j) => j.status === "done" && j.attempts === 1)).toBe(true);
   });
 
@@ -80,23 +81,27 @@ test("J4 station without agent: pending jobs, delivery once the agent starts, cr
     const b = await placeRetiroOrder({ paymentMethod: "cash", single: true, unitNote: "sin sal" });
     await expect(orderCard(page, b.number)).toBeVisible();
     await approve(page, b.number); // no agent yet: the job waits
-    const [ticketJob] = await printJobsOf(b.id);
+    const [kitchenJob, ticketJob] = await printJobsOf(b.id);
+    const both = [kitchenJob.id, ticketJob.id];
 
-    // PC 1 prints the ticket but its network eats the ack, then the process dies.
+    // PC 1 prints both tickets but its network eats the acks, then the process dies.
     const dataDir = tempDir("bh-journey-data-");
     const outDir = tempDir("bh-journey-out-");
-    const first = launchAgent(baseURL!, token, { dataDir, outDir, fetch: ackFilter({ dropJobs: new Set([ticketJob.id]) }) });
-    await expect.poll(() => printedFiles(outDir).length, { timeout: 15_000 }).toBe(1);
-    await expect.poll(async () => (await printJobsOf(b.id)).map((j) => j.status), { timeout: 15_000 }).toEqual(["printing"]);
-    await first.agent.stop(); // the ack of the ticket stays in state.json, never delivered
-    expect(first.agent.status().pendingAcks).toBe(1);
-    expect((await printJobsOf(b.id))[0]).toMatchObject({ id: ticketJob.id, type: "customer", status: "printing", attempts: 1 });
+    const first = launchAgent(baseURL!, token, { dataDir, outDir, fetch: ackFilter({ dropJobs: new Set(both) }) });
+    await expect.poll(() => printedFiles(outDir).length, { timeout: 15_000 }).toBe(2);
+    await expect.poll(async () => (await printJobsOf(b.id)).map((j) => j.status), { timeout: 15_000 }).toEqual(["printing", "printing"]);
+    await first.agent.stop(); // the acks stay in state.json, never delivered
+    expect(first.agent.status().pendingAcks).toBe(2);
+    expect(await printJobsOf(b.id)).toMatchObject([
+      { id: kitchenJob.id, type: "kitchen", status: "printing", attempts: 1 },
+      { id: ticketJob.id, type: "customer", status: "printing", attempts: 1 },
+    ]);
 
     // 31 s later (the server's stuck timeout is 30 s): move the claim time instead of sleeping
     await db()
       .update(s.printJobs)
       .set({ claimedAt: new Date(Date.now() - 31_000) })
-      .where(and(eq(s.printJobs.id, ticketJob.id), eq(s.printJobs.status, "printing")));
+      .where(and(inArray(s.printJobs.id, both), eq(s.printJobs.status, "printing")));
 
     // PC 1 restarts (same data dir). Acks are held back until the re-delivery shows up in its log.
     let open!: () => void;
@@ -104,9 +109,9 @@ test("J4 station without agent: pending jobs, delivery once the agent starts, cr
     const second = launchAgent(baseURL!, token, { dataDir, outDir, fetch: ackFilter({ gate }) });
     await second.log.waitFor("Trabajo repetido: ya estaba impreso, solo se confirma");
     open();
-    await expect.poll(async () => (await printJobsOf(b.id)).map((j) => j.status), { timeout: 15_000 }).toEqual(["done"]);
-    expect((await printJobsOf(b.id))[0].attempts).toBe(2); // it WAS delivered again...
-    expect(printedFiles(outDir)).toEqual([`job-${ticketJob.id}-1.bin`]); // ...but not printed again
+    await expect.poll(async () => (await printJobsOf(b.id)).map((j) => j.status), { timeout: 15_000 }).toEqual(["done", "done"]);
+    expect((await printJobsOf(b.id)).map((j) => j.attempts)).toEqual([2, 2]); // they WERE delivered again...
+    expect(printedFiles(outDir)).toEqual(both.map((id) => `job-${id}-1.bin`).sort()); // ...but not printed again
     expect(second.log.has("Trabajo impreso")).toBe(false);
     await expect(recentRow(page, b.number).getByTestId("print-chip")).toHaveText("Impresión: ok");
     await second.agent.stop();
@@ -116,7 +121,8 @@ test("J4 station without agent: pending jobs, delivery once the agent starts, cr
     const c = await placeRetiroOrder({ paymentMethod: "cash", single: true });
     await expect(orderCard(page, c.number)).toBeVisible();
     await approve(page, c.number);
-    const [failingJob] = await printJobsOf(c.id);
+    const [kitchenOfC, failingJob] = await printJobsOf(c.id); // the kitchen comanda prints; the customer ticket is the one that fails
+    expect([kitchenOfC.type, failingJob.type]).toEqual(["kitchen", "customer"]);
 
     const outDir = tempDir("bh-journey-out-");
     const real = new FileBackend(outDir);
@@ -140,21 +146,22 @@ test("J4 station without agent: pending jobs, delivery once the agent starts, cr
     await expect(alert.getByTestId("failed-print")).toContainText(`Pedido #${c.number}`);
     await expect(alert.getByTestId("failed-print")).toContainText("Ticket cliente: Sin papel");
     expect((await printJobsOf(c.id)).map((j) => [j.type, j.status, j.attempts])).toEqual([
+      ["kitchen", "done", 1],
       ["customer", "failed", 3],
     ]);
     await expect(page.getByTestId("printer-indicator")).toContainText("impresión fallida");
-    expect(printedFiles(outDir)).toHaveLength(0); // nothing came out of the printer
+    expect(printedFiles(outDir)).toHaveLength(1); // only the kitchen comanda came out of the printer
 
     // paper is back; the cashier reprints
     outOfPaper = false;
     await alert.getByRole("button", { name: `Reimprimir pedido #${c.number}` }).click();
     await expect(alert).toHaveCount(0);
-    await expect.poll(() => printedFiles(outDir).length, { timeout: 15_000 }).toBe(1);
+    await expect.poll(() => printedFiles(outDir).length, { timeout: 15_000 }).toBe(2);
     const jobs = await printJobsOf(c.id);
-    expect(jobs).toHaveLength(2);
-    const reprint = jobs[1];
+    expect(jobs).toHaveLength(3); // kitchen + failed customer + the customer reprint (the kitchen comanda is not printed again)
+    const reprint = jobs[2];
     expect(reprint).toMatchObject({ type: "customer", status: "done" });
-    expect(reprint.id).toBeGreaterThan(jobs[0].id);
+    expect(reprint.id).toBeGreaterThan(jobs[1].id);
     expect(latin1(readPrinted(outDir, reprint.id))).toContain(`PEDIDO #${c.number}`);
     expect(latin1(readPrinted(outDir, reprint.id))).toContain("GRACIAS POR TU COMPRA");
     await agent.agent.stop();

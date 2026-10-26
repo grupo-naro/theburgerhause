@@ -79,7 +79,7 @@ function serviceType(order: PrintableOrder): string {
 }
 
 /**
- * Kitchen comanda. NOT enqueued since Task 10.2 (the KDS screen replaces it); kept so Phase 2 can reuse it.
+ * Kitchen comanda: number, service type (+ llamador), time and every physical unit with its kitchen labels and note. Printed first on every station.
  */
 export function renderKitchenTicket(order: PrintableOrder): PrintDocument {
   const items = order.items.flatMap((item, i): PrintBlock[] => [

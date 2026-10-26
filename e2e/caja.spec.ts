@@ -139,9 +139,9 @@ test.describe("approve", () => {
     const station = await findStation("Mostrador 1");
     const cashier = await findUser("cajera");
     const jobs = await printJobsOf(o.id);
-    expect(jobs.map((j) => j.type)).toEqual(["customer"]); // no kitchen comanda; takeaway has no delivery ticket
+    expect(jobs.map((j) => j.type)).toEqual(["kitchen", "customer"]); // kitchen comanda first; takeaway has no delivery ticket
     expect(jobs.every((j) => j.stationId === station.id && j.status === "pending")).toBe(true);
-    const ticket = JSON.stringify(jobs[0].payload);
+    const ticket = JSON.stringify(jobs[1].payload);
     expect(ticket).toContain('{"type":"logo"}');
     expect(ticket).toContain("Sin cheddar");
     expect(ticket).toContain("+ Dips de cheddar");
@@ -209,7 +209,7 @@ test.describe("approve", () => {
 
     expect(actions).toHaveLength(2); // one Server Action POST per order
     for (const o of [a, b]) {
-      expect(await printJobsOf(o.id)).toHaveLength(1); // the customer ticket, once
+      expect(await printJobsOf(o.id)).toHaveLength(2); // kitchen + customer tickets, once
       expect((await eventsOf(o.id)).filter((e) => e.toStatus === "en_preparacion")).toHaveLength(1);
     }
     await expect(page.getByTestId("card-conflict")).toHaveCount(0);
@@ -238,7 +238,7 @@ test.describe("approve", () => {
       await expect(b.page.getByText("Application error")).toHaveCount(0);
 
       const jobs = await printJobsOf(o.id);
-      expect(jobs).toHaveLength(1); // the customer ticket, once (not once per terminal)
+      expect(jobs).toHaveLength(2); // kitchen + customer tickets, once (not once per terminal)
       expect(new Set(jobs.map((j) => j.stationId)).size).toBe(1);
       expect((await eventsOf(o.id)).filter((e) => e.toStatus === "en_preparacion")).toHaveLength(1);
 
@@ -313,7 +313,7 @@ test.describe("failed prints", () => {
     await approveFromUi(page, o.number);
     await expect(recentRow(page, o.number)).toBeVisible();
     const station = await findStation("Mostrador 1");
-    const [customerJob] = await printJobsOf(o.id);
+    const customerJob = (await printJobsOf(o.id)).find((j) => j.type === "customer")!;
     try {
       await expect(page.getByTestId("failed-print-alert")).toHaveCount(0);
       await failPrintJob(customerJob.id, "Sin papel en la impresora");
@@ -331,7 +331,7 @@ test.describe("failed prints", () => {
       await expect(alert).toHaveCount(0);
 
       const jobs = await printJobsOf(o.id);
-      expect(jobs).toHaveLength(2);
+      expect(jobs).toHaveLength(3); // kitchen + customer from the approval, then the reprint
       const reprint = jobs.at(-1)!;
       expect(reprint).toMatchObject({ type: "customer", status: "pending", stationId: station.id, attempts: 0 });
       await expect(page.getByTestId("printer-indicator")).not.toContainText("fallida");
@@ -350,7 +350,7 @@ test.describe("failed prints", () => {
     }
   });
 
-  test("Reimprimir from Recientes offers only the customer ticket for a takeaway order and queues it for the current station", async ({ page }) => {
+  test("Reimprimir from Recientes offers the customer and kitchen tickets for a takeaway order and queues the chosen one for the current station", async ({ page }) => {
     await parkPendingOrders();
     const o = await placeRetiroOrder({ paymentMethod: "cash" });
     await openRetiro(page);
@@ -359,11 +359,18 @@ test.describe("failed prints", () => {
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: `Reimprimir pedido #${o.number}` }).click();
     const menu = row.getByRole("group", { name: "Qué reimprimir" });
-    await expect(menu.getByRole("button")).toHaveText(["Ticket cliente"]); // no delivery ticket, no kitchen, no "both"
+    await expect(menu.getByRole("button")).toHaveText(["Ticket cliente", "Ticket cocina"]); // no delivery ticket, no "both"
     await menu.getByRole("button", { name: "Ticket cliente" }).click();
     await expect(row.getByRole("status")).toContainText("Enviado a imprimir (ticket cliente)");
-    await expect.poll(async () => (await printJobsOf(o.id)).length).toBe(2);
+    await expect.poll(async () => (await printJobsOf(o.id)).length).toBe(3);
     expect((await printJobsOf(o.id)).at(-1)).toMatchObject({ type: "customer", status: "pending" });
+
+    // The kitchen comanda is its own, explicit reprint.
+    await row.getByRole("button", { name: `Reimprimir pedido #${o.number}` }).click();
+    await menu.getByRole("button", { name: "Ticket cocina" }).click();
+    await expect(row.getByRole("status")).toContainText("Enviado a imprimir (ticket cocina)");
+    await expect.poll(async () => (await printJobsOf(o.id)).length).toBe(4);
+    expect((await printJobsOf(o.id)).at(-1)).toMatchObject({ type: "kitchen", status: "pending" });
   });
 });
 

@@ -118,14 +118,15 @@ test("cash sale: disabled reasons in sequence, change, charge, DB rows, two tick
       ["Melt simple", melt],
     ]);
     const jobs = await jobsOf(order.id);
-    expect(jobs.map((j) => [j.type, j.stationId])).toEqual([["customer", station.id]]); // ONE ticket, no kitchen comanda
+    expect(jobs.map((j) => [j.type, j.stationId])).toEqual([["kitchen", station.id], ["customer", station.id]]); // kitchen comanda first, then the customer ticket
 
     // The agent receives it and acks: the overlay goes from "Imprimiendo…" to "Impreso ✓".
     await expect(page.getByTestId("print-status")).toHaveAttribute("data-status", "printing");
-    const got = await agent.jobs(1, 5000);
-    expect(got.map((j) => j.type)).toEqual(["customer"]);
-    expect(JSON.stringify(got[0].document)).toContain('{"type":"logo"}');
-    expect(JSON.stringify(got[0].document)).toContain("GRACIAS POR TU COMPRA");
+    const got = await agent.jobs(2, 5000);
+    expect(got.map((j) => j.type)).toEqual(["kitchen", "customer"]);
+    expect(JSON.stringify(got[0].document)).toContain("MOSTRADOR");
+    expect(JSON.stringify(got[1].document)).toContain('{"type":"logo"}');
+    expect(JSON.stringify(got[1].document)).toContain("GRACIAS POR TU COMPRA");
     for (const j of got) expect((await agent.ack(j.id, "done")).status).toBe(200);
     await expect(page.getByTestId("print-status")).toHaveAttribute("data-status", "done", { timeout: 15_000 });
     await expect(page.getByTestId("print-status")).toContainText("Impreso");
@@ -165,10 +166,13 @@ test("transfer sale is paid at once: ticket says 'Pago: Transferencia (pagado)' 
     await expect(page.getByTestId("confirm-payment")).toHaveText("Transferencia");
     const order = await latestCounterOrder();
     expect(order).toMatchObject({ paymentMethod: "transfer", paymentStatus: "paid", pagerNumber: 8, status: "en_preparacion", total: melt, customerName: null });
-    const [ticket] = await agent.jobs(1, 5000);
+    const [kitchen, ticket] = await agent.jobs(2, 5000);
+    expect(kitchen.type).toBe("kitchen");
+    expect(JSON.stringify(kitchen.document)).toContain("LLAMADOR 8");
     expect(ticket.type).toBe("customer");
     expect(JSON.stringify(ticket.document)).toContain("Pago: Transferencia (pagado)");
     expect(JSON.stringify(ticket.document)).toContain("LLAMADOR 8");
+    await agent.ack(kitchen.id, "done");
     await agent.ack(ticket.id, "done");
   } finally {
     await agent.stop();
@@ -244,7 +248,7 @@ test("double submit: two Ctrl+Enter in the same tick and a double click create O
   await expect(overlay(page)).toBeVisible();
   expect(await counterOrderCount()).toBe(before + 1);
   const first = await latestCounterOrder();
-  expect((await jobsOf(first.id)).map((j) => j.type)).toEqual(["customer"]);
+  expect((await jobsOf(first.id)).map((j) => j.type)).toEqual(["kitchen", "customer"]);
   await page.getByTestId("new-sale").click();
 
   await tileMain(page, "Ranchita simple").click();
@@ -254,7 +258,7 @@ test("double submit: two Ctrl+Enter in the same tick and a double click create O
   expect(await counterOrderCount()).toBe(before + 2);
   const second = await latestCounterOrder();
   expect(second.id).not.toBe(first.id);
-  expect((await jobsOf(second.id)).map((j) => j.type)).toEqual(["customer"]);
+  expect((await jobsOf(second.id)).map((j) => j.type)).toEqual(["kitchen", "customer"]);
 });
 
 test("stale item: a product deactivated while in the ticket is named, removed, nothing is charged; the rest can be charged", async ({ page }) => {
@@ -344,7 +348,7 @@ test("exactly one EventSource, and a sale from another terminal does not open a 
 });
 
 
-test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a failed job -> Reimprimir, each reprint queues 1 more job", async ({ page }) => {
+test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a failed job -> Reimprimir, each customer reprint queues 1 more job", async ({ page }) => {
   test.setTimeout(90_000);
   await releaseCounterState();
   await page.clock.install();
@@ -356,7 +360,7 @@ test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a fail
   const order = await latestCounterOrder();
   const status = page.getByTestId("print-status");
   await expect(status).toHaveAttribute("data-status", "printing");
-  expect(await jobsOf(order.id)).toHaveLength(1);
+  expect(await jobsOf(order.id)).toHaveLength(2); // kitchen + customer
 
   // Nobody confirms: each 2 s tick keeps it "printing", the 30 s budget ends in "waiting".
   await expect(async () => {
@@ -368,7 +372,7 @@ test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a fail
   await expect(reprint).toBeVisible();
   await reprint.click();
   await expect(status).toHaveAttribute("data-status", "printing");
-  await expect(async () => expect(await jobsOf(order.id)).toHaveLength(2)).toPass();
+  await expect(async () => expect(await jobsOf(order.id)).toHaveLength(3)).toPass();
 
   // The newest customer-ticket job fails for good: the status turns failed and the button reprints again.
   const jobs = await jobsOf(order.id);
@@ -381,7 +385,7 @@ test("print status with a frozen clock: no agent -> 'waiting' after 30 s, a fail
   await expect(status).toContainText("Falló la impresión");
   await page.getByTestId("reprint").click();
   await expect(status).toHaveAttribute("data-status", "printing");
-  await expect(async () => expect(await jobsOf(order.id)).toHaveLength(3)).toPass();
+  await expect(async () => expect(await jobsOf(order.id)).toHaveLength(4)).toPass();
 });
 
 test("network error on charge: ticket intact, retry reuses the SAME key (one order); an edited ticket gets a NEW key", async ({ page }) => {

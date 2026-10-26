@@ -6,7 +6,8 @@ import { useGuardedAction } from "./use-guarded-action";
 
 const CUSTOMER = { which: "customer", label: "Ticket cliente", sent: "ticket cliente" } as const;
 const DELIVERY = { which: "delivery", label: "Ticket delivery", sent: "ticket delivery" } as const;
-const BOTH = { which: "both", label: "Ambos tickets", sent: "ambos tickets" } as const;
+const BOTH = { which: "both", label: "Cliente + delivery", sent: "ticket cliente y delivery" } as const;
+const KITCHEN = { which: "kitchen", label: "Ticket cocina", sent: "ticket cocina" } as const;
 
 /** "Reimprimir" disclosure: pick what to print again at THIS station. */
 export function ReprintMenu({
@@ -16,10 +17,10 @@ export function ReprintMenu({
 }: {
   orderId: number;
   orderNumber: number;
-  /** Delivery orders also have the dispatch ticket; every other order only has the customer ticket. */
+  /** Delivery orders also have the dispatch ticket; every order has the customer and kitchen tickets. */
   hasDeliveryTicket: boolean;
 }) {
-  const options = hasDeliveryTicket ? [CUSTOMER, DELIVERY, BOTH] : [CUSTOMER];
+  const options = hasDeliveryTicket ? [CUSTOMER, DELIVERY, BOTH, KITCHEN] : [CUSTOMER, KITCHEN];
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const { run, pending, error } = useGuardedAction();

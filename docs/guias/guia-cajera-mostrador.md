@@ -31,11 +31,11 @@ Para quien trabaja en una PC de **Mostrador** (Mostrador 1 a 4). Las capturas us
 
    ![Confirmación de la venta](img/venta-confirmacion.png)
 
-   Tiene que decir **Impreso ✓** (sale **un** ticket del cliente, con logo y "GRACIAS POR TU COMPRA"). Si dice
+   Tiene que decir **Impreso ✓** (salen **dos** papeles: primero la **comanda de cocina**, que llevás a la cocina, y después el **ticket del cliente**, con logo y "GRACIAS POR TU COMPRA"). Si dice
    **Esperando la impresora…** esperá unos segundos; si dice **Falló la impresión**, revisá papel/cable y apretá **Reimprimir**.
    Para la próxima venta apretá **Nuevo pedido** (o Enter).
 
-> No sale comanda de cocina impresa: la cocina lee cada pedido en su **pantalla de cocina** y toca **LISTO** (ver [Guía de cocina](guia-cocina.md)). Si la cocina se olvida de tocarlo, vos también podés apretar **Listo** en **Mostrador** o en **Retiro en local**. Desde el menú tenés el enlace **Cocina** para mirar esa pantalla (solo marcás los pedidos de tu sector).
+> La **comanda de cocina** sale impresa en tu impresora, antes del ticket del cliente (número, MOSTRADOR/RETIRO, llamador, cada producto con sus cambios y la nota). La cocina marca **LISTO** (ver [Guía de cocina](guia-cocina.md)). Si la cocina se olvida de tocarlo, vos también podés apretar **Listo** en **Mostrador** o en **Retiro en local**. Desde el menú tenés el enlace **Cocina** para mirar esa pantalla (solo marcás los pedidos de tu sector).
 
 Otros atajos: `Alt+L` limpiar el ticket, `Esc` cerrar.
 
@@ -63,7 +63,7 @@ aviso (si activaste el sonido) y aparece un número rojo en el menú.
 - **Efectivo**: apretá **Aprobar** ("el cobro queda pendiente": se cobra al entregar).
 - **Transferencia**: **primero verificá en tu banco que la plata llegó**, tildá **"Verifiqué la acreditación del pago de $…"** y
   recién ahí se habilita **Aprobar y pagado**. Sin la tilde el botón no funciona.
-- Al aprobar, **esta estación imprime el ticket del cliente** y el pedido pasa a **En preparación**.
+- Al aprobar, **esta estación imprime la comanda de cocina y el ticket del cliente** y el pedido pasa a **En preparación**.
 
 **Rechazar**: **Rechazar** → elegí un motivo (**Sin stock**, **Zona sin cobertura**, **Pago no acreditado**, **Datos incompletos**) o
 escribí uno (mínimo 3 letras) → **Rechazar pedido**. El cliente ve su pedido como cancelado, con ese motivo.
@@ -83,7 +83,7 @@ tocar **Entregado** aparece **"Cobrá $… antes de entregar"**: recibí la plat
 | Qué pasa | Qué hacés |
 | --- | --- |
 | Cuadro rojo **"1 impresión falló"** | Revisá papel, tapa, cable y que esté prendida; apretá **Reimprimir**. |
-| No salió un ticket y no hay cuadro rojo | **Recientes** → **Reimprimir** en ese pedido → **Ticket cliente**. |
+| No salió un ticket y no hay cuadro rojo | **Recientes** → **Reimprimir** en ese pedido → **Ticket cliente** (o **Ticket cocina** si lo que falta es la comanda). |
 | Sale dos veces | Si reimprimiste "por las dudas", es lo esperado. Si pasa solo, avisá al soporte. |
 | **Sin agente** | Esperá 6 minutos (se recupera solo). Si sigue, avisá al soporte. Mientras: reimprimí en otra estación. |
 | **Sin conexión** / no carga nada | Seguí con el **plan de contingencia** (pedidos a mano en el block): `docs/guias/plan-contingencia.md`. |

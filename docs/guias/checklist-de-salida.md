@@ -66,7 +66,7 @@ Datos a completar: dominio `__________`, IP de la VPS `__________`, responsable 
 | Delivery 5 | | [ ] | [ ] | [ ] | [ ] |
 
 - [ ] **(SIN VERIFICAR: impresora real)** Tiempo de impresión aceptable en la PC más lenta (≤ ~6 s por ticket).
-- [ ] Papeles probados con **pedidos reales**: Mostrador imprime 1 ticket (cliente con logo); Delivery imprime 2 (delivery + cliente con logo).
+- [ ] Papeles probados con **pedidos reales**: Mostrador imprime 2 papeles (cocina + cliente con logo); Delivery imprime 3 en pedidos de delivery (cocina + cliente con logo + delivery) y 2 en retiros.
 - [ ] Antivirus y políticas de las PCs no bloquean el instalador ni la tarea programada.
 
 ## 8. Backups (R sección 4)

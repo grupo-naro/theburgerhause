@@ -5,7 +5,7 @@ import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { formatARS } from "@/domain/money";
-import { renderCustomerTicket, renderDeliveryTicket } from "@/domain/print-document";
+import { renderCustomerTicket, renderDeliveryTicket, renderKitchenTicket } from "@/domain/print-document";
 import { getEnv } from "@/lib/env";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
 import { approveOrder } from "./approve-order";
@@ -96,12 +96,12 @@ describe("approveOrder: payment rules and state", () => {
 describe("approveOrder: print jobs", () => {
   // fx.stationId = Mostrador station, fx.otherStationId = Delivery station.
   for (const [fulfillment, paymentMethod, station, expected] of [
-    ["delivery", "cash", "otherStationId", ["customer", "delivery"]],
-    ["delivery", "transfer", "otherStationId", ["customer", "delivery"]],
-    ["takeaway", "cash", "stationId", ["customer"]],
-    ["takeaway", "transfer", "stationId", ["customer"]],
-    ["delivery", "cash", "stationId", ["customer"]], // admin approving a delivery order at a Mostrador station: station kind rules
-    ["takeaway", "cash", "otherStationId", ["customer"]], // a takeaway order has no dispatch ticket even at a Delivery station
+    ["delivery", "cash", "otherStationId", ["kitchen", "customer", "delivery"]],
+    ["delivery", "transfer", "otherStationId", ["kitchen", "customer", "delivery"]],
+    ["takeaway", "cash", "stationId", ["kitchen", "customer"]],
+    ["takeaway", "transfer", "stationId", ["kitchen", "customer"]],
+    ["delivery", "cash", "stationId", ["kitchen", "customer"]], // admin approving a delivery order at a Mostrador station: station kind rules
+    ["takeaway", "cash", "otherStationId", ["kitchen", "customer"]], // a takeaway order has no dispatch ticket even at a Delivery station
   ] as const) {
     it(`${fulfillment}/${paymentMethod} approved at a ${station === "stationId" ? "Mostrador" : "Delivery"} station: ${expected.join(" + ")}`, async () => {
       const o = await placeWebOrder(fx, { fulfillment, paymentMethod });
@@ -117,14 +117,22 @@ describe("approveOrder: print jobs", () => {
       const mods = await db().select().from(s.orderItemModifiers);
       const printable = orderToPrintable(row, items, mods);
       const byType = Object.fromEntries(js.map((j) => [j.type, j.payload]));
-      if (expected.length === 2) expect(byType.delivery).toEqual(JSON.parse(JSON.stringify(renderDeliveryTicket(printable))));
+      const hasDelivery = expected.length === 3;
+      if (hasDelivery) expect(byType.delivery).toEqual(JSON.parse(JSON.stringify(renderDeliveryTicket(printable))));
+      expect(byType.kitchen).toEqual(JSON.parse(JSON.stringify(renderKitchenTicket(printable))));
       expect(byType.customer).toEqual(JSON.parse(JSON.stringify(renderCustomerTicket(printable))));
 
-      // No kitchen comanda anywhere (its uppercase labels / NOTA lines never reach the paper).
-      const all = JSON.stringify(js.map((j) => j.payload));
-      expect(all).not.toContain("SIN CHEDDAR");
-      expect(all).not.toContain("NOTA: BIEN COCIDA");
-      expect(js.some((j) => j.type === "kitchen" || j.type === "ticket")).toBe(false);
+      // The kitchen comanda comes first (lowest job id) and carries the number, the service type, each unit with its kitchen labels and the note.
+      const kitchen = JSON.stringify(byType.kitchen);
+      expect(kitchen).toContain(`PEDIDO #${o.number}`);
+      expect(kitchen).toContain(fulfillment === "delivery" ? "DELIVERY" : "RETIRO");
+      expect(kitchen).toContain("1) ");
+      expect(kitchen).toContain("SIN CHEDDAR");
+      expect(kitchen).toContain("NOTA: BIEN COCIDA");
+      expect(kitchen).not.toContain('"logo"');
+      // The customer ticket keeps its customer-facing wording.
+      expect(JSON.stringify(byType.customer)).not.toContain("SIN CHEDDAR");
+      expect(js.some((j) => j.type === "ticket")).toBe(false);
 
       const ticket = JSON.stringify(byType.customer);
       expect(ticket).toContain('{"type":"logo"}');
@@ -132,7 +140,7 @@ describe("approveOrder: print jobs", () => {
       expect(ticket).toContain(
         paymentMethod === "transfer" ? "Pago: Transferencia (pagado)" : "Pago: Efectivo (pendiente de cobro)",
       );
-      if (expected.length === 2) {
+      if (hasDelivery) {
         const d = JSON.stringify(byType.delivery);
         expect(d).toContain("Av. Siempreviva 742");
         expect(d).toContain(row.whatsapp!);
@@ -203,7 +211,7 @@ describe("approveOrder: refusals leave no trace", () => {
       code: "INVALID_TRANSITION",
       message: "Este pedido ya está en preparación",
     });
-    expect(await jobs(o.id)).toHaveLength(2);
+    expect(await jobs(o.id)).toHaveLength(3);
   });
 
   it("cancelled order cannot be approved", async () => {
@@ -215,12 +223,12 @@ describe("approveOrder: refusals leave no trace", () => {
 });
 
 describe("approveOrder: Review Focus 2 (double click / race)", () => {
-  it("5 parallel approvals: one ok, four INVALID_TRANSITION, exactly 2 jobs and 1 approval event", async () => {
+  it("5 parallel approvals: one ok, four INVALID_TRANSITION, exactly 3 jobs and 1 approval event", async () => {
     const o = await placeWebOrder(fx, { paymentMethod: "transfer" });
     const rs = await Promise.all(Array.from({ length: 5 }, () => approve(o.id, { paymentVerified: true })));
     expect(rs.filter((r) => r.ok)).toHaveLength(1);
     expect(rs.filter((r) => !r.ok && r.code === "INVALID_TRANSITION")).toHaveLength(4);
-    expect(await jobs(o.id)).toHaveLength(2);
+    expect(await jobs(o.id)).toHaveLength(3);
     expect((await events(o.id)).filter((e) => e.toStatus === "en_preparacion")).toHaveLength(1);
   });
 });
@@ -240,15 +248,15 @@ describe("approveOrder: notifications", () => {
     while (!pred() && Date.now() < end) await new Promise((r) => setTimeout(r, 25));
   };
 
-  it("after commit: one ORDERS status event and two PRINT events", async () => {
+  it("after commit: one ORDERS status event and three PRINT events (kitchen, customer, delivery)", async () => {
     const o = await placeWebOrder(fx);
     const { client, received } = await listen();
     try {
       received.length = 0;
       const r = await approve(o.id);
       if (!r.ok) throw new Error(r.message);
-      await waitFor(() => received.length >= 3);
-      await waitFor(() => received.length > 3, 150); // short negative wait: nothing extra arrives
+      await waitFor(() => received.length >= 4);
+      await waitFor(() => received.length > 4, 150); // short negative wait: nothing extra arrives
       expect(received.filter((x) => x.channel === "orders_changed")).toEqual([
         { channel: "orders_changed", payload: { orderId: o.id, status: "en_preparacion", event: "status" } },
       ]);
@@ -295,8 +303,8 @@ describe("approveOrder: notifications", () => {
 
       await dropFailureTriggers();
       expect(await approve(o.id)).toMatchObject({ ok: true });
-      await waitFor(() => received.length >= 3);
-      expect(received).toHaveLength(3);
+      await waitFor(() => received.length >= 4);
+      expect(received).toHaveLength(4);
     } finally {
       await client.end();
     }

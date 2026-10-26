@@ -41,7 +41,7 @@ export type FailedPrintJob = {
   orderId: number;
   orderNumber: number;
   stationId: number;
-  /** `kitchen`/`ticket` only exist in history (pre Task 10.2); new jobs are `delivery`/`customer`. */
+  /** `ticket` only exists in history (pre Task 10.2); new jobs are `kitchen`/`customer`/`delivery`. */
   type: "kitchen" | "ticket" | "delivery" | "customer";
   error: string | null;
   attempts: number;
@@ -70,14 +70,14 @@ const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 30;
 const FAILED_LIMIT = 100;
 
-/** Legacy job types (before the ticket redesign) read as their successors: kitchen = delivery ticket, ticket = customer ticket. */
-const jobKind = (col: string) => `(case ${col} when 'kitchen' then 'delivery' when 'ticket' then 'customer' else ${col}::text end)`;
+/** The legacy `ticket` type (before the ticket redesign) reads as its successor, the customer ticket. `kitchen` is a kind of its own again (the comanda is back). */
+const jobKind = (col: string) => `(case ${col} when 'ticket' then 'customer' else ${col}::text end)`;
 const SAME_KIND = `${jobKind('"later"."type"')} = ${jobKind('"print_jobs"."type"')}`;
 
 /**
  * A failed job is "handled" once a LATER job of the same type for the same station was queued
- * (pending/printing) or printed (done): a reprint superseded it. Only unhandled failures alert. Legacy types
- * count as their successors, so a reprint also clears a failure recorded before the ticket redesign.
+ * (pending/printing) or printed (done): a reprint superseded it. Only unhandled failures alert. The legacy
+ * `ticket` type counts as the customer ticket, so a reprint also clears a failure recorded before the ticket redesign.
  * Failures of a CANCELLED order never alert (cancelOrder fails its unclaimed jobs on purpose).
  */
 export const UNHANDLED_FAILED = `"print_jobs"."status" = 'failed' and not exists (select 1 from "print_jobs" "later" where "later"."order_id" = "print_jobs"."order_id" and "later"."station_id" = "print_jobs"."station_id" and ${SAME_KIND} and "later"."id" > "print_jobs"."id" and "later"."status" in ('pending','printing','done')) and not exists (select 1 from "orders" "o_cancelled" where "o_cancelled"."id" = "print_jobs"."order_id" and "o_cancelled"."status" = 'cancelado')`;

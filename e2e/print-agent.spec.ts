@@ -35,7 +35,7 @@ const lastSeenMs = async () => (await findStation(STATION)).lastSeenAt?.getTime(
 test.describe("cashier flows", () => {
   test.use({ storageState: authFile("cajera") });
 
-  test("approving delivers the customer ticket (logo + thanks, no kitchen comanda) to the connected agent; acking done turns the chip ok live and the printer indicator online", async ({ page, baseURL }) => {
+  test("approving delivers the kitchen comanda first and then the customer ticket (logo + thanks) to the connected agent; acking done turns the chip ok live and the printer indicator online", async ({ page, baseURL }) => {
     await settleStationJobs(STATION);
     await parkPendingOrders();
     const token = await freshStationToken(STATION);
@@ -45,7 +45,14 @@ test.describe("cashier flows", () => {
     await expect(page.getByTestId("printer-indicator")).toBeVisible();
 
     await approveFromUi(page, o.number);
-    const [ticket] = await agent.jobs(1, 2000);
+    const [kitchen, ticket] = await agent.jobs(2, 2000);
+    expect(kitchen.type).toBe("kitchen");
+    expect(kitchen.attempts).toBe(1);
+    const kitchenText = JSON.stringify(kitchen.document);
+    expect(kitchenText).toContain(`PEDIDO #${o.number}`);
+    expect(kitchenText).toContain("RETIRO");
+    expect(kitchenText).toContain("SIN CHEDDAR");
+    expect(kitchenText).not.toContain('"logo"');
     expect(ticket.type).toBe("customer");
     expect(ticket.attempts).toBe(1);
     const ticketText = JSON.stringify(ticket.document);
@@ -54,13 +61,15 @@ test.describe("cashier flows", () => {
     expect(ticketText).toContain("TOTAL");
     expect(ticketText).toContain('{"type":"logo"}');
     expect(ticketText).toContain("GRACIAS POR TU COMPRA");
-    expect(await agent.reader.noEventWithin("job", 300)).toBe(true); // and nothing else: no kitchen comanda
+    expect(await agent.reader.noEventWithin("job", 300)).toBe(true); // and nothing else (takeaway: no delivery ticket)
     const stored = await printJobsOf(o.id);
-    expect(stored.map((j) => j.id)).toEqual([ticket.id]);
+    expect(stored.map((j) => j.id)).toEqual([kitchen.id, ticket.id]);
     expect(stored.every((j) => j.status === "printing")).toBe(true);
 
     const row = recentRow(page, o.number);
     await expect(row.getByTestId("print-chip")).toHaveText("Impresión: pendiente");
+    expect((await agent.ack(kitchen.id, "done")).status).toBe(200);
+    await expect(row.getByTestId("print-chip")).toHaveText("Impresión: pendiente"); // the customer ticket is still printing
     const res = await agent.ack(ticket.id, "done");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, status: "done" });
@@ -79,7 +88,9 @@ test.describe("cashier flows", () => {
     await openRetiro(page);
     const agent = track(await FakeAgent.connect(baseURL!, token));
     await approveFromUi(page, o.number);
-    const [job] = await agent.jobs(1, 2000);
+    const [kitchenJob, job] = await agent.jobs(2, 2000); // the kitchen comanda prints fine; the customer ticket is the one that fails
+    expect([kitchenJob.type, job.type]).toEqual(["kitchen", "customer"]);
+    expect((await agent.ack(kitchenJob.id, "done")).status).toBe(200);
 
     await expect(page.getByTestId("failed-print-alert")).toHaveCount(0);
     // attempt 1 and 2: the job goes back to pending and the next tick re-delivers it (no alert yet)
@@ -119,12 +130,14 @@ test.describe("cashier flows", () => {
     await approveFromUi(page, o2.number);
     const pending = [...(await printJobsOf(o.id)), ...(await printJobsOf(o2.id))];
     expect(pending.map((j) => [j.type, j.status, j.attempts])).toEqual([
+      ["kitchen", "pending", 0],
       ["customer", "pending", 0],
+      ["kitchen", "pending", 0],
       ["customer", "pending", 0],
     ]);
 
     const agent = track(await FakeAgent.connect(baseURL!, token));
-    const got = await agent.jobs(2, 2000);
+    const got = await agent.jobs(4, 2000);
     expect(got.map((j) => j.id)).toEqual(pending.map((j) => j.id)); // oldest first
     expect(await agent.reader.noEventWithin("job", 300)).toBe(true);
     for (const j of got) expect((await agent.ack(j.id, "done")).status).toBe(200);
@@ -150,8 +163,8 @@ test.describe("cashier flows", () => {
     const o = await placeRetiroOrder({ paymentMethod: "cash" });
     await openRetiro(page);
     await approveFromUi(page, o.number);
-    const got = await second.jobs(1, 2000);
-    expect(got).toHaveLength(1);
+    const got = await second.jobs(2, 2000);
+    expect(got).toHaveLength(2); // kitchen + customer
     expect(first.reader.seen.filter((f) => f.event === "job")).toHaveLength(0);
     expect((await printJobsOf(o.id)).every((j) => j.attempts === 1)).toBe(true);
     for (const j of got) await second.ack(j.id, "done");
@@ -161,7 +174,7 @@ test.describe("cashier flows", () => {
 test.describe("delivery manager flows", () => {
   test.use({ storageState: authFile("encargada") });
 
-  test("approving a delivery order delivers the delivery ticket first and then the customer ticket (logo + thanks) to the Delivery agent; Mostrador gets nothing", async ({ page, baseURL }) => {
+  test("approving a delivery order delivers the kitchen comanda, the customer ticket (logo + thanks) and the delivery ticket, in that order, to the Delivery agent; Mostrador gets nothing", async ({ page, baseURL }) => {
     await settleStationJobs(STATION);
     await settleStationJobs(DELIVERY_STATION);
     await parkPendingOrders();
@@ -173,8 +186,12 @@ test.describe("delivery manager flows", () => {
     const mostrador = track(await FakeAgent.connect(baseURL!, mostradorToken));
 
     await approveFromUi(page, o.number);
-    const [customer, delivery] = await agent.jobs(2, 3000);
-    expect([customer.type, delivery.type]).toEqual(["customer", "delivery"]);
+    const [kitchen, customer, delivery] = await agent.jobs(3, 3000);
+    expect([kitchen.type, customer.type, delivery.type]).toEqual(["kitchen", "customer", "delivery"]);
+    const k = JSON.stringify(kitchen.document);
+    expect(k).toContain("DELIVERY");
+    expect(k).toContain("SIN CHEDDAR");
+    expect(k).not.toContain("Efectivo: cobrar");
     const d = JSON.stringify(delivery.document);
     expect(d).toContain("DELIVERY");
     expect(d).toContain("Efectivo: cobrar");
@@ -184,7 +201,7 @@ test.describe("delivery manager flows", () => {
     expect(c).toContain('{"type":"logo"}');
     expect(c).toContain("GRACIAS POR TU COMPRA");
     expect(await mostrador.reader.noEventWithin("job", 300)).toBe(true);
-    for (const j of [delivery, customer]) expect((await agent.ack(j.id, "done")).status).toBe(200);
+    for (const j of [kitchen, delivery, customer]) expect((await agent.ack(j.id, "done")).status).toBe(200);
     await page.getByTestId("tab-recent").click();
     await expect(recentRow(page, o.number).getByTestId("print-chip")).toHaveText("Impresión: ok");
   });

@@ -15,12 +15,27 @@ const job = (jobId: number, orderId: number, type: FailedPrintJob["type"]): Fail
 
 describe("groupFailedByOrder", () => {
   it("one row per order; both types failed -> reprint both", () => {
-    const rows = groupFailedByOrder([job(5, 1, "delivery"), job(6, 1, "customer"), job(7, 2, "customer"), job(8, 3, "delivery"), job(9, 4, "kitchen"), job(10, 4, "ticket")]);
+    const rows = groupFailedByOrder([job(5, 1, "delivery"), job(6, 1, "customer"), job(7, 2, "customer"), job(8, 3, "delivery"), job(10, 4, "ticket")]);
     expect(rows.map((r) => [r.orderId, r.which])).toEqual([
-      [1, "both"],
-      [2, "customer"],
-      [3, "delivery"],
-      [4, "customer"], // legacy kitchen + ticket rows both mean "reprint the customer ticket"
+      [1, ["both"]],
+      [2, ["customer"]],
+      [3, ["delivery"]],
+      [4, ["customer"]], // the legacy "ticket" rows mean "reprint the customer ticket"
+    ]);
+  });
+  it("the kitchen comanda is its own reprint, queued first and never folded into \"both\"", () => {
+    const rows = groupFailedByOrder([
+      job(1, 1, "kitchen"),
+      job(2, 2, "kitchen"),
+      job(3, 2, "customer"),
+      job(4, 3, "kitchen"),
+      job(5, 3, "customer"),
+      job(6, 3, "delivery"),
+    ]);
+    expect(rows.map((r) => [r.orderId, r.which])).toEqual([
+      [1, ["kitchen"]],
+      [2, ["kitchen", "customer"]],
+      [3, ["kitchen", "both"]],
     ]);
   });
   it("the key changes when the latest failed job of the order changes", () => {

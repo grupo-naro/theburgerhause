@@ -151,7 +151,7 @@ for (const size of SIZES) {
       await chargeButton(page).click();
       await expect(overlay(page)).toBeVisible();
       const failedOrder = await latestCounterOrder();
-      const [job] = await jobsOf(failedOrder.id);
+      const job = (await jobsOf(failedOrder.id)).find((j) => j.type === "customer")!;
       await failPrintJob(job.id, "Sin papel");
       await expect(page.getByTestId("print-status")).toHaveAttribute("data-status", "failed", { timeout: 15_000 });
       await expect(page.getByTestId("reprint")).toBeVisible();

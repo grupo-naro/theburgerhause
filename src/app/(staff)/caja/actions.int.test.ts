@@ -160,7 +160,7 @@ describe("approveOrderAction", () => {
       ok: false,
       code: "INVALID_TRANSITION",
     });
-    expect(await jobs()).toHaveLength(1); // takeaway at Mostrador: just the customer ticket, not printed twice
+    expect(await jobs()).toHaveLength(2); // takeaway at Mostrador: kitchen + customer tickets, not printed twice
   });
 });
 
@@ -223,9 +223,10 @@ describe("reprintOrderAction", () => {
     const r = await reprintOrderAction({ orderId: o.id, which: "customer", stationId: fx.stationId } as never);
     expect(r).toMatchObject({ ok: true });
     const all = await jobs();
-    expect(all).toHaveLength(2); // the takeaway approval printed only the customer ticket
-    expect(all[0]).toMatchObject({ type: "customer", stationId: fx.stationId });
-    expect(all[1]).toMatchObject({ type: "customer", stationId: fx.otherStationId });
+    expect(all).toHaveLength(3); // the takeaway approval printed kitchen + customer; the reprint adds the customer ticket only
+    expect(all[0]).toMatchObject({ type: "kitchen", stationId: fx.stationId });
+    expect(all[1]).toMatchObject({ type: "customer", stationId: fx.stationId });
+    expect(all[2]).toMatchObject({ type: "customer", stationId: fx.otherStationId });
   });
 
   it("bad `which` -> VALIDATION; pending order -> INVALID_TRANSITION", async () => {

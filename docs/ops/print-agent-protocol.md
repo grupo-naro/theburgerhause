@@ -1,8 +1,8 @@
 # Protocolo del Print Agent (lado servidor)
 
 Un agente Node.js corre en cada PC con impresora térmica USB y se conecta HACIA AFUERA al servidor
-(no hay puertos abiertos en el local). El servidor le entrega los trabajos de impresión (ticket de
-delivery y ticket del cliente) por Server-Sent Events y el agente confirma cada uno con un POST. Código: `src/lib/print/*`,
+(no hay puertos abiertos en el local). El servidor le entrega los trabajos de impresión (comanda de
+cocina, ticket del cliente y ticket de delivery) por Server-Sent Events y el agente confirma cada uno con un POST. Código: `src/lib/print/*`,
 rutas en `src/app/api/agent/*`. El agente en sí es `packages/print-agent`; **cómo instalarlo en las PCs del local
 (tarea programada de Windows, release ZIP, planilla de las 9 PCs): [`print-agent-install.md`](./print-agent-install.md).**
 
@@ -22,25 +22,31 @@ nuevo, cuando el agente (re)conecta: nada se pierde y nada se duplica.
 
 ## Qué se imprime y el documento (Task 10.2)
 
-**No se imprime comanda de cocina**: la reemplazará la pantalla de cocina (KDS) de una fase posterior. El renderer
-(`renderKitchenTicket`) sigue en `src/domain/print-document.ts` y el valor `kitchen` sigue siendo válido en
-`print_jobs.type` (historial y KDS futuro), pero nada lo encola hoy.
+**La comanda de cocina (`kitchen`) vuelve a imprimirse en todos los pedidos**, en la MISMA impresora de la estación que
+aprueba o vende (la cocina no tiene impresora propia). La tarea 10.2 la había retirado a favor de una pantalla de cocina;
+esa pantalla pasó al televisor del mostrador y el papel vuelve a la cocina. Renderer: `renderKitchenTicket` en
+`src/domain/print-document.ts`. El agente 0.2.0 ya acepta el tipo (`packages/print-agent/contract.test.ts`): no hace falta actualizarlo.
 
 | Estación que aprueba / vende | Trabajos por pedido | Orden |
 | --- | --- | --- |
-| **Delivery** (pedido web de delivery) | `customer` + `delivery` | cliente primero |
-| **Mostrador** (retiro web o venta de mostrador) | `customer` | — |
+| **Delivery** (pedido web de delivery) | `kitchen` + `customer` + `delivery` | cocina, cliente, delivery |
+| **Delivery** (otro pedido aprobado ahí) | `kitchen` + `customer` | cocina primero |
+| **Mostrador** (retiro web o venta de mostrador) | `kitchen` + `customer` | cocina primero |
 
+El agente imprime por id ascendente, así que los trabajos se insertan siempre en ese orden fijo (cocina primero para que empiecen a preparar enseguida; cliente antes que delivery).
+
+- `kitchen`: comanda para la cocina: `PEDIDO #n`, tipo (`MOSTRADOR` / `RETIRO` / `DELIVERY`), `LLAMADOR n` si hay, hora, y cada unidad numerada (`1) NOMBRE`) con sus cambios y adicionales en las etiquetas de cocina (mayúsculas, tamaño doble) y `NOTA:`. **Sin precios, sin datos del cliente, sin logo.**
 - `delivery`: ticket "normal" que viaja con el pedido: número grande, DELIVERY, hora, cliente, WhatsApp, dirección, entre
   calles, aclaraciones, cada unidad con sus modificaciones y nota, subtotal/envío/total y el cobro
   (`Efectivo: cobrar $X` o `Pago: Transferencia (pagado)`). **Sin logo ni agradecimiento.**
 - `customer`: logo (bloque `logo`) arriba, `THE BURGER HOUSE 828`, número y fecha, datos, `LLAMADOR n` en ventas de
   mostrador, items con precios, totales, línea de pago y, al final, `GRACIAS POR TU COMPRA` centrado en negrita antes del corte.
 - La regla es por **tipo de estación** (no por rol): un admin que aprueba un delivery en una estación Mostrador imprime solo el
-  ticket del cliente. Una venta de mostrador siempre imprime solo `customer`.
-- Reimpresión (`which`): `customer`, `delivery` (solo pedidos web de delivery; si no, `VALIDATION`) o `both` (= lo que imprimiría
-  aprobar en ESA estación). Los valores viejos `kitchen`/`ticket` ya no se aceptan al reimprimir.
-- Migración `0005`: `print_job_type` suma `delivery` y `customer` (`kitchen`/`ticket` quedan por historial; un `ticket` viejo equivale a un `customer`).
+  ticket del cliente (más la comanda de cocina). Una venta de mostrador nunca imprime `delivery`.
+- Reimpresión (`which`): `customer`, `delivery` (solo pedidos web de delivery; si no, `VALIDATION`), `kitchen` (la comanda, cualquier
+  pedido) o `both` (= cliente + delivery como siempre, **sin** la comanda: la cocina se reimprime aparte para no duplicarla sin querer).
+  La reimpresión por defecto de la venta de mostrador es solo `customer`. El valor viejo `ticket` ya no se acepta.
+- Migración `0005`: `print_job_type` suma `delivery` y `customer` (`kitchen`/`ticket` quedaban por historial; un `ticket` viejo equivale a un `customer`; `kitchen` es de nuevo un tipo vivo y no se confunde con `delivery`).
 
 ### Bloques (`PrintBlock`)
 

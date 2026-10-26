@@ -124,19 +124,32 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
       await shot(dispatch, "journey-1-delivery-approved");
     });
 
-    await test.step("the real agent prints the delivery ticket and the customer ticket with logo and thanks (ESC/POS bytes); no kitchen comanda", async () => {
-      await expect.poll(() => printedFiles(agent.outDir).length, { timeout: 15_000 }).toBe(2);
-      const [customerJob, deliveryJob] = await printJobsOf(orderId);
-      expect([customerJob.type, deliveryJob.type]).toEqual(["customer", "delivery"]);
+    await test.step("the real agent prints the kitchen comanda, the customer ticket with logo and thanks and the delivery ticket (ESC/POS bytes), in that order", async () => {
+      await expect.poll(() => printedFiles(agent.outDir).length, { timeout: 15_000 }).toBe(3);
+      const [kitchenJob, customerJob, deliveryJob] = await printJobsOf(orderId);
+      expect([kitchenJob.type, customerJob.type, deliveryJob.type]).toEqual(["kitchen", "customer", "delivery"]);
       const station = await findStation(STATION);
       expect(deliveryJob.stationId).toBe(station.id);
       const delivery = readPrinted(agent.outDir, deliveryJob.id);
       const customer = readPrinted(agent.outDir, customerJob.id);
-      for (const bytes of [delivery, customer]) {
+      const kitchen = readPrinted(agent.outDir, kitchenJob.id);
+      for (const bytes of [kitchen, delivery, customer]) {
         expect(bytes.subarray(0, 5).toString("hex")).toBe(INIT_HEX);
         expect(bytes.toString("hex").endsWith(CUT_HEX)).toBe(true);
       }
       const money = (n: number) => formatARS(n).replace(/ /g, " "); // the printer has no nbsp
+
+      // Kitchen comanda: number, service type, every unit numbered with its kitchen labels, no prices, no logo.
+      const k = latin1(kitchen);
+      expect(kitchen.includes(GS_V_0)).toBe(false);
+      expect(k).toContain(`PEDIDO #${orderNumber}`);
+      expect(k).toContain("DELIVERY");
+      expect(k).toContain("1) RANCHITA SIMPLE");
+      expect(k).toContain("2) RANCHITA SIMPLE");
+      expect(k).toContain("3) MELT SIMPLE");
+      expect(k).toContain("SIN CHEDDAR");
+      expect(k).not.toContain("TOTAL");
+      expect(k).not.toContain("GRACIAS");
 
       // Delivery (dispatch) ticket: the one that travels with the cadet. No logo, no thanks, no kitchen layout.
       const d = latin1(delivery);
@@ -254,15 +267,15 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
         expect(await orderById(e.id)).toMatchObject({ status: "entregado", paymentStatus: "paid", approvedBy: encargada.id, stationId: station.id, cadetId: cadet.id });
       }
 
-      // print jobs: 2 per approved order, all printed once by the real agent
+      // print jobs: 3 per approved order (kitchen, customer, delivery), all printed once by the real agent
       const ids = [orderId, ...extra.map((e) => e.id)];
       await expect
         .poll(async () => {
           const rows = await db().select().from(s.printJobs).where(inArray(s.printJobs.orderId, ids));
-          return rows.length === 6 && rows.every((j) => j.status === "done" && j.attempts === 1);
+          return rows.length === 9 && rows.every((j) => j.status === "done" && j.attempts === 1);
         }, { timeout: 20_000 })
         .toBe(true);
-      for (const id of ids) expect((await printJobsOf(id)).map((j) => j.type)).toEqual(["customer", "delivery"]);
+      for (const id of ids) expect((await printJobsOf(id)).map((j) => j.type)).toEqual(["kitchen", "customer", "delivery"]);
 
       // settlement: only the two cash orders, exact, no shortage
       const settlements = await settlementsOf(cadet.id);

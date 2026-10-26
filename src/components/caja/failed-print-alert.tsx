@@ -11,7 +11,7 @@ const TYPE_LABEL = {
   delivery: "Ticket delivery",
   customer: "Ticket cliente",
   ticket: "Ticket cliente", // legacy rows (before the ticket redesign)
-  kitchen: "Cocina", // legacy rows
+  kitchen: "Ticket cocina",
 } as const;
 
 function FailedRow({ row }: { row: FailedRowModel }) {
@@ -41,13 +41,24 @@ function FailedRow({ row }: { row: FailedRowModel }) {
         disabled={pending || queued}
         aria-label={`Reimprimir pedido #${row.orderNumber}`}
         onClick={() =>
-          run(() => reprintOrderAction({ orderId: row.orderId, which: row.which }), {
-            lockOnSuccess: true,
-            onOk: () => {
-              setQueued(true);
-              router.refresh();
+          run(
+            async () => {
+              // The kitchen comanda and the customer/delivery tickets are separate reprints; queue them in order and stop at the first refusal.
+              let last: Awaited<ReturnType<typeof reprintOrderAction>> | undefined;
+              for (const which of row.which) {
+                last = await reprintOrderAction({ orderId: row.orderId, which });
+                if (!last.ok) return last;
+              }
+              return last!;
             },
-          })
+            {
+              lockOnSuccess: true,
+              onOk: () => {
+                setQueued(true);
+                router.refresh();
+              },
+            },
+          )
         }
         className="min-h-12 shrink-0 rounded-full bg-white px-6 font-display text-lg font-bold text-state-error transition-colors hover:bg-red-50 disabled:cursor-wait disabled:opacity-70"
       >

@@ -54,6 +54,7 @@ test("J3 takeaway with cash collected at pickup, a rejection with a reason, and 
       const row = await orderById(takeaway.id);
       expect(row).toMatchObject({ status: "en_preparacion", paymentStatus: "pending", fulfillment: "takeaway" });
       expect((await printJobsOf(takeaway.id)).map((j) => [j.type, j.status])).toEqual([
+        ["kitchen", "pending"],
         ["customer", "pending"],
       ]);
     });

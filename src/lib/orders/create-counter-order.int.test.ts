@@ -5,7 +5,7 @@ import { closeDb } from "@/db/client";
 import { businessDateFor } from "@/db/order-number";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
-import { renderCustomerTicket } from "@/domain/print-document";
+import { renderCustomerTicket, renderKitchenTicket } from "@/domain/print-document";
 import { orderTotals } from "@/domain/pricing";
 import { getEnv } from "@/lib/env";
 import { createCounterOrder, type CreateCounterOrderData, type CreateCounterOrderResult } from "./create-counter-order";
@@ -225,27 +225,44 @@ describe("createCounterOrder: happy path", () => {
     });
   });
 
-  it("exactly ONE print job (the customer ticket: logo + thanks), no kitchen comanda, for the session station; payload = domain renderer over the DB rows", async () => {
+  it("TWO print jobs in id order (kitchen first, then the customer ticket) for the session station; payloads = domain renderers over the DB rows", async () => {
     const r = okData(await createCounterOrder(db(), input(fx, { paymentMethod: "transfer" }), { now: NOW }));
     const jobs = await db().select().from(s.printJobs).orderBy(asc(s.printJobs.id));
-    expect(jobs).toHaveLength(1);
+    expect(jobs).toHaveLength(2);
     expect(jobs.map((j) => j.id)).toEqual(r.printJobIds);
     expect(jobs.map((j) => [j.type, j.stationId, j.orderId, j.status, j.attempts])).toEqual([
+      ["kitchen", fx.station, r.orderId, "pending", 0],
       ["customer", fx.station, r.orderId, "pending", 0],
     ]);
     const printable = await db().transaction((tx) => loadPrintableOrder(tx, r.orderId));
-    expect(jobs[0].payload).toEqual(JSON.parse(JSON.stringify(renderCustomerTicket(printable!))));
-    const ticket = JSON.stringify(jobs[0].payload);
+    expect(jobs[0].payload).toEqual(JSON.parse(JSON.stringify(renderKitchenTicket(printable!))));
+    expect(jobs[1].payload).toEqual(JSON.parse(JSON.stringify(renderCustomerTicket(printable!))));
+
+    const kitchen = JSON.stringify(jobs[0].payload);
+    expect(kitchen).toContain(`PEDIDO #${r.number}`);
+    expect(kitchen).toContain("MOSTRADOR");
+    expect(kitchen).toContain("LLAMADOR 7");
+    expect(kitchen).toContain("1) RANCHITA SIMPLE");
+    expect(kitchen).toContain("2) RANCHITA SIMPLE"); // one entry per physical unit
+    expect(kitchen).toContain("SIN CHEDDAR"); // kitchen labels, uppercase
+    expect(kitchen).toContain("+ DIPS");
+    expect(kitchen).toContain("PAN NEGRO");
+    expect(kitchen).toContain("NOTA: BIEN COCIDA");
+    expect(kitchen).not.toContain('"logo"');
+    expect(kitchen).not.toContain("GRACIAS");
+
+    const ticket = JSON.stringify(jobs[1].payload);
     expect(ticket).toContain("LLAMADOR 7");
     expect(ticket).toContain("Pago: Transferencia (pagado)");
     expect(ticket).toContain('{"type":"logo"}');
     expect(ticket).toContain("GRACIAS POR TU COMPRA");
-    expect(ticket).not.toContain("SIN CHEDDAR"); // the kitchen comanda is not printed
+    expect(ticket).not.toContain("SIN CHEDDAR"); // the customer ticket keeps customer-facing wording
   });
 
   it("cash ticket says 'Pago: Efectivo (pagado)'", async () => {
     await createCounterOrder(db(), input(fx), {});
-    const [ticket] = await db().select().from(s.printJobs).orderBy(asc(s.printJobs.id));
+    const [, ticket] = await db().select().from(s.printJobs).orderBy(asc(s.printJobs.id)); // [kitchen, customer]
+    expect(ticket.type).toBe("customer");
     expect(JSON.stringify(ticket.payload)).toContain("Pago: Efectivo (pagado)");
   });
 
@@ -357,7 +374,7 @@ describe("createCounterOrder: pager uniqueness", () => {
       message: `El llamador 7 ya está en uso por el pedido #${first.number}`,
     });
     const c = await counts();
-    expect([c.orders, c.items, c.events, c.jobs]).toEqual([1, 2, 1, 1]);
+    expect([c.orders, c.items, c.events, c.jobs]).toEqual([1, 2, 1, 2]);
     expect(c.counters).toEqual([{ businessDate: expect.any(String), lastNumber: 1 }]);
   });
 
@@ -437,14 +454,14 @@ describe("createCounterOrder: pager uniqueness", () => {
 describe("createCounterOrder: concurrency", () => {
   // The per-pager advisory lock serializes these: the losers are rejected by the in-transaction
   // check. The unique-index mapping (23505) is covered deterministically by the backstop test above.
-  it("5 PARALLEL sales with the SAME pager -> exactly ONE ok, four PAGER_IN_USE, one order, 1 print job", async () => {
+  it("5 PARALLEL sales with the SAME pager -> exactly ONE ok, four PAGER_IN_USE, one order, 2 print jobs", async () => {
     const results = await Promise.all(Array.from({ length: 5 }, () => createCounterOrder(db(), fresh(fx), {})));
     expect(results.filter((r) => r.ok)).toHaveLength(1);
     const losers = results.filter((r) => !r.ok);
     expect(losers).toHaveLength(4);
     for (const l of losers) expect(l).toMatchObject({ ok: false, code: "PAGER_IN_USE" });
     const c = await counts();
-    expect([c.orders, c.items, c.events, c.jobs]).toEqual([1, 2, 1, 1]);
+    expect([c.orders, c.items, c.events, c.jobs]).toEqual([1, 2, 1, 2]);
   });
 
   it("5 PARALLEL sales with the same idempotency key -> one order, duplicate true for the rest", async () => {
@@ -453,7 +470,7 @@ describe("createCounterOrder: concurrency", () => {
     expect(datas.filter((d) => !d.duplicate)).toHaveLength(1);
     expect(new Set(datas.map((d) => d.orderId)).size).toBe(1);
     const c = await counts();
-    expect([c.orders, c.events, c.jobs]).toEqual([1, 1, 1]);
+    expect([c.orders, c.events, c.jobs]).toEqual([1, 1, 2]);
     expect(c.counters).toEqual([{ businessDate: expect.any(String), lastNumber: 1 }]);
   });
 
@@ -463,7 +480,7 @@ describe("createCounterOrder: concurrency", () => {
     );
     const numbers = results.map(okData).map((d) => d.number).sort((a, b) => a - b);
     expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-    expect((await counts()).jobs).toBe(10);
+    expect((await counts()).jobs).toBe(20); // kitchen + customer each
   });
 });
 
@@ -474,7 +491,7 @@ describe("createCounterOrder: idempotency", () => {
     expect(a.duplicate).toBe(false);
     expect(b).toEqual({ ...a, duplicate: true });
     const c = await counts();
-    expect([c.orders, c.items, c.events, c.jobs]).toEqual([1, 2, 1, 1]);
+    expect([c.orders, c.items, c.events, c.jobs]).toEqual([1, 2, 1, 2]);
   });
 });
 
@@ -568,11 +585,11 @@ describe("createCounterOrder: notifications", () => {
       expect(received).toEqual([]);
       expect(await counts()).toEqual(EMPTY);
 
-      // control: without the trigger the very same call notifies (1 order + 1 print event)
+      // control: without the trigger the very same call notifies (1 order + 2 print events)
       await dropFailureTriggers();
       okData(await createCounterOrder(db(), input(fx), {}));
-      await waitFor(() => received.length >= 2);
-      expect(received).toHaveLength(2);
+      await waitFor(() => received.length >= 3);
+      expect(received).toHaveLength(3);
     } finally {
       await client.end();
     }

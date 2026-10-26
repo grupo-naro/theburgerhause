@@ -17,7 +17,7 @@ import { currentStateMessage, failure, isId, UNEXPECTED_MESSAGE, type OrderResul
  */
 
 const id = z.number().int().positive().max(2_147_483_647);
-const inputSchema = z.object({ orderId: id, userId: id, which: z.enum(["customer", "delivery", "both"]) });
+const inputSchema = z.object({ orderId: id, userId: id, which: z.enum(["kitchen", "customer", "delivery", "both"]) });
 
 export const NO_DELIVERY_TICKET_MESSAGE = "Este pedido no es un delivery: no tiene ticket de delivery";
 

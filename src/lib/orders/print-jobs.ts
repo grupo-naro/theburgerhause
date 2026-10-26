@@ -1,7 +1,7 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
-import { renderCustomerTicket, renderDeliveryTicket, type PrintableOrder } from "@/domain/print-document";
+import { renderCustomerTicket, renderDeliveryTicket, renderKitchenTicket, type PrintableOrder } from "@/domain/print-document";
 import { PRINT_CHANNEL } from "@/lib/events/channels";
 import { notifyInTx } from "@/lib/events/notify";
 import type { PrintKind } from "./print-kinds";
@@ -30,8 +30,9 @@ export async function enqueuePrintJobs(
   args: { orderId: number; stationId: number; kinds: PrintKind[]; printable: PrintableOrder },
 ): Promise<number[]> {
   const { orderId, stationId, kinds, printable } = args;
-  // Fixed order (customer ticket first, then delivery; the agent prints by job id) whatever order the caller listed them in.
+  // Fixed order (kitchen first, then the customer ticket, then delivery; the agent prints by job id) whatever order the caller listed them in.
   const rows: { type: PrintKind; payload: unknown }[] = [];
+  if (kinds.includes("kitchen")) rows.push({ type: "kitchen", payload: renderKitchenTicket(printable) });
   if (kinds.includes("customer")) rows.push({ type: "customer", payload: renderCustomerTicket(printable) });
   if (kinds.includes("delivery")) rows.push({ type: "delivery", payload: renderDeliveryTicket(printable) });
   if (rows.length === 0) return [];

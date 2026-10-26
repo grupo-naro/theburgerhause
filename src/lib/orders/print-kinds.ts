@@ -1,10 +1,13 @@
 /**
- * Which tickets a station prints for an order (Task 10.2). Pure: no db, no next/*.
- * Delivery stations print the customer ticket first, then the delivery (dispatch) ticket (the agent prints in job-id order); Mostrador stations print only
- * the customer ticket. The kitchen comanda is NOT printed (the KDS screen of a later phase replaces it).
+ * Which tickets a station prints for an order. Pure: no db, no next/*.
+ * Every approved order / counter sale prints the KITCHEN comanda on the same printer as the rest (the kitchen has no
+ * printer of its own), then the customer ticket; Delivery stations add the delivery (dispatch) ticket for web delivery
+ * orders. The agent prints by job id, so the order is kitchen -> customer -> delivery. (Task 10.2 had dropped the
+ * kitchen comanda for a kitchen screen; the screen moved to the counter TV and the comanda is back.)
  */
 
-export type PrintKind = "delivery" | "customer";
+export type PrintKind = "kitchen" | "delivery" | "customer";
+/** Reprint selection. "both" keeps its old meaning (customer + delivery, WITHOUT the kitchen comanda): the kitchen is its own option. */
 export type PrintWhich = PrintKind | "both";
 export type PrintStationKind = "mostrador" | "delivery";
 type OrderShape = { channel: "web" | "counter"; fulfillment: "delivery" | "takeaway" };
@@ -15,12 +18,13 @@ export function hasDeliveryTicket(order: OrderShape): boolean {
 }
 
 export function defaultPrintKinds(stationKind: PrintStationKind, order: OrderShape): PrintKind[] {
-  return stationKind === "delivery" && hasDeliveryTicket(order) ? ["customer", "delivery"] : ["customer"];
+  return stationKind === "delivery" && hasDeliveryTicket(order) ? ["kitchen", "customer", "delivery"] : ["kitchen", "customer"];
 }
 
 /** Reprint selection; null = the order has no such ticket ("delivery" asked for a non-delivery order). */
 export function resolvePrintKinds(which: PrintWhich, stationKind: PrintStationKind, order: OrderShape): PrintKind[] | null {
-  if (which === "both") return defaultPrintKinds(stationKind, order);
+  if (which === "both") return defaultPrintKinds(stationKind, order).filter((k) => k !== "kitchen");
+  if (which === "kitchen") return ["kitchen"];
   if (which === "delivery") return hasDeliveryTicket(order) ? ["delivery"] : null;
   return ["customer"];
 }

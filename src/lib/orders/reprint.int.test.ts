@@ -32,19 +32,20 @@ beforeEach(async () => {
 afterAll(closeDb);
 
 describe("reprintOrder", () => {
-  it("both: 2 NEW jobs for the CURRENT station, payload re-rendered, event written", async () => {
+  it("both: customer + delivery as before (NO kitchen ticket), NEW jobs for the CURRENT station, payload re-rendered, event written", async () => {
     const o = await approved();
     const r = await reprint(o.id, "both");
     if (!r.ok) throw new Error(r.message);
     const all = await jobs(o.id);
-    expect(all).toHaveLength(4);
-    const fresh = all.slice(2);
+    expect(all.slice(0, 3).map((j) => j.type)).toEqual(["kitchen", "customer", "delivery"]); // the approval
+    expect(all).toHaveLength(5);
+    const fresh = all.slice(3);
     expect(fresh.map((j) => j.id)).toEqual(r.data.printJobIds);
     expect(fresh.map((j) => j.type)).toEqual(["customer", "delivery"]);
     for (const j of fresh) expect(j).toMatchObject({ stationId: fx.otherStationId, status: "pending", attempts: 0 });
-    expect(fresh[0].payload).toEqual(all[0].payload);
-    expect(fresh[1].payload).toEqual(all[1].payload);
-    expect(all.slice(0, 2).every((j) => j.stationId === fx.otherStationId)).toBe(true); // originals untouched
+    expect(fresh[0].payload).toEqual(all[1].payload);
+    expect(fresh[1].payload).toEqual(all[2].payload);
+    expect(all.slice(0, 3).every((j) => j.stationId === fx.otherStationId)).toBe(true); // originals untouched
     const evs = await events(o.id);
     expect(evs.at(-1)).toMatchObject({
       fromStatus: "en_preparacion",
@@ -58,7 +59,7 @@ describe("reprintOrder", () => {
     const o = await approved();
     await reprint(o.id, "delivery");
     await reprint(o.id, "customer");
-    const fresh = (await jobs(o.id)).slice(2);
+    const fresh = (await jobs(o.id)).slice(3);
     expect(fresh.map((j) => j.type)).toEqual(["delivery", "customer"]);
     expect(JSON.stringify(fresh[0].payload)).not.toContain('"logo"');
     expect(JSON.stringify(fresh[0].payload)).toContain("Av. Siempreviva 742");
@@ -67,12 +68,31 @@ describe("reprintOrder", () => {
     expect((await events(o.id)).slice(-2).map((e) => e.note)).toEqual(["Reimpresión (delivery)", "Reimpresión (customer)"]);
   });
 
-  it("at a Mostrador station 'both' is just the customer ticket (what an approval there prints)", async () => {
+  it("kitchen: exactly ONE kitchen job at the current station, whatever the order; the payload is the comanda", async () => {
+    for (const [fulfillment, at] of [["delivery", fx.otherStationId], ["takeaway", fx.stationId]] as const) {
+      const o = await approved(fulfillment, at);
+      const before = await jobs(o.id);
+      const r = await reprint(o.id, "kitchen", { stationId: at });
+      if (!r.ok) throw new Error(r.message);
+      const fresh = (await jobs(o.id)).slice(before.length);
+      expect(fresh.map((j) => j.type)).toEqual(["kitchen"]);
+      expect(fresh.map((j) => j.id)).toEqual(r.data.printJobIds);
+      expect(fresh[0]).toMatchObject({ stationId: at, status: "pending", attempts: 0 });
+      expect(fresh[0].payload).toEqual(before[0].payload); // same comanda as the original one
+      const k = JSON.stringify(fresh[0].payload);
+      expect(k).toContain(`PEDIDO #${o.number}`);
+      expect(k).toContain(fulfillment === "delivery" ? "DELIVERY" : "RETIRO");
+      expect(k).toContain("SIN CHEDDAR");
+      expect((await events(o.id)).at(-1)?.note).toBe("Reimpresión (kitchen)");
+    }
+  });
+
+  it("at a Mostrador station 'both' is just the customer ticket (what an approval there prints, minus the kitchen)", async () => {
     const o = await approved("takeaway", fx.stationId);
-    expect(await jobs(o.id)).toHaveLength(1);
+    expect((await jobs(o.id)).map((j) => j.type)).toEqual(["kitchen", "customer"]);
     const r = await reprint(o.id, "both", { stationId: fx.stationId });
     if (!r.ok) throw new Error(r.message);
-    expect((await jobs(o.id)).slice(1).map((j) => j.type)).toEqual(["customer"]);
+    expect((await jobs(o.id)).slice(2).map((j) => j.type)).toEqual(["customer"]);
   });
 
   it("a delivery ticket only exists for delivery orders: takeaway and counter sales refuse it, writing nothing", async () => {
@@ -89,18 +109,18 @@ describe("reprintOrder", () => {
 
   it("goes to the CURRENT station, not the approving one", async () => {
     const o = await approved("delivery", fx.stationId); // admin approved it at a Mostrador station: customer ticket only
-    expect((await jobs(o.id)).map((j) => [j.type, j.stationId])).toEqual([["customer", fx.stationId]]);
+    expect((await jobs(o.id)).map((j) => [j.type, j.stationId])).toEqual([["kitchen", fx.stationId], ["customer", fx.stationId]]);
     const r = await reprint(o.id, "both"); // reprinted at the Delivery station: customer + dispatch there
     if (!r.ok) throw new Error(r.message);
-    expect((await jobs(o.id)).slice(1).map((j) => [j.type, j.stationId])).toEqual([
+    expect((await jobs(o.id)).slice(2).map((j) => [j.type, j.stationId])).toEqual([
       ["customer", fx.otherStationId],
       ["delivery", fx.otherStationId],
     ]);
   });
 
-  it("the legacy kinds are no longer accepted", async () => {
+  it("the legacy 'ticket' kind is no longer accepted", async () => {
     const o = await approved();
-    for (const which of ["kitchen", "ticket"]) expect(await reprint(o.id, which)).toMatchObject({ ok: false, code: "VALIDATION" });
+    for (const which of ["ticket"]) expect(await reprint(o.id, which)).toMatchObject({ ok: false, code: "VALIDATION" });
   });
 
   it("works for later states too, but not for pending or cancelled orders", async () => {
@@ -126,7 +146,7 @@ describe("reprintOrder", () => {
         message: "Elegí tu estación para imprimir",
       });
     }
-    expect(await jobs(o.id)).toHaveLength(2);
+    expect(await jobs(o.id)).toHaveLength(3);
     expect(await events(o.id)).toHaveLength(2);
   });
 
@@ -137,7 +157,7 @@ describe("reprintOrder", () => {
       expect(await reprint(o.id, which)).toMatchObject({ ok: false, code: "VALIDATION" });
     }
     expect(await reprint(-1, "both")).toMatchObject({ ok: false, code: "VALIDATION" });
-    expect(await jobs(o.id)).toHaveLength(2);
+    expect(await jobs(o.id)).toHaveLength(3);
   });
 
   it("notifies PRINT per job and ORDERS {event: updated} after commit", async () => {

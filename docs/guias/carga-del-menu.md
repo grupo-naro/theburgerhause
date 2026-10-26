@@ -34,8 +34,8 @@ puede tildar en cada unidad del producto.
    - **Nombre**: lo que ve el cliente (por ejemplo "Sin cheddar", "+ Dips de cheddar", "Papas grandes").
    - **Tipo**: **Quitar** (sin precio), **Agregar** (suma plata) o **Cambiar** (puede sumar plata).
    - **Precio (pesos)**: entero, sin puntos ni comas (por ejemplo `1200`). Un "Quitar" no tiene precio.
-   - **Texto para cocina (opcional)**: si lo dejás vacío se arma solo (por ejemplo "SIN CHEDDAR"); siempre sale en mayúsculas. Hoy se ve en las pantallas
-     del personal (en delivery y mostrador, chips rojos/verdes bajo cada producto); no hay comanda impresa.
+   - **Texto para cocina (opcional)**: si lo dejás vacío se arma solo (por ejemplo "SIN CHEDDAR"); siempre sale en mayúsculas. Se ve en las pantallas
+     del personal (en delivery y mostrador, chips rojos/verdes bajo cada producto) y sale en la comanda de cocina impresa.
 3. Podés **Subir/Bajar** para ordenar y **Desactivar/Activar** un modificador.
 
 ### 2. Categorías (Administración → **Menú**)

@@ -85,7 +85,7 @@ describe("getDispatchBoard", () => {
     expect(dto.total).toBeGreaterThan(0);
     expect(dto.items.length).toBeGreaterThan(0);
     expect(JSON.stringify(dto.items)).toContain("SIN CHEDDAR");
-    expect(dto.printState).toEqual({ pending: 1, failed: 0, done: 0 }); // approved at a Mostrador station (test helper): the customer ticket only
+    expect(dto.printState).toEqual({ pending: 2, failed: 0, done: 0 }); // approved at a Mostrador station (test helper): kitchen + customer tickets
     expect(JSON.parse(JSON.stringify(dto))).toEqual(dto);
   });
 

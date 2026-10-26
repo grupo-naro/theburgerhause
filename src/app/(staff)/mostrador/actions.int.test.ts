@@ -224,26 +224,26 @@ describe("getPrintStateAction", () => {
     as("cajera");
     const a = await sell({ pagerNumber: 1 });
     const b = await sell({ pagerNumber: 2 });
-    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 1, failed: 0, done: 0 } });
+    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 0, done: 0 } });
     await testDb().update(s.printJobs).set({ status: "done" }).where(eq(s.printJobs.orderId, a.orderId));
-    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 0, failed: 0, done: 1 } });
-    expect(await getPrintStateAction({ orderId: b.orderId })).toEqual({ ok: true, data: { pending: 1, failed: 0, done: 0 } });
+    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 0, failed: 0, done: 2 } });
+    expect(await getPrintStateAction({ orderId: b.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 0, done: 0 } });
   });
 
   it("counts printing as pending and an unhandled failure as failed", async () => {
     as("cajera");
     const a = await sell();
-    expect(a.printJobIds).toHaveLength(1); // a counter sale prints ONE ticket: the customer one
-    const [customer] = a.printJobIds;
+    expect(a.printJobIds).toHaveLength(2); // a counter sale prints the kitchen comanda, then the customer ticket
+    const [, customer] = a.printJobIds;
     await testDb().insert(s.printJobs).values({ orderId: a.orderId, stationId: fx.stationId, type: "delivery", status: "printing", payload: {} } as never);
     await testDb().update(s.printJobs).set({ status: "failed", attempts: 3 }).where(eq(s.printJobs.id, customer));
-    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 1, failed: 1, done: 0 } });
+    expect(await getPrintStateAction({ orderId: a.orderId })).toEqual({ ok: true, data: { pending: 2, failed: 1, done: 0 } }); // kitchen pending + a printing job; the customer ticket failed
   });
 
   it("a failure superseded by a later job (reprint) no longer counts", async () => {
     as("cajera");
     const a = await sell();
-    const [customer] = a.printJobIds;
+    const [, customer] = a.printJobIds;
     await testDb().update(s.printJobs).set({ status: "failed", attempts: 3 }).where(eq(s.printJobs.id, customer));
     await testDb().insert(s.printJobs).values({ orderId: a.orderId, stationId: fx.stationId, type: "customer", status: "pending", payload: {} } as never);
     expect(await getPrintStateAction({ orderId: a.orderId })).toMatchObject({ ok: true, data: { failed: 0 } });

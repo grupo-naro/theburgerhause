@@ -739,7 +739,7 @@ certificado vence; el disco se mira con `df -h` (sección 5.1) una vez por seman
    estación y rotar el token (sección 6).
 7. La alerta roja dice **"Ticket cliente: documento inválido"** y no sale papel: el agente de esa PC es **anterior al logo**
    (versión 0.1.x sin soporte del bloque `logo`). Actualizarlo con el ZIP nuevo (`update.ps1`, `print-agent-install.md`
-   sección 9) y apretar **Reimprimir**. El ticket de delivery no usa el logo, por eso ese sí sale.
+   sección 9) y apretar **Reimprimir**. La comanda de cocina y el ticket de delivery no usan el logo, por eso esos sí salen.
 
 ---
 
@@ -880,7 +880,7 @@ Principio: **el local nunca deja de vender porque falle el sistema.** El procedi
 
 | Situación | Qué hace el local | Qué hacés vos |
 | --- | --- | --- |
-| **Falla una impresora** | La Caja avisa en rojo y reintenta sola. Resolver papel/cable/tapa y apretar **Reimprimir**. Mientras, el pedido sigue en la pantalla (no hay comanda impresa; la pantalla de cocina no depende de la impresora) | Sección 5.3 |
+| **Falla una impresora** | La Caja avisa en rojo y reintenta sola. Resolver papel/cable/tapa y apretar **Reimprimir**. Mientras, el pedido sigue en la pantalla (la comanda de cocina sale en la misma impresora: si falla, la cocina no recibe el papel; reimprimirla desde el cuadro rojo) | Sección 5.3 |
 | **Se cae el sistema (502/503)** | Tomar pedidos **a mano** en un block (número correlativo, hora, productos, aclaraciones, dirección/teléfono, forma de pago, total) y pasarlos a cocina en papel | Diagnóstico: sección 9 (502). Si no se resuelve en 15 minutos: `sudo systemctl restart burgerhause`; si fue un deploy: `deploy.sh rollback`; si es la base: sección 4.5. Avisar al local el estado cada 15 minutos |
 | **Se cae internet en el local** | Igual: pedidos a mano. Las pantallas y los agentes reconectan solos al volver internet; los pedidos aprobados durante la caída se imprimen en orden, una sola vez cada uno | Nada en el servidor; verificar luego `/api/health` |
 | **Se cae la VPS entera** | Pedidos a mano. Los clientes que piden por la web no pueden entrar: avisar por WhatsApp/redes | Reiniciar desde el panel de Contabo; si no vuelve, reconstruir con 4.5 ("si se perdió la VPS entera") |
