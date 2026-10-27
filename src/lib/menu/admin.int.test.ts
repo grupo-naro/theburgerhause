@@ -256,3 +256,66 @@ describe("toggles", () => {
     expect((await setCategoryActive(db(), 999, true)).ok).toBe(false);
   });
 });
+
+describe("stock link on the product", () => {
+  async function items() {
+    const [coca, sprite, carne] = await db()
+      .insert(s.stockItems)
+      .values([
+        { name: "Coca", kind: "bebida", unit: "u", quantity: 5000 },
+        { name: "Sprite", kind: "bebida", unit: "u", quantity: 0 },
+        { name: "Carne", kind: "materia_prima", unit: "kg", quantity: 5000 },
+      ])
+      .returning({ id: s.stockItems.id });
+    return { coca: coca.id, sprite: sprite.id, carne: carne.id };
+  }
+  const save = (c: number, id: number | undefined, extra: Record<string, unknown>) =>
+    saveProduct(db(), { id, categoryId: c, name: "Gaseosa", priceArs: 1000, active: true, featured: false, ...extra });
+
+  it("linking to an empty drink pauses the product; linking to one with stock leaves it on sale; unlinking lifts the pause", async () => {
+    const it = await items();
+    const c = await cat("Bebidas");
+    const p = await prod(c, "Gaseosa");
+    expect((await save(c, p, { stockItemId: it.sprite })).ok).toBe(true);
+    expect(await productRow(p)).toMatchObject({ stockItemId: it.sprite, stockPaused: true, active: true });
+    expect((await save(c, p, { stockItemId: it.coca })).ok).toBe(true);
+    expect(await productRow(p)).toMatchObject({ stockItemId: it.coca, stockPaused: false });
+    expect((await save(c, p, { stockItemId: it.sprite })).ok).toBe(true);
+    expect((await save(c, p, { stockItemId: null })).ok).toBe(true);
+    expect(await productRow(p)).toMatchObject({ stockItemId: null, stockPaused: false });
+  });
+
+  it("leaves the link alone when the field is absent", async () => {
+    const it = await items();
+    const c = await cat("Bebidas");
+    const p = await prod(c, "Gaseosa", { stockItemId: it.coca });
+    expect((await save(c, p, {})).ok).toBe(true);
+    expect((await productRow(p)).stockItemId).toBe(it.coca);
+  });
+
+  it("only drinks, only existing items, and one product per item", async () => {
+    const it = await items();
+    const c = await cat("Bebidas");
+    const a = await prod(c, "A", { stockItemId: it.coca });
+    const b = await prod(c, "B");
+    expect(await save(c, b, { name: "B", stockItemId: it.carne })).toMatchObject({ ok: false, fieldErrors: { stockItemId: "Solo se pueden ligar artículos de tipo bebida" } });
+    expect(await save(c, b, { name: "B", stockItemId: 9999 })).toMatchObject({ ok: false, fieldErrors: { stockItemId: "El artículo de stock no existe" } });
+    expect(await save(c, b, { name: "B", stockItemId: it.coca })).toMatchObject({ ok: false, fieldErrors: { stockItemId: "Ese artículo ya está ligado a otro producto" } });
+    expect((await productRow(a)).stockItemId).toBe(it.coca);
+    expect((await productRow(b)).stockItemId).toBeNull();
+  });
+
+  it("refuses to reactivate a product paused by stock while its item is at zero", async () => {
+    const it = await items();
+    const c = await cat("Bebidas");
+    const p = await prod(c, "Gaseosa", { stockItemId: it.sprite });
+    expect((await productRow(p)).stockPaused).toBe(true);
+    await setProductActive(db(), p, false);
+    expect(await setProductActive(db(), p, true)).toEqual({ ok: false, error: "Sin stock: reponé primero" });
+    expect(await save(c, p, { active: true, stockItemId: it.sprite })).toEqual({ ok: false, error: "Sin stock: reponé primero" });
+    expect((await productRow(p)).active).toBe(false);
+    await db().update(s.stockItems).set({ quantity: 3000 }).where(eq(s.stockItems.id, it.sprite));
+    await db().update(s.products).set({ stockPaused: false }).where(eq(s.products.id, p));
+    expect((await setProductActive(db(), p, true)).ok).toBe(true);
+  });
+});

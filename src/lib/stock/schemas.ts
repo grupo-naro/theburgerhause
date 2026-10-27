@@ -39,9 +39,15 @@ export const STOCK_MESSAGES = {
   REPEATED_ITEM: "Hay un artículo repetido",
   NOT_EDITABLE: "Las ventas y devoluciones se registran solas y no se pueden editar",
   NEGATIVE: "Esto deja el stock en negativo. Confirmá para guardar igual.",
+  BALANCE_RANGE: "El saldo superaría el máximo permitido. Revisá la cantidad.",
+  KEY_REUSED: "Esta carga ya se registró con otros datos. Actualizá la pantalla y volvé a cargarla.",
 } as const;
 
 const INT4_MAX = 2_147_483_647;
+const INT4_MIN = -2_147_483_648;
+
+/** True if a stock balance (milli-units) still fits the int4 column. Every ledger write checks it BEFORE writing. */
+export const balanceFits = (quantity: number): boolean => Number.isSafeInteger(quantity) && quantity >= INT4_MIN && quantity <= INT4_MAX;
 const BAD_ID = "Dato inválido";
 export const idSchema = z.number({ error: BAD_ID }).int(BAD_ID).positive(BAD_ID).max(INT4_MAX, BAD_ID);
 const milli = (min: number) =>

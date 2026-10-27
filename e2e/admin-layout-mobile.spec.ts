@@ -6,7 +6,7 @@ import { authFile } from "./helpers/users";
 
 test.use({ storageState: authFile("admin") });
 
-const SECTIONS = ["Menú", "Modificadores", "Cadetes", "Usuarios", "Estaciones", "Ajustes"];
+const SECTIONS = ["Menú", "Modificadores", "Cadetes", "Stock", "Usuarios", "Estaciones", "Ajustes"];
 
 test("@mobile the admin shell has a sticky bar and a drawer with every section", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });

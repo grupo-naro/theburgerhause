@@ -350,3 +350,66 @@ describe("editMovement", () => {
     await db().insert(s.stockMovements).values({ ...row, kind: "devolucion", qtyDelta: 1000 });
   });
 });
+
+describe("balance range (int4) and idempotency payload", () => {
+  const MAX = 1_000_000_000;
+
+  it("rejects an ingreso that would push the balance past int4, with an es-AR message and no write", async () => {
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: MAX, idempotencyKey: key(90) }));
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: MAX, idempotencyKey: key(91) }));
+    const r = await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: MAX, idempotencyKey: key(92) });
+    expect(r).toMatchObject({ ok: false, code: "VALIDATION", message: "El saldo superaría el máximo permitido. Revisá la cantidad." });
+    expect(await itemQty(fx.carne)).toBe(2 * MAX);
+    expect(await movementsOf(fx.carne)).toHaveLength(2);
+  });
+
+  it("rejects a consumo that would push the balance below int4", async () => {
+    const consumo = (n: number) =>
+      registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.carne, milli: MAX }], idempotencyKey: key(n), confirmNegative: true });
+    ok(await consumo(93));
+    ok(await consumo(94));
+    expect(await consumo(95)).toMatchObject({ ok: false, code: "VALIDATION" });
+    expect(await itemQty(fx.carne)).toBe(-2 * MAX);
+  });
+
+  it("rejects an edit that would push the balance past int4", async () => {
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: MAX, idempotencyKey: key(96) }));
+    ok(await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.carne, milli: MAX }], idempotencyKey: key(97) }));
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: MAX, idempotencyKey: key(98) }));
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: MAX, idempotencyKey: key(99) }));
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 100_000_000, idempotencyKey: key(100) }));
+    const consumoRow = (await movementsOf(fx.carne)).find((m) => m.kind === "consumo")!;
+    const r = await editMovement(db(), { movementId: consumoRow.id, userId: fx.userId, newMilli: 0, confirmNegative: true });
+    expect(r).toMatchObject({ ok: false, code: "VALIDATION", message: "El saldo superaría el máximo permitido. Revisá la cantidad." });
+    expect(await itemQty(fx.carne)).toBe(2_100_000_000);
+  });
+
+  it("an ingreso key reused with a different payload is rejected; the same payload returns the first result", async () => {
+    ok(await registerIngreso(db(), { itemId: fx.coca, userId: fx.userId, milli: 5000, note: "Proveedor", idempotencyKey: key(98) }));
+    const same = await registerIngreso(db(), { itemId: fx.coca, userId: fx.userId, milli: 5000, note: "Proveedor", idempotencyKey: key(98) });
+    expect(same).toEqual({ ok: true, data: { quantity: 5000 } });
+    for (const other of [
+      { itemId: fx.coca, milli: 6000, note: "Proveedor" },
+      { itemId: fx.carne, milli: 5000, note: "Proveedor" },
+      { itemId: fx.coca, milli: 5000, note: "Otro" },
+    ]) {
+      const r = await registerIngreso(db(), { userId: fx.userId, idempotencyKey: key(98), ...other });
+      expect(r).toMatchObject({ ok: false, code: "CONFLICT" });
+    }
+    expect(await movementsOf(fx.coca)).toHaveLength(1);
+    expect(await itemQty(fx.coca)).toBe(5000);
+  });
+
+  it("a consumo key reused with different lines or date is rejected; the same lines return ok without writing", async () => {
+    const base = { userId: fx.userId, businessDate: "2026-10-19", idempotencyKey: key(99), confirmNegative: true };
+    ok(await registerConsumo(db(), { ...base, lines: [{ itemId: fx.carne, milli: 2000 }] }));
+    expect(await registerConsumo(db(), { ...base, lines: [{ itemId: fx.carne, milli: 2000 }] })).toEqual({ ok: true, data: undefined });
+    expect(await registerConsumo(db(), { ...base, lines: [{ itemId: fx.carne, milli: 3000 }] })).toMatchObject({ ok: false, code: "CONFLICT" });
+    expect(await registerConsumo(db(), { ...base, businessDate: "2026-10-18", lines: [{ itemId: fx.carne, milli: 2000 }] })).toMatchObject({ ok: false, code: "CONFLICT" });
+    expect(
+      await registerConsumo(db(), { ...base, lines: [{ itemId: fx.carne, milli: 2000 }, { itemId: fx.coca, milli: 1000 }] }),
+    ).toMatchObject({ ok: false, code: "CONFLICT" });
+    expect(await movementsOf(fx.carne)).toHaveLength(1);
+    expect(await itemQty(fx.carne)).toBe(-2000);
+  });
+});

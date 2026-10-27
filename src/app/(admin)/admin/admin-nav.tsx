@@ -10,12 +10,13 @@ const ADMIN_LINKS: readonly AdminLink[] = [
   { href: "/admin/menu", label: "Menú" },
   { href: "/admin/modificadores", label: "Modificadores" },
   { href: "/admin/cadetes", label: "Cadetes" },
+  { href: "/admin/stock", label: "Stock" },
   { href: "/admin/usuarios", label: "Usuarios", adminOnly: true },
   { href: "/admin/estaciones", label: "Estaciones", adminOnly: true },
   { href: "/admin/ajustes", label: "Ajustes", adminOnly: true },
 ];
 
-/** The sections a role sees: the encargado manages menu, modifiers and cadets; users, stations and settings are admin only. */
+/** The sections a role sees: the encargado manages menu, modifiers, cadets and stock; users, stations and settings are admin only. */
 export function adminLinksFor(role: Role): readonly { href: string; label: string }[] {
   return ADMIN_LINKS.filter((l) => !l.adminOnly || role === "admin").map(({ href, label }) => ({ href, label }));
 }

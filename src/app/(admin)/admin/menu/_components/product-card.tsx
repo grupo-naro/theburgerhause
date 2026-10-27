@@ -34,6 +34,11 @@ export function ProductCard({
             {product.name}
           </p>
           <p className="text-sm text-ink-muted">{formatARS(product.price)}</p>
+          {product.stockPaused ? (
+            <span className="mt-1 mr-1 inline-block rounded-full bg-state-error/15 px-2 py-0.5 text-xs font-semibold text-state-error">
+              Sin stock
+            </span>
+          ) : null}
           {product.featured ? (
             <span className="mt-1 inline-block rounded-full bg-cheddar-400/30 px-2 py-0.5 text-xs font-semibold text-ink">
               Destacado

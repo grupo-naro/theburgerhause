@@ -166,3 +166,24 @@ export async function listenerConnections(): Promise<number> {
   );
   return Number((rows.rows[0] as { n: number }).n);
 }
+
+/** Stock item by name (case-insensitive, like the unique index). */
+export async function findStockItem(name: string) {
+  const [row] = await db().select().from(s.stockItems).where(sql`lower(${s.stockItems.name}) = lower(${name})`);
+  return row;
+}
+
+/** Removes a stock item with its whole ledger so a spec can re-create it by name (the DB is seeded once per run). */
+export async function deleteStockItem(name: string): Promise<void> {
+  const item = await findStockItem(name);
+  if (!item) return;
+  await db().execute(sql`delete from stock_movement_edits where movement_id in (select id from stock_movements where item_id = ${item.id})`);
+  await db().delete(s.stockMovements).where(eq(s.stockMovements.itemId, item.id));
+  await db().update(s.products).set({ stockItemId: null, stockPaused: false }).where(eq(s.products.stockItemId, item.id));
+  await db().delete(s.stockItems).where(eq(s.stockItems.id, item.id));
+}
+
+/** The movements of an item, oldest first. */
+export async function stockMovementsOf(itemId: number) {
+  return db().select().from(s.stockMovements).where(eq(s.stockMovements.itemId, itemId)).orderBy(asc(s.stockMovements.id));
+}

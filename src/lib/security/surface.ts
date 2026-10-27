@@ -72,6 +72,12 @@ export const SURFACE: Record<string, Entry> = {
   [`action:${ADMIN_DIR}/modificadores/actions.ts#saveModifierAction`]: managerAction("Modifier CRUD."),
   [`action:${ADMIN_DIR}/modificadores/actions.ts#moveModifierAction`]: managerAction("Reorder modifiers."),
   [`action:${ADMIN_DIR}/modificadores/actions.ts#toggleModifierActiveAction`]: managerAction("Show/hide a modifier."),
+  [`action:${ADMIN_DIR}/stock/actions.ts#createStockItemAction`]: managerAction("Create a stock item (kind and unit fixed)."),
+  [`action:${ADMIN_DIR}/stock/actions.ts#updateStockItemAction`]: managerAction("Rename / minimum / (de)activate a stock item (may flip the stock pause of a linked drink)."),
+  [`action:${ADMIN_DIR}/stock/actions.ts#setInitialStockAction`]: managerAction("Starting balance of an item, once."),
+  [`action:${ADMIN_DIR}/stock/actions.ts#registerIngresoAction`]: managerAction("Stock replenishment (idempotency key; same key with other data is refused)."),
+  [`action:${ADMIN_DIR}/stock/actions.ts#registerConsumoAction`]: managerAction("Daily consumption, all or nothing (idempotency key; negative balance needs confirmation)."),
+  [`action:${ADMIN_DIR}/stock/actions.ts#editMovementAction`]: managerAction("Correct an ingreso / consumo / initial stock (full edit trail; negative needs confirmation)."),
   [`action:${ADMIN_DIR}/usuarios/actions.ts#saveUserAction`]: adminAction("Create/edit staff users and passwords."),
   [`action:${ADMIN_DIR}/usuarios/actions.ts#toggleUserActiveAction`]: adminAction("Deactivate/reactivate a user (revokes sessions)."),
   [`action:${ADMIN_DIR}/usuarios/actions.ts#revokeSessionsAction`]: adminAction("Revoke every session of a user."),
@@ -209,5 +215,5 @@ export const SURFACE: Record<string, Entry> = {
   ["page:src/app/(staff)/delivery/rendicion/page.tsx"]: { access: "staff", roles: DELIVERY, note: "Cadet settlement screen.", tests: ["e2e/rendicion-roles-print.spec.ts"] },
 };
 
-/** Every page under (admin)/admin is guarded in the page itself or in the admin shell (usuarios, ajustes, estaciones: admin only; menu, modificadores, cadetes: admin and encargado). */
+/** Every page under (admin)/admin is guarded in the page itself or in the admin shell (usuarios, ajustes, estaciones: admin only; menu, modificadores, cadetes, stock: admin and encargado). */
 export const ADMIN_PAGE_PREFIX = "page:src/app/(admin)/admin/";

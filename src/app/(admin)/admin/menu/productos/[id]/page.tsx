@@ -5,6 +5,7 @@ import * as s from "@/db/schema";
 import { centsToPesos } from "@/domain/money";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
 import { getProductForAdmin } from "@/lib/menu/admin-queries";
+import { listLinkableDrinks } from "@/lib/stock/queries";
 import { listProductGroupIds } from "@/lib/modifiers/admin";
 import { thumbUrl } from "@/lib/uploads/storage";
 import { ProductForm } from "../../_components/product-form";
@@ -23,7 +24,8 @@ export default async function EditProductPage({ params }: PageProps<"/admin/menu
     .select({ id: s.categories.id, name: s.categories.name })
     .from(s.categories)
     .orderBy(asc(s.categories.sort), asc(s.categories.id));
-  const [groups, linkedIds] = await Promise.all([
+  const [drinks, groups, linkedIds] = await Promise.all([
+    listLinkableDrinks(db, product.id),
     db
       .select({ id: s.modifierGroups.id, name: s.modifierGroups.name })
       .from(s.modifierGroups)
@@ -37,6 +39,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/menu
         key={product.id}
         categories={categories}
         previewUrl={product.imagePath ? thumbUrl(product.imagePath) : null}
+        drinks={drinks}
         initial={{
           id: product.id,
           categoryId: product.categoryId,
@@ -46,6 +49,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/menu
           active: product.active,
           featured: product.featured,
           imagePath: product.imagePath,
+          stockItemId: product.stockItemId,
         }}
       />
       <hr className="max-w-xl border-line" />

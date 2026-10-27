@@ -17,6 +17,7 @@ export function ProductRow({ product, first, last }: { product: AdminProduct; fi
       <td className="py-2 pr-3 whitespace-nowrap">{formatARS(product.price)}</td>
       <td className="py-2 pr-3">
         <Badge tone={product.active ? "success" : "muted"}>{product.active ? "Activo" : "Inactivo"}</Badge>
+        {product.stockPaused ? <Badge tone="muted">Sin stock</Badge> : null}
       </td>
       <td className="py-2 pr-3 text-center">
         {product.featured ? (

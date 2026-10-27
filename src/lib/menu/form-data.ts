@@ -27,6 +27,12 @@ export function categoryFromForm(fd: FormData) {
   };
 }
 
+/** "" = no stock item (unlink); a number = link; anything else fails validation as NaN. */
+function stockLink(fd: FormData): number | null {
+  const raw = text(fd, "stockItemId").trim();
+  return raw === "" ? null : Number(raw);
+}
+
 export function productFromForm(fd: FormData) {
   const price = text(fd, "priceArs").trim();
   return {
@@ -38,6 +44,7 @@ export function productFromForm(fd: FormData) {
     imagePath: text(fd, "imagePath") || null,
     active: checkbox(fd, "active"),
     featured: checkbox(fd, "featured"),
+    stockItemId: stockLink(fd),
   };
 }
 

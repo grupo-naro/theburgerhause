@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, like, ne, sql } from "drizzle-orm";
 import type { Db, DbTransaction } from "@/db/client";
 import { businessDateFor } from "@/db/order-number";
 import * as s from "@/db/schema";
@@ -11,6 +11,7 @@ import type { Kind, Unit } from "./quantity";
 import {
   consumoSchema,
   editMovementSchema,
+  balanceFits,
   fitsUnit,
   ingresoSchema,
   initialStockSchema,
@@ -167,6 +168,7 @@ export async function setInitialStock(
       if (!item) return stockFailure("NOT_FOUND", STOCK_MESSAGES.ITEM_NOT_FOUND);
       if (!item.active) return stockFailure("VALIDATION", STOCK_MESSAGES.ITEM_INACTIVE);
       if (!fitsUnit(input.milli, item.unit)) return stockFailure("VALIDATION", STOCK_MESSAGES.WHOLE_UNITS);
+      if (!balanceFits(item.quantity + input.milli)) return stockFailure("VALIDATION", STOCK_MESSAGES.BALANCE_RANGE);
       const [done] = await tx
         .select({ id: s.stockMovements.id })
         .from(s.stockMovements)
@@ -201,12 +203,25 @@ export async function registerIngreso(
   const input = parsed.data;
   const storedKey = `ingreso:${input.idempotencyKey}`;
 
+  // Same key: the first result is returned only if the payload is the same; otherwise it is a different request.
   const duplicate = async (conn: Db | DbTransaction): Promise<Result<{ quantity: number }> | null> => {
     const [prev] = await conn
-      .select({ itemId: s.stockMovements.itemId })
+      .select({
+        itemId: s.stockMovements.itemId,
+        qtyDelta: s.stockMovements.qtyDelta,
+        note: s.stockMovements.note,
+        editedAt: s.stockMovements.editedAt,
+      })
       .from(s.stockMovements)
       .where(eq(s.stockMovements.idempotencyKey, storedKey));
-    return prev ? { ok: true, data: { quantity: await currentQuantity(conn, prev.itemId) } } : null;
+    if (!prev) return null;
+    // A movement corrected afterwards keeps its item and note but no longer its original amount.
+    const same =
+      prev.itemId === input.itemId &&
+      (prev.note ?? null) === (input.note ? input.note : null) &&
+      (prev.editedAt !== null || prev.qtyDelta === input.milli);
+    if (!same) return stockFailure("CONFLICT", STOCK_MESSAGES.KEY_REUSED);
+    return { ok: true, data: { quantity: await currentQuantity(conn, prev.itemId) } };
   };
 
   try {
@@ -218,6 +233,9 @@ export async function registerIngreso(
       if (!item) return stockFailure("NOT_FOUND", STOCK_MESSAGES.ITEM_NOT_FOUND);
       if (!item.active) return stockFailure("VALIDATION", STOCK_MESSAGES.ITEM_INACTIVE);
       if (!fitsUnit(input.milli, item.unit)) return stockFailure("VALIDATION", STOCK_MESSAGES.WHOLE_UNITS, { fieldErrors: { milli: STOCK_MESSAGES.WHOLE_UNITS } });
+      if (!balanceFits(item.quantity + input.milli)) {
+        return stockFailure("VALIDATION", STOCK_MESSAGES.BALANCE_RANGE, { fieldErrors: { milli: STOCK_MESSAGES.BALANCE_RANGE } });
+      }
       const { quantity } = await recordMovement(tx, {
         item,
         kind: "ingreso",
@@ -264,19 +282,35 @@ export async function registerConsumo(
 
   const submitKey = `consumo:${input.idempotencyKey}`;
   const lineKey = (itemId: number) => `${submitKey}:${itemId}`;
-  const alreadySaved = async (conn: Db | DbTransaction): Promise<boolean> => {
-    const [prev] = await conn
-      .select({ id: s.stockMovements.id })
+  // "none": nothing saved under this key. "same": the same lines were saved (a resubmit). "different": the key is reused.
+  const savedState = async (conn: Db | DbTransaction): Promise<"none" | "same" | "different"> => {
+    const rows = await conn
+      .select({
+        itemId: s.stockMovements.itemId,
+        qtyDelta: s.stockMovements.qtyDelta,
+        businessDate: s.stockMovements.businessDate,
+        editedAt: s.stockMovements.editedAt,
+      })
       .from(s.stockMovements)
-      .where(inArray(s.stockMovements.idempotencyKey, lines.map((l) => lineKey(l.itemId))))
-      .limit(1);
-    return prev !== undefined;
+      .where(like(s.stockMovements.idempotencyKey, `${submitKey}:%`));
+    if (rows.length === 0) return "none";
+    const same =
+      rows.length === lines.length &&
+      lines.every((l) => {
+        const r = rows.find((x) => x.itemId === l.itemId);
+        // A movement corrected afterwards no longer has its original amount.
+        return r !== undefined && r.businessDate === input.businessDate && (r.editedAt !== null || r.qtyDelta === -l.milli);
+      });
+    return same ? "same" : "different";
   };
+  const replay = (state: "none" | "same" | "different"): Result<void> | null =>
+    state === "same" ? { ok: true, data: undefined } : state === "different" ? stockFailure("CONFLICT", STOCK_MESSAGES.KEY_REUSED) : null;
 
   try {
     return await db.transaction(async (tx): Promise<Result<void>> => {
       await lockKey(tx, submitKey);
-      if (await alreadySaved(tx)) return { ok: true, data: undefined };
+      const previous = replay(await savedState(tx));
+      if (previous) return previous;
 
       const items = await lockStockItems(tx, lines.map((l) => l.itemId));
       const negatives: StockNegative[] = [];
@@ -286,6 +320,7 @@ export async function registerConsumo(
         if (!item.active) return stockFailure("VALIDATION", `${STOCK_MESSAGES.ITEM_INACTIVE}: ${item.name}`);
         if (!fitsUnit(line.milli, item.unit)) return stockFailure("VALIDATION", `${STOCK_MESSAGES.WHOLE_UNITS}: ${item.name}`);
         const resultingQuantity = item.quantity - line.milli;
+        if (!balanceFits(resultingQuantity)) return stockFailure("VALIDATION", `${STOCK_MESSAGES.BALANCE_RANGE}: ${item.name}`);
         if (resultingQuantity < 0) negatives.push({ itemId: item.id, name: item.name, resultingQuantity });
       }
       if (negatives.length > 0 && !input.confirmNegative) {
@@ -305,7 +340,10 @@ export async function registerConsumo(
       return { ok: true, data: undefined };
     });
   } catch (err) {
-    if (isKeyRace(err) && (await alreadySaved(db))) return { ok: true, data: undefined };
+    if (isKeyRace(err)) {
+      const previous = replay(await savedState(db));
+      if (previous) return previous;
+    }
     throw err;
   }
 }
@@ -354,6 +392,9 @@ export async function editMovement(
     if (newDelta === m.qtyDelta) return { ok: true, data: { quantity: item.quantity } };
     const change = newDelta - m.qtyDelta;
     const resultingQuantity = item.quantity + change;
+    if (!balanceFits(resultingQuantity)) {
+      return stockFailure("VALIDATION", STOCK_MESSAGES.BALANCE_RANGE, { fieldErrors: { newMilli: STOCK_MESSAGES.BALANCE_RANGE } });
+    }
     if (resultingQuantity < 0 && change < 0 && !input.confirmNegative) {
       return { ok: true, data: { quantity: item.quantity, needsConfirmation: { resultingQuantity } } };
     }

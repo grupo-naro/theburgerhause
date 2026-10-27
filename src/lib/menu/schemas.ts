@@ -40,6 +40,8 @@ export const productInputSchema = z.object({
   imagePath,
   active: z.boolean(),
   featured: z.boolean(),
+  /** Optional link to a `bebida` stock item. undefined = leave as is, null = unlink. */
+  stockItemId: id.nullish(),
 });
 
 export type CategoryInput = z.input<typeof categoryInputSchema>;

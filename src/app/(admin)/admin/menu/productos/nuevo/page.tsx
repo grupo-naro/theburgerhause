@@ -2,6 +2,7 @@ import { asc } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
+import { listLinkableDrinks } from "@/lib/stock/queries";
 import { ProductForm } from "../../_components/product-form";
 
 export const metadata = { title: "Nuevo producto · Administración" };
@@ -9,6 +10,7 @@ export const metadata = { title: "Nuevo producto · Administración" };
 export default async function NewProductPage({ searchParams }: PageProps<"/admin/menu/productos/nuevo">) {
   const sp = await searchParams;
   await requireSessionOrRedirect(["admin", "encargado"], "/admin/menu/productos/nuevo");
+  const drinks = await listLinkableDrinks(getDb());
   const categories = await getDb()
     .select({ id: s.categories.id, name: s.categories.name })
     .from(s.categories)
@@ -22,6 +24,7 @@ export default async function NewProductPage({ searchParams }: PageProps<"/admin
       <ProductForm
         categories={categories}
         previewUrl={null}
+        drinks={drinks}
         initial={{
           categoryId,
           name: "",
@@ -30,6 +33,7 @@ export default async function NewProductPage({ searchParams }: PageProps<"/admin
           active: true,
           featured: false,
           imagePath: null,
+          stockItemId: null,
         }}
       />
     </section>

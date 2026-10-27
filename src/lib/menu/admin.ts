@@ -2,6 +2,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import type { Db, DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
 import { pesosToCents } from "@/domain/money";
+import { lockStockItems } from "@/lib/stock/movements";
 import { deleteImage as defaultDeleteImage } from "@/lib/uploads/storage";
 import { categoryInputSchema, productInputSchema } from "./schemas";
 
@@ -45,6 +46,30 @@ export function pgError(e: unknown): { code?: string; constraint?: string } | nu
 }
 
 export const UNEXPECTED = "No se pudo guardar. Intentá de nuevo.";
+export const OUT_OF_STOCK_REACTIVATE = "Sin stock: reponé primero";
+const STOCK_LINK_INDEX = "products_stock_item_unique";
+
+type StockLink = { ok: true; stockItemId: number | null; paused: boolean } | { ok: false; error: string };
+
+/**
+ * Validates the product's stock link and computes its stock pause. Locks the items involved
+ * (old and new, in ONE call, BEFORE the product row is written: the sales path locks items first
+ * too). A drink is paused by stock while its active item is at or below zero.
+ */
+async function resolveStockLink(tx: DbTransaction, wanted: number | null, current: number | null, self: number | null): Promise<StockLink> {
+  if (wanted === null) {
+    if (current !== null) await lockStockItems(tx, [current]);
+    return { ok: true, stockItemId: null, paused: false };
+  }
+  const items = await lockStockItems(tx, current === null ? [wanted] : [wanted, current]);
+  const item = items.get(wanted);
+  if (!item) return { ok: false, error: "El artículo de stock no existe" };
+  if (item.kind !== "bebida") return { ok: false, error: "Solo se pueden ligar artículos de tipo bebida" };
+  if (wanted !== current && !item.active) return { ok: false, error: "El artículo de stock está dado de baja" };
+  const [other] = await tx.select({ id: s.products.id }).from(s.products).where(eq(s.products.stockItemId, wanted));
+  if (other && other.id !== self) return { ok: false, error: "Ese artículo ya está ligado a otro producto" };
+  return { ok: true, stockItemId: wanted, paused: item.active && item.quantity <= 0 };
+}
 
 async function discardOldImage(old: string | null | undefined, next: string | null, deps: MenuDeps) {
   if (!old || old === next) return;
@@ -115,28 +140,47 @@ export async function saveProduct(db: Conn, input: unknown, deps: MenuDeps = {})
   };
 
   try {
-    const { id, oldImage } = await asDb(db).transaction(async (tx) => {
+    const saved = await asDb(db).transaction(async (tx) => {
       if (v.id !== undefined) {
         const [existing] = await tx.select().from(s.products).where(eq(s.products.id, v.id));
-        if (!existing) return { id: null, oldImage: null };
+        if (!existing) return { id: null, oldImage: null, error: null };
+        // undefined = leave the link as it is (callers that do not manage stock); null = unlink.
+        const link = await resolveStockLink(tx, v.stockItemId === undefined ? existing.stockItemId : v.stockItemId, existing.stockItemId, v.id);
+        if (!link.ok) return { id: null, oldImage: null, error: link.error };
+        if (v.active && !existing.active && link.paused) return { id: null, oldImage: null, error: OUT_OF_STOCK_REACTIVATE };
         const moved = existing.categoryId !== v.categoryId;
         await tx
           .update(s.products)
-          .set({ ...fields, categoryId: v.categoryId, ...(moved ? { sort: await nextSort(tx, v.categoryId) } : {}) })
+          .set({
+            ...fields,
+            categoryId: v.categoryId,
+            stockItemId: link.stockItemId,
+            stockPaused: link.paused,
+            ...(moved ? { sort: await nextSort(tx, v.categoryId) } : {}),
+          })
           .where(eq(s.products.id, v.id));
-        return { id: v.id, oldImage: existing.imagePath };
+        return { id: v.id, oldImage: existing.imagePath, error: null };
       }
+      const link = await resolveStockLink(tx, v.stockItemId ?? null, null, null);
+      if (!link.ok) return { id: null, oldImage: null, error: link.error };
       const [row] = await tx
         .insert(s.products)
-        .values({ ...fields, categoryId: v.categoryId, sort: await nextSort(tx, v.categoryId) })
+        .values({ ...fields, categoryId: v.categoryId, sort: await nextSort(tx, v.categoryId), stockItemId: link.stockItemId, stockPaused: link.paused })
         .returning({ id: s.products.id });
-      return { id: row.id, oldImage: null };
+      return { id: row.id, oldImage: null, error: null };
     });
+    if (saved.error) {
+      return saved.error === OUT_OF_STOCK_REACTIVATE ? fail(saved.error) : { ok: false, fieldErrors: { stockItemId: saved.error } };
+    }
+    const { id, oldImage } = saved;
     if (id === null) return fail("El producto no existe");
     await discardOldImage(oldImage, v.imagePath, deps);
     return ok({ id });
   } catch (e) {
     const code = pgError(e)?.code;
+    if (code === "23505" && pgError(e)?.constraint === STOCK_LINK_INDEX) {
+      return { ok: false, fieldErrors: { stockItemId: "Ese artículo ya está ligado a otro producto" } };
+    }
     if (code === "23505") {
       return { ok: false, fieldErrors: { name: "Ya existe un producto con ese nombre en la categoría" } };
     }
@@ -228,6 +272,15 @@ export async function setCategoryActive(db: Conn, id: number, active: boolean): 
 
 export async function setProductActive(db: Conn, id: number, active: boolean): Promise<Result<null>> {
   if (!Number.isInteger(id)) return fail("Producto inválido");
+  if (active) {
+    // A product paused by stock cannot be shown again by hand while its item has nothing left.
+    const [row] = await db
+      .select({ stockPaused: s.products.stockPaused, quantity: s.stockItems.quantity, itemActive: s.stockItems.active })
+      .from(s.products)
+      .leftJoin(s.stockItems, eq(s.stockItems.id, s.products.stockItemId))
+      .where(eq(s.products.id, id));
+    if (row?.stockPaused && row.itemActive && (row.quantity ?? 0) <= 0) return fail(OUT_OF_STOCK_REACTIVATE);
+  }
   return setFlag(
     db.update(s.products).set({ active }).where(eq(s.products.id, id)).returning({ id: s.products.id }),
     "El producto no existe",

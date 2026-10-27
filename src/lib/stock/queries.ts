@@ -1,4 +1,4 @@
-import { asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db, DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
@@ -185,4 +185,20 @@ export async function listShortages(db: Conn): Promise<Shortage[]> {
     since: r.since === null ? null : new Date(r.since),
     reason: Number(r.quantity) <= 0 ? "agotado" : "bajo_minimo",
   }));
+}
+
+export type LinkableDrink = { id: number; name: string };
+
+/**
+ * Drinks the product form can link to: active `bebida` items that no OTHER product uses (the item
+ * already linked to `productId` stays in the list so it can be kept).
+ */
+export async function listLinkableDrinks(db: Conn, productId?: number): Promise<LinkableDrink[]> {
+  const rows = await db
+    .select({ id: s.stockItems.id, name: s.stockItems.name, linkedTo: s.products.id })
+    .from(s.stockItems)
+    .leftJoin(s.products, eq(s.products.stockItemId, s.stockItems.id))
+    .where(and(eq(s.stockItems.kind, "bebida"), eq(s.stockItems.active, true)))
+    .orderBy(asc(sql`lower(${s.stockItems.name})`), asc(s.stockItems.id));
+  return rows.filter((r) => r.linkedTo === null || r.linkedTo === productId).map(({ id, name }) => ({ id, name }));
 }

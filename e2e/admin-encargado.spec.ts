@@ -3,7 +3,7 @@ import { findCadet, findProduct } from "./helpers/db";
 import { authFile } from "./helpers/users";
 
 const uid = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
-const MANAGER_SECTIONS = ["Menú", "Modificadores", "Cadetes"];
+const MANAGER_SECTIONS = ["Menú", "Modificadores", "Cadetes", "Stock"];
 const ADMIN_ONLY_SECTIONS = ["Usuarios", "Ajustes", "Estaciones"];
 const ADMIN_ONLY_URLS = ["/admin/usuarios", "/admin/usuarios/nuevo", "/admin/ajustes", "/admin/estaciones"];
 
@@ -68,7 +68,7 @@ test.describe("encargado", () => {
     await expect(page.getByRole("heading", { name: "Modificadores", level: 1 })).toBeVisible();
   });
 
-  test("@mobile the drawer lists the same 3 sections plus the way back and logout", async ({ page }) => {
+  test("@mobile the drawer lists the same 4 sections plus the way back and logout", async ({ page }) => {
     await page.goto("/admin/menu");
     await page.getByRole("button", { name: "Abrir menú" }).click();
     const drawer = page.getByRole("dialog", { name: "Menú de administración" });

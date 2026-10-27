@@ -18,16 +18,20 @@ export type ProductFormValues = {
   active: boolean;
   featured: boolean;
   imagePath: string | null;
+  stockItemId: number | null;
 };
 
 export function ProductForm({
   initial,
   categories,
   previewUrl,
+  drinks,
 }: {
   initial: ProductFormValues;
   categories: { id: number; name: string }[];
   previewUrl: string | null;
+  /** Drinks this product may be linked to (active, not used by another product). */
+  drinks: { id: number; name: string }[];
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(saveProductAction, {});
   const v = state.values;
@@ -81,6 +85,27 @@ export function ProductForm({
           hasHint
           error={fe.priceArs}
         />
+      </Field>
+      <Field
+        label="Artículo de stock"
+        htmlFor="stockItemId"
+        hint="Opcional. Si ligás una bebida, cada venta descuenta una unidad y el producto se pausa solo al agotarse."
+        error={fe.stockItemId}
+      >
+        <Select
+          id="stockItemId"
+          name="stockItemId"
+          defaultValue={v?.stockItemId ?? (initial.stockItemId === null ? "" : String(initial.stockItemId))}
+          hasHint
+          error={fe.stockItemId}
+        >
+          <option value="">Sin artículo de stock</option>
+          {drinks.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </Select>
       </Field>
       <ImageUploadField initialPath={initial.imagePath} initialPreviewUrl={previewUrl} error={fe.imagePath} />
       <label className="flex items-center gap-2 text-sm font-medium">
