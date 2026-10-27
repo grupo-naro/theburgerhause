@@ -11,7 +11,7 @@ Los escenarios están basados en lo que ya prueban automáticamente los recorrid
 **Reanudar pedidos**; si todavía no querés clientes reales, **volvé a pausar** al terminar la UAT), y un celular con datos móviles (fuera del wifi del local).
 Los pedidos de prueba se **cancelan** (Rechazar con motivo "prueba") o se marcan en la planilla para no mezclarlos con ventas reales.
 
-Roles: **C** cajera (PC Mostrador), **E** encargada (PC Delivery), **A** administrador, **K** cliente (celular), **S** soporte.
+Roles: **G** encargado, **C** cajera (PC Mostrador), **E** encargada (PC Delivery), **A** administrador, **K** cliente (celular), **S** soporte.
 
 ## Parte 1: Preparación (A)
 
@@ -87,6 +87,25 @@ Con el usuario de rol **Cocina** iniciado en el televisor (sin estación) y el t
 | O8 | Un solo usuario de televisor | Con el usuario **Cocina** intentar abrir Caja, Retiro, Delivery, Administración o `/cocina`. | Siempre vuelve al televisor (`/pantalla`); no hay botones ni menú. | [ ] OK  [ ] FALLÓ |
 | O9 | Se recupera solo | Con el local cerrado, reiniciar el sistema (`sudo systemctl restart burgerhause`). | El televisor muestra **Reconectando…** y vuelve solo con los números correctos. | [ ] OK  [ ] FALLÓ |
 
+## Parte 4c: Stock y rol Encargado (G = encargado)
+
+Con el usuario **Encargado** (sin estación) y una bebida de prueba ligada a un artículo con stock **2**.
+
+| N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |
+| --- | --- | --- | --- | --- |
+| G1 | Alcance del encargado | G entra y mira el menú lateral y las pantallas de Administración. | Ve Menú, Modificadores, Cadetes y Stock; **no** ve Usuarios, Estaciones ni Ajustes (por URL tampoco abren). | [ ] OK  [ ] FALLÓ |
+| G2 | Stock inicial | **Stock → Artículos → Nuevo artículo** (una bebida y una materia prima), **Guardar stock inicial**. | Aparecen en **Resumen** con su saldo y estado **Ok**; el **Historial** muestra el ajuste inicial. | [ ] OK  [ ] FALLÓ |
+| G3 | Consumo del día | **Consumo del día**: 12,5 kg a la materia prima, **Guardar consumo**; doble toque. | "Consumo guardado"; el saldo baja una sola vez (12,5, no 25). | [ ] OK  [ ] FALLÓ |
+| G4 | Reponer | **Reponer stock**: artículo, cantidad, nota, **Cargar ingreso**. | Muestra el saldo nuevo; figura en el historial. | [ ] OK  [ ] FALLÓ |
+| G5 | Editar una carga | **Historial** → **Editar** un consumo → **Nueva cantidad** → **Guardar cambio**. | El saldo se corrige y la fila muestra la edición con el valor anterior. | [ ] OK  [ ] FALLÓ |
+| G6 | Stock en negativo | Cargar un consumo mayor al saldo. | Avisa "en negativo"; solo se guarda con **Guardar igual**; el estado pasa a **Agotado**. | [ ] OK  [ ] FALLÓ |
+| G7 | Bebida se descuenta y se pausa | K compra 2 de la bebida de prueba (web) y C vende 1 más. | Cada venta descuenta sola; al llegar a cero la bebida sale de la tienda y de **Venta** ("sin stock"); si otro se llevó la última, el checkout lo avisa. | [ ] OK  [ ] FALLÓ |
+| G8 | Cancelación devuelve | C o E cancela un pedido con la bebida. | La bebida vuelve al stock una sola vez y, si estaba pausada, vuelve a venderse. | [ ] OK  [ ] FALLÓ |
+| G9 | Reponer reactiva | **Reponer stock** de la bebida en cero. | Vuelve a la tienda y a **Venta**. Una bebida desactivada a mano antes **no** se reactiva. | [ ] OK  [ ] FALLÓ |
+| G10 | Alerta para todos | Con algo en cero, mirar C, E, A y G. | Franja **Productos faltantes de stock (N)** con detalle (artículo, saldo, desde cuándo). Se va al reponer. El televisor `/pantalla` **no** la muestra. | [ ] OK  [ ] FALLÓ |
+| G11 | Lista de solo lectura | C y E abren **Stock**; cocina abre `/stock`. | Ven saldos y estados, sin botones para cargar. | [ ] OK  [ ] FALLÓ |
+| G12 | Producto sin artículo | Vender un producto sin artículo ligado. | Se vende normal, sin control de stock. | [ ] OK  [ ] FALLÓ |
+
 ## Parte 5: Fallas (S con el local)
 
 | N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |
@@ -101,5 +120,5 @@ Con el usuario de rol **Cocina** iniciado en el televisor (sin estación) y el t
 ## Cierre de la UAT
 
 - Escenarios OK: ____ / ____ . Fallidos (con número y nota): ______________________
-- Todo **C1, C5, C6, C8, E1, E3, E5, E6, F1, F2** en OK es **condición** para empezar la operación en paralelo (`docs/guias/operacion-en-paralelo.md`).
+- Todo **C1, C5, C6, C8, E1, E3, E5, E6, G2, G7, G9, F1, F2** en OK es **condición** para empezar la operación en paralelo (`docs/guias/operacion-en-paralelo.md`).
 - Firma del responsable del local: ____________ Firma de soporte: ____________ Fecha: ____________

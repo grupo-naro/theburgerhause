@@ -503,6 +503,13 @@ los hashes de commit no se aceptan.)
 4. Trabajos de impresión `kitchen` fallidos de antes pueden aparecer una vez como alertas rojas en Caja: reimprimirlos o descartarlos una vez.
 5. Dejar (o crear) un usuario `cocina` **sin estación** (Admin → Usuarios).
 
+**Checklist del deploy que agrega Stock y el rol Encargado:**
+
+1. Aplicar las migraciones **0008** (rol `encargado`), **0009** (stock: artículos y movimientos) y **0010** (ediciones de movimientos). Las aplica `deploy.sh` solo (paso migrar); verificar que el deploy termine en `DEPLOY_OK`. (Las 0011 `orders.tanda` y 0012 `delay_notices` son de otro trabajo.)
+2. Crear el usuario **Encargado** (Admin → Usuarios → rol Encargado, sin estación).
+3. El **primer día** el encargado carga el stock inicial (Admin → Stock → Artículos → Nuevo artículo → **Guardar stock inicial**) y liga cada bebida a su producto (Menú → producto → **Artículo de stock**). Guía: `docs/guias/guia-encargado.md`.
+4. Nada se rompe si no hay ningún artículo ligado: los productos sin vínculo se venden como siempre y la franja "Productos faltantes de stock" no aparece. El televisor `/pantalla` no muestra la alerta.
+
 Hacelo **fuera del horario de servicio** (el reinicio corta unos segundos las conexiones en vivo; los agentes y
 las pantallas reconectan solos). Resultado esperado: la última línea dice `DEPLOY_OK`.
 
@@ -869,7 +876,7 @@ administrador a `https://<TU_DOMINIO>/admin`:
    instalador de cada PC. El token no se guarda en ningún archivo del servidor.
 4. **Usuarios** (Admin → Usuarios): una cuenta por persona (cajeras, encargada de delivery). Claves iniciales
    largas; cada una la cambia luego.
-5. **Cadetes** (Admin → Cadetes): los repartidores.
+5. **Cadetes** (Admin → Cadetes): los repartidores. Después, el **Encargado** carga el **stock inicial** (Admin → Stock) y liga las bebidas a sus productos.
 6. **Menú real**: categorías (Admin → Menú), productos con **foto** (hasta 5 MB cada una), precios, y los
    **modificadores** (Admin → Modificadores: quitar ingredientes, agregados, cambios) asociados a cada producto.
 7. **Instalar los agentes de impresión** en las 9 PCs (`docs/ops/print-agent-install.md`) y hacer un ticket de

@@ -92,6 +92,10 @@ la nueva la reemplaza.
 
 El **motivo es interno**: lo ve solo el personal, nunca el cliente.
 
+## Stock: aviso y lista
+
+Si aparece arriba la franja **Productos faltantes de stock (N)**, tocala: te dice qué falta y desde cuándo. Una bebida sin stock se pausa sola en **Venta** (figura "sin stock") y vuelve cuando el encargado repone. Podés ver los saldos en **Stock** del menú (solo lectura: no se carga nada desde ahí).
+
 ## Si algo falla
 
 | Qué pasa | Qué hacés |

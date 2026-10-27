@@ -7,6 +7,7 @@ versión actual del sistema con datos de prueba (los nombres de clientes y produ
 | --- | --- | --- |
 | [Guía Cajera / Mostrador](guia-cajera-mostrador.md) | Cajeras (PCs de Mostrador) | Capacitación y consulta diaria |
 | [Guía Encargada de Delivery](guia-encargada-delivery.md) | Encargada (PCs de Delivery) | Capacitación y consulta diaria |
+| [Guía Encargado (stock)](guia-encargado.md) | Encargado | Capacitación y consulta diaria |
 | [Guía de Cocina](guia-cocina.md) | Cocinero / ayudante (ticket de cocina y televisor) | Capacitación y consulta diaria |
 | [Guía Administrador](guia-administrador.md) | Dueño / administrador | Configuración y control |
 | [Tarjeta "Primer día"](primer-dia.md) | Todo el personal | Imprimir y pegar en cada PC |

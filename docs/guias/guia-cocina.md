@@ -58,6 +58,10 @@ El aviso de "Listo" está **activado** por defecto. Hay un único botón discret
 
 El televisor **se recupera solo** si se reinicia el sistema o falla un momento. Si quedara en blanco o con un error del navegador, recargá con **F5**.
 
+## Stock (solo la lista)
+
+Podés mirar los saldos en **Stock** (solo lectura). El aviso **Productos faltantes de stock** lo ven la cajera, la encargada y el administrador en sus pantallas; **el televisor del mostrador nunca lo muestra**.
+
 ## Casos raros
 
 - **Un número desaparece del televisor sin haber sido retirado**: el pedido se canceló.

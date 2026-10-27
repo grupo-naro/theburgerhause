@@ -17,6 +17,12 @@
 | **Encargada, pedido web de delivery** | **Gestión Delivery** → **Por aprobar** → **Aprobar** → **Listo** → tildar pedidos → **Asignar a <cadete>** → **Entregado** |
 | **Encargada, cadete vuelve** | **Rendición** → nombre del cadete → contar → **Confirmar rendición** → **Sí, confirmar** |
 
+## Primer día del stock (encargado)
+
+1. Administración → **Stock** → **Artículos** → **Nuevo artículo** (bebidas y materia prima) y **Guardar stock inicial** de cada uno.
+2. Ligar cada bebida a su producto (Menú → producto → **Artículo de stock**).
+3. Todos los días: **Consumo del día** → **Guardar consumo**; cuando llega mercadería, **Reponer stock**. Si aparece **Productos faltantes de stock (N)**, tocala para ver qué falta.
+
 ## Reglas de oro
 
 - **Transferencia: primero mirá que la plata llegó**, después tildá y aprobá. Si no llegó: **Rechazar → Pago no acreditado**.

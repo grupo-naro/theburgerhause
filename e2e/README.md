@@ -91,6 +91,15 @@ Measure or photograph only a settled document: `shot()` and `waitForStablePage()
 Helpers: `openRetiro`, `openDelivery(page, tab?)`, `openPedidos`, `openDespacho` (admin board), `openCaja` (admin general view). `placeApproved` approves
 delivery orders as the encargada at Delivery 1 and takeaway ones as the cajera at Mostrador 1.
 
+## Stock (encargado)
+
+| Spec | What it covers |
+| --- | --- |
+| `admin-stock.spec.ts` | The stock screens (390 and 360 px, `@mobile`): create articles with initial stock, list states, link a drink to a product, reponer, consumo (decimals, double tap does not duplicate), editable history, negative confirmation, and `/admin/stock` refused by URL to other roles. |
+| `admin-encargado.spec.ts` | Encargado role: admin sidebar and drawer without Usuarios / Estaciones / Ajustes, direct URLs refused. |
+| `stock-sales.spec.ts` | A drink that ran out: web checkout does not create the order and says so; the POS tile says "Sin stock" and nothing is charged. |
+| `stock-alert.spec.ts` | "Productos faltantes de stock (N)" strip live for cashier and delivery manager (detail, cleared on restock), read-only `/stock`, the `/pantalla` TV never showing the alert, phone layout. |
+
 ## Old kitchen screen
 
 The old kitchen screen (`/cocina`, KDS with LISTO / undo cards) and its `cocina.spec.ts` are gone. `/cocina` is now only a redirect to the counter TV; `pantalla.spec.ts` covers it (a `cocina` / cajera session ends on `/pantalla`, no session goes to `/login`, the staff menu has no "Cocina" link, the `cocina` user is sent back to `/pantalla` from every other URL including `/cocina`). The kitchen reaches its orders through the kitchen ticket (see the print specs).

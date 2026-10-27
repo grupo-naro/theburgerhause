@@ -6,7 +6,7 @@ generales: **Vista general** (`/caja`) y **Tablero general** (`/despacho`). El a
 
 ## Menú de Administración
 
-**Menú · Modificadores · Cadetes · Usuarios · Estaciones · Ajustes**.
+**Menú · Modificadores · Cadetes · Stock · Usuarios · Estaciones · Ajustes**. (El **encargado** ve Menú, Modificadores, Cadetes y Stock; no ve Usuarios, Estaciones ni Ajustes.)
 
 ### Ajustes (`/admin/ajustes`)
 
@@ -37,10 +37,20 @@ generales: **Vista general** (`/caja`) y **Tablero general** (`/despacho`). El a
 
 ![Usuarios](img/admin-usuarios.png)
 
-Una cuenta por persona: **Nombre**, **Usuario** (3 a 40 caracteres, minúsculas), **Rol** (cajera / encargada de delivery / **cocina** / administrador) y
+Una cuenta por persona: **Nombre**, **Usuario** (3 a 40 caracteres, minúsculas), **Rol** (cajera / encargada de delivery / **cocina** / **encargado** / administrador) y
 **Contraseña** (mínimo 8). Desde la lista: **Desactivar** una cuenta (quien se va), **Cerrar sesiones de <usuario>**; al editar, **Nueva contraseña**
 (cierra sus sesiones). Siempre tiene que quedar al menos un administrador activo. La cajera solo puede elegir estaciones de Mostrador y la
 encargada solo de Delivery. El rol **Cocina** es el login del **televisor del mostrador**: no usa estación, entra directo a `/pantalla` (los números de pedido en preparación y listos), con sesión de 400 días, y no ve cobros ni ninguna otra pantalla (si abre otra URL, vuelve al televisor). Cómo dejarlo en modo kiosco: [Guía de cocina y del televisor](guia-cocina.md).
+
+#### Crear usuario Encargado
+
+1. **Usuarios → Nuevo usuario**: **Nombre**, **Usuario**, **Contraseña** (mínimo 8).
+2. **Rol**: **Encargado**. No lleva estación: opera en cualquier sector, como vos, pero sin Usuarios, Estaciones ni Ajustes.
+3. **Crear usuario**. Pasale la guía [guia-encargado.md](guia-encargado.md): el primer día él carga el stock inicial.
+
+### Stock (`/admin/stock`)
+
+Vos y el encargado cargan consumo, ingresos y artículos (**Resumen · Consumo del día · Reponer stock · Artículos · Historial**). Las bebidas se descuentan solas y se pausan en cero; ver [guia-encargado.md](guia-encargado.md). Todo el personal ve la franja **Productos faltantes de stock**.
 
 ### Cadetes (`/admin/cadetes`)
 
@@ -67,6 +77,7 @@ El **motivo es interno**: lo ve solo el personal, nunca el cliente.
 ## Controles del día a día
 
 - **Abrir / cerrar el local para pedidos web**: Ajustes → **Pausar pedidos** / **Reanudar pedidos**.
+- **Bebida sin stock**: se pausa sola al llegar a cero y vuelve al reponer (Stock → **Reponer stock**).
 - **Producto agotado**: Menú → **Desactivar** en la fila del producto (deja de verse en la tienda; **Activar** lo vuelve).
 - **Impresión**: en **Estaciones** ves si cada agente está conectado; si una PC no imprime, `docs/ops/runbook.md` sección 5.3.
 - **Supervisar**: **Vista general** y **Tablero general** muestran todos los sectores a la vez.

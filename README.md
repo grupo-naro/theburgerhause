@@ -84,7 +84,7 @@ de Mostrador y la encargada de Delivery. La aprobación imprime en la estación 
 | `/admin` | admin | Panel. |
 | `/admin/menu`, `/admin/modificadores` | admin, encargado | Productos, categorías, grupos de modificadores. |
 | `/admin/cadetes` | admin, encargado | Cadetes. |
-| `/admin/usuarios` | admin | Cuentas de staff. |
+| `/admin/usuarios` | admin | Cuentas de staff (incluye el rol Encargado). |
 | `/admin/estaciones` | admin | Estaciones y tokens del Print Agent. |
 | `/admin/ajustes` | admin | Datos del local, costo de envío, datos bancarios, pedidos abiertos/cerrados, cierre del día. |
 
