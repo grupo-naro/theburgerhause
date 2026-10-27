@@ -10,6 +10,12 @@ const VIEWPORTS = [
   { width: 360, height: 800 },
 ] as const;
 
+// These specs create CARNE/COCA; left behind they would show up in the shortage strip of every later spec.
+test.afterEach(async () => {
+  await deleteStockItem(CARNE);
+  await deleteStockItem(COCA);
+});
+
 /** Every control inside <main> is a comfortable touch target and nothing makes the page scroll sideways. */
 async function expectTouchFriendly(page: Page): Promise<void> {
   expect(await noHorizontalOverflow(page)).toBe(true);

@@ -152,7 +152,7 @@ export function PosBoard({ initialPagers, stationId }: Props) {
       <div
         data-testid="pos-board"
         data-ready={cart.ready}
-        className="lg:grid lg:h-[calc(100dvh-8.5rem)] lg:min-h-[34rem] lg:grid-cols-[minmax(0,1fr)_clamp(19.5rem,37%,26.5rem)] lg:gap-5"
+        className="lg:grid lg:h-[calc(100dvh-12rem)] xl:h-[calc(100dvh-8.5rem)] lg:group-has-[[data-testid=stock-alert]]/shell:h-[calc(100dvh-16rem)] lg:group-has-[[data-testid=stock-alert]]/shell:min-h-[30rem] xl:group-has-[[data-testid=stock-alert]]/shell:h-[calc(100dvh-12.5rem)] lg:min-h-[34rem] lg:grid-cols-[minmax(0,1fr)_clamp(19.5rem,37%,26.5rem)] lg:gap-5"
       >
         <div className="contents" inert={drawerOpen}>
         <CatalogPanel

@@ -1,4 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
+import * as s from "../src/db/schema";
+import { db, deleteStockItem } from "./helpers/db";
 import { failPrintJob, markJobsDone } from "./helpers/caja";
 import { noHorizontalOverflow } from "./helpers/checkout";
 import { modifierRow, settled } from "./helpers/store";
@@ -253,4 +255,26 @@ test.describe("laptop-1366x768", () => {
     await insideBody("pager input with the cash block open", pagerInput(page));
     await shot(page, "pos-laptop-cash-pager-1366x768");
   });
+});
+
+// The "Productos faltantes de stock" strip is an expected feature: with it shown the POS must still fit without page scroll.
+test.describe("with the stock shortage strip shown", () => {
+  const SHORT = "E2E Layout faltante";
+  const cleanStrip = () => deleteStockItem(SHORT);
+  test.afterEach(cleanStrip);
+
+  for (const size of SIZES.filter((z) => z.w >= 1024)) {
+    test.describe(`${size.name}`, () => {
+      test.use({ viewport: { width: size.w, height: size.h } });
+
+      test(`the POS still fits the viewport at ${size.w}px`, async ({ page }) => {
+        await cleanStrip();
+        await db().insert(s.stockItems).values({ name: SHORT, kind: "materia_prima", unit: "kg", minQty: 10000, quantity: 1000 });
+        await openPos(page);
+        await expect(page.getByTestId("stock-alert")).toBeVisible();
+        expect(await noHorizontalOverflow(page)).toBe(true);
+        expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBe(true);
+      });
+    });
+  }
 });

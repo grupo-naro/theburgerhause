@@ -52,7 +52,7 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
   const badges = sector === null || waiting.length === 0 ? {} : { [sector === "mostrador" ? "/retiro" : "/delivery"]: waiting.length };
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[14rem_1fr] lg:grid-rows-[auto_1fr]">
+    <div className="group/shell min-h-dvh lg:grid lg:grid-cols-[14rem_1fr] lg:grid-rows-[auto_1fr]">
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-3 sm:px-6 lg:col-start-2 lg:row-start-1">
         <Image src="/brand/logo-512.webp" alt="" width={36} height={36} className="size-9 rounded-full lg:hidden" />
         <div className="flex-1">
@@ -69,7 +69,7 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
           {printer && <PrinterIndicator status={printer} />}
           <LiveRefresh large />
           <PrinterHeartbeatRefresh />
-          <span data-testid="user-name" className="hidden text-base font-semibold text-ink xl:inline">
+          <span data-testid="user-name" className="hidden text-base font-semibold text-ink 2xl:inline">
             {session.user.name}
           </span>
           <LogoutButton />

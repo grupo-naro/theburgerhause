@@ -16,6 +16,7 @@ test.afterAll(clearDelays);
 async function roundTrip(page: Page) {
   await page.goto("/mostrador");
   const chip = page.getByTestId("delay-chip");
+  await expect(chip).toBeVisible();
   await expect(chip).toContainText("Sin demora");
   const box = await chip.boundingBox();
   expect(box!.height).toBeGreaterThanOrEqual(43.5);
