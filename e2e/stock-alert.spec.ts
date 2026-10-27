@@ -119,7 +119,7 @@ test("the strip is live for cashier and delivery manager, details, restock clear
     await encargado.goto("/admin/stock");
     await expect(stripButton(encargado)).toContainText("Productos faltantes de stock (1)");
 
-    // ONE EventSource per page: 3 pages in the cashier context (stock list + POS tab + ...) and 1 for the manager.
+    // ONE EventSource per page: 2 pages in the cashier context (stock list + POS tab) and 1 for the manager.
     await cajera.waitForTimeout(500);
     expect(cajeraEs.count()).toBe(2); // /stock + POS
     expect(encargadaEs.count()).toBe(1);

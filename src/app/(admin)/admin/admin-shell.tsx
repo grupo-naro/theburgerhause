@@ -16,8 +16,8 @@ export async function AdminShell({ children }: { children: ReactNode }) {
   const shortages = await loadShortages();
   return (
     <div data-admin-touch className="flex min-h-dvh flex-col">
-      {/* The admin area's ONE live connection: a stock event refreshes the shortage strip. */}
-      <LiveRefresh indicator={false} />
+      {/* The admin area's ONE live connection: only a stock event refreshes the shortage strip (orders and delay do not re-render admin pages). */}
+      <LiveRefresh indicator={false} events="stock" />
       <AdminMobileBar userName={session.user.name} role={session.user.role} homeHref={OPERATION_HOME} />
       <header className="hidden items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3 md:flex">
         <span className="font-display text-lg font-extrabold text-brand-600 sm:text-xl">Administración</span>

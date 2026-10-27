@@ -1,4 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
+import { sql } from "drizzle-orm";
 import * as s from "../src/db/schema";
 import { db, deleteStockItem } from "./helpers/db";
 import { failPrintJob, markJobsDone } from "./helpers/caja";
@@ -269,7 +270,8 @@ test.describe("with the stock shortage strip shown", () => {
 
       test(`the POS still fits the viewport at ${size.w}px`, async ({ page }) => {
         await cleanStrip();
-        await db().insert(s.stockItems).values({ name: SHORT, kind: "materia_prima", unit: "kg", minQty: 10000, quantity: 1000 });
+        const [short] = await db().insert(s.stockItems).values({ name: SHORT, kind: "materia_prima", unit: "kg", minQty: 10000, quantity: 1000 }).returning();
+        await db().insert(s.stockMovements).values({ itemId: short.id, kind: "ajuste_inicial", qtyDelta: 1000, businessDate: sql`current_date` });
         await openPos(page);
         await expect(page.getByTestId("stock-alert")).toBeVisible();
         expect(await noHorizontalOverflow(page)).toBe(true);

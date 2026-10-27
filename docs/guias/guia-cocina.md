@@ -60,7 +60,7 @@ El televisor **se recupera solo** si se reinicia el sistema o falla un momento. 
 
 ## Stock (solo la lista)
 
-Podés mirar los saldos en **Stock** (solo lectura). El aviso **Productos faltantes de stock** lo ven la cajera, la encargada y el administrador en sus pantallas; **el televisor del mostrador nunca lo muestra**.
+Podés mirar los saldos en **Stock** (solo lectura). El aviso **Productos faltantes de stock** lo ven la cajera, la encargada y el administrador en sus pantallas, y cocina también lo ve en la página **Stock** (solo lectura); **el televisor del mostrador (/pantalla) nunca lo muestra**.
 
 ## Casos raros
 

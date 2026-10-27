@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 import { useLiveEvents } from "@/lib/events/use-live-events";
 import { ConnectionIndicator } from "./connection-indicator";
+import { liveHandlers, type LiveScope } from "./live-handlers";
 import { cancelRefresh, REFRESH_DEBOUNCE_MS, requestRefresh } from "./shared-refresh";
 
 export { REFRESH_DEBOUNCE_MS };
@@ -13,12 +14,23 @@ export { REFRESH_DEBOUNCE_MS };
  * `router.refresh()` (trailing debounce shared with the heartbeat, so a burst refreshes once).
  * Renders the connection indicator unless `indicator={false}`.
  */
-export function LiveRefresh({ indicator = true, large = false, dark = false }: { indicator?: boolean; large?: boolean; dark?: boolean }) {
+export function LiveRefresh({
+  indicator = true,
+  large = false,
+  dark = false,
+  events = "all",
+}: {
+  indicator?: boolean;
+  large?: boolean;
+  dark?: boolean;
+  /** `"stock"`: refresh only on stock events (and resync/reconnect), e.g. the admin area. */
+  events?: LiveScope;
+}) {
   const router = useRouter();
   const refresh = useCallback(() => requestRefresh(router), [router]);
   useEffect(() => cancelRefresh, []);
 
-  const state = useLiveEvents({ onOrders: refresh, onDelay: refresh, onStock: refresh, onResync: refresh });
+  const state = useLiveEvents(liveHandlers(events, refresh));
 
   // Anything that happened between the server render and the stream opening was not announced:
   // catch up once, the first time the connection is live.

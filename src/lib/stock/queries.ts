@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db, DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
@@ -150,6 +150,7 @@ export async function listShortages(db: Conn): Promise<Shortage[]> {
       select id, name, kind, unit, quantity, min_qty, (quantity <= 0) as out_of_stock
       from stock_items
       where active and (quantity <= 0 or (min_qty > 0 and quantity < min_qty))
+        and exists (select 1 from stock_movements m where m.item_id = stock_items.id)
     ),
     running as (
       select m.item_id, m.id, m.created_at,
@@ -187,18 +188,21 @@ export async function listShortages(db: Conn): Promise<Shortage[]> {
   }));
 }
 
-export type LinkableDrink = { id: number; name: string };
+export type LinkableDrink = { id: number; name: string; inactive?: boolean };
 
 /**
- * Drinks the product form can link to: active `bebida` items that no OTHER product uses (the item
- * already linked to `productId` stays in the list so it can be kept).
+ * Drinks the product form can link to: active `bebida` items that no OTHER product uses. The item
+ * already linked to `productId` always stays in the list, even when deactivated (flagged `inactive`),
+ * so editing the product does not silently unlink it.
  */
 export async function listLinkableDrinks(db: Conn, productId?: number): Promise<LinkableDrink[]> {
   const rows = await db
-    .select({ id: s.stockItems.id, name: s.stockItems.name, linkedTo: s.products.id })
+    .select({ id: s.stockItems.id, name: s.stockItems.name, active: s.stockItems.active, linkedTo: s.products.id })
     .from(s.stockItems)
     .leftJoin(s.products, eq(s.products.stockItemId, s.stockItems.id))
-    .where(and(eq(s.stockItems.kind, "bebida"), eq(s.stockItems.active, true)))
+    .where(eq(s.stockItems.kind, "bebida"))
     .orderBy(asc(sql`lower(${s.stockItems.name})`), asc(s.stockItems.id));
-  return rows.filter((r) => r.linkedTo === null || r.linkedTo === productId).map(({ id, name }) => ({ id, name }));
+  return rows
+    .filter((r) => (r.linkedTo === null && r.active) || (productId !== undefined && r.linkedTo === productId))
+    .map((r) => (r.active ? { id: r.id, name: r.name } : { id: r.id, name: r.name, inactive: true }));
 }

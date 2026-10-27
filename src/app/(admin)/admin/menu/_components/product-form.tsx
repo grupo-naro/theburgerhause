@@ -31,7 +31,7 @@ export function ProductForm({
   categories: { id: number; name: string }[];
   previewUrl: string | null;
   /** Drinks this product may be linked to (active, not used by another product). */
-  drinks: { id: number; name: string }[];
+  drinks: { id: number; name: string; inactive?: boolean }[];
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(saveProductAction, {});
   const v = state.values;
@@ -102,7 +102,7 @@ export function ProductForm({
           <option value="">Sin artículo de stock</option>
           {drinks.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.name}
+              {d.inactive ? `${d.name} (dado de baja)` : d.name}
             </option>
           ))}
         </Select>
