@@ -15,6 +15,8 @@ import { PrinterHeartbeatRefresh } from "./printer-heartbeat-refresh";
 import { PrinterIndicator } from "./printer-indicator";
 import { ShellOrderAlert } from "./shell-order-alert";
 import { StaffNav } from "./staff-nav";
+import { StockAlert } from "./stock-alert";
+import { loadShortages } from "./stock-alert-data";
 
 /** The chip is a convenience: if its data fails, the shell renders without it. */
 async function loadDelayChip() {
@@ -42,9 +44,10 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
   const ownSector = session.user.role === "cajera" ? "mostrador" : session.user.role === "encargada_delivery" ? "delivery" : null;
   const sector = ownSector !== null && session.stationKind === ownSector ? ownSector : null;
   // The delay panel is for the STAFF3 roles; cocina (the TV login) never sees it.
-  const [waiting, delay] = await Promise.all([
+  const [waiting, delay, shortages] = await Promise.all([
     sector === null ? Promise.resolve([]) : listPendingApproval(getDb(), { sector, channel: "web" }),
     session.user.role === "cocina" ? Promise.resolve(null) : loadDelayChip(),
+    loadShortages(),
   ]);
   const badges = sector === null || waiting.length === 0 ? {} : { [sector === "mostrador" ? "/retiro" : "/delivery"]: waiting.length };
 
@@ -73,7 +76,10 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
         </div>
       </header>
       <StaffNav links={navLinksFor(session.user.role, session.stationKind)} badges={badges} />
-      <main className="min-w-0 px-4 py-6 sm:px-6 lg:col-start-2 lg:row-start-2">{children}</main>
+      <main className="min-w-0 px-4 py-6 sm:px-6 lg:col-start-2 lg:row-start-2">
+        <StockAlert initial={shortages} />
+        {children}
+      </main>
     </div>
   );
 }

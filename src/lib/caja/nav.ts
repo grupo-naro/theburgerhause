@@ -10,6 +10,8 @@ const DELIVERY: NavLink = { href: "/delivery", label: "Gestión Delivery" };
 const RENDICION: NavLink = { href: "/delivery/rendicion", label: "Rendición" };
 /** The counter TV (orders in preparation / ready), fullscreen in its own tab. Replaced the old "Cocina" link. */
 const PANTALLA: NavLink = { href: "/pantalla", label: "Pantalla", newTab: true };
+/** Read-only stock balances for every staff role (loading lives in the admin area). */
+const STOCK: NavLink = { href: "/stock", label: "Stock" };
 const GENERAL_CAJA: NavLink = { href: "/caja", label: "Vista general" };
 const GENERAL_DESPACHO: NavLink = { href: "/despacho", label: "Tablero general" };
 const ADMIN: NavLink = { href: "/admin", label: "Administración" };
@@ -34,9 +36,9 @@ export function activeNavHref(pathname: string, links: readonly NavLink[]): stri
  * still guard themselves (this is navigation, not authorization).
  */
 export function navLinksFor(role: Role, stationKind: StationKindName | null): NavLink[] {
-  if (role === "cocina") return [PANTALLA]; // the TV's login sees only its screen (which has no navigation anyway)
-  if (isManager(role)) return [...MOSTRADOR_WORKSPACE, ...DELIVERY_WORKSPACE, PANTALLA, GENERAL_CAJA, GENERAL_DESPACHO, ADMIN];
+  if (role === "cocina") return [PANTALLA, STOCK]; // the TV's login sees only its screen (which has no navigation anyway)
+  if (isManager(role)) return [...MOSTRADOR_WORKSPACE, ...DELIVERY_WORKSPACE, PANTALLA, STOCK, GENERAL_CAJA, GENERAL_DESPACHO, ADMIN];
   const own = role === "cajera" ? "mostrador" : "delivery";
   if (stationKind !== null && stationKind !== own) return [CHANGE_STATION];
-  return [...(own === "mostrador" ? MOSTRADOR_WORKSPACE : DELIVERY_WORKSPACE), PANTALLA];
+  return [...(own === "mostrador" ? MOSTRADOR_WORKSPACE : DELIVERY_WORKSPACE), PANTALLA, STOCK];
 }

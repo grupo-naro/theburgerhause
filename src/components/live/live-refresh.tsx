@@ -9,7 +9,7 @@ import { cancelRefresh, REFRESH_DEBOUNCE_MS, requestRefresh } from "./shared-ref
 export { REFRESH_DEBOUNCE_MS };
 
 /**
- * Drop into a staff page: any order event, resync or reconnect re-runs the server components via
+ * Drop into a staff page: any order, stock or delay event, resync or reconnect re-runs the server components via
  * `router.refresh()` (trailing debounce shared with the heartbeat, so a burst refreshes once).
  * Renders the connection indicator unless `indicator={false}`.
  */
@@ -18,7 +18,7 @@ export function LiveRefresh({ indicator = true, large = false, dark = false }: {
   const refresh = useCallback(() => requestRefresh(router), [router]);
   useEffect(() => cancelRefresh, []);
 
-  const state = useLiveEvents({ onOrders: refresh, onDelay: refresh, onResync: refresh });
+  const state = useLiveEvents({ onOrders: refresh, onDelay: refresh, onStock: refresh, onResync: refresh });
 
   // Anything that happened between the server render and the stream opening was not announced:
   // catch up once, the first time the connection is live.

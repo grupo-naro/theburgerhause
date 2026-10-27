@@ -211,6 +211,12 @@ export const SURFACE: Record<string, Entry> = {
     note: "Counter TV, read only: order numbers in preparation / ready (counter + web takeaway, never delivery); no customer data, no actions.",
     tests: ["e2e/pantalla.spec.ts", "src/lib/orders/counter-board.int.test.ts"],
   },
+  ["page:src/app/(staff)/stock/page.tsx"]: {
+    access: "staff",
+    roles: COUNTER_TV,
+    note: "Read-only stock balances (no loading controls); the loading actions stay admin/encargado.",
+    tests: ["e2e/stock-alert.spec.ts"],
+  },
   ["page:src/app/(staff)/delivery/page.tsx"]: { access: "staff", roles: DELIVERY, note: "Delivery workspace.", tests: ["e2e/delivery-workspace.spec.ts"] },
   ["page:src/app/(staff)/delivery/rendicion/page.tsx"]: { access: "staff", roles: DELIVERY, note: "Cadet settlement screen.", tests: ["e2e/rendicion-roles-print.spec.ts"] },
 };

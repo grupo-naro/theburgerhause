@@ -10,6 +10,7 @@ describe("navLinksFor (role x station kind)", () => {
       ["/mostrador/pedidos", "Mostrador"],
       ["/retiro", "Retiro en local"],
       ["/pantalla", "Pantalla"],
+      ["/stock", "Stock"],
     ]);
   });
   it("encargada on a Delivery station: Gestión Delivery, Rendición and Pantalla", () => {
@@ -17,6 +18,7 @@ describe("navLinksFor (role x station kind)", () => {
       ["/delivery", "Gestión Delivery"],
       ["/delivery/rendicion", "Rendición"],
       ["/pantalla", "Pantalla"],
+      ["/stock", "Stock"],
     ]);
   });
   it("admin sees every workspace, the general views and Administración, whatever the station", () => {
@@ -27,6 +29,7 @@ describe("navLinksFor (role x station kind)", () => {
       ["/delivery", "Gestión Delivery"],
       ["/delivery/rendicion", "Rendición"],
       ["/pantalla", "Pantalla"],
+      ["/stock", "Stock"],
       ["/caja", "Vista general"],
       ["/despacho", "Tablero general"],
       ["/admin", "Administración"],
@@ -43,8 +46,8 @@ describe("navLinksFor (role x station kind)", () => {
     expect(expected.map((l) => l[1])).toEqual(expect.arrayContaining(["Venta", "Gestión Delivery", "Pantalla", "Administración"]));
   });
   it("staff without a station get the workspaces of their role (the pages send them to pick a station)", () => {
-    expect(links("cajera", null).map((l) => l[0])).toEqual(["/mostrador", "/mostrador/pedidos", "/retiro", "/pantalla"]);
-    expect(links("encargada_delivery", null).map((l) => l[0])).toEqual(["/delivery", "/delivery/rendicion", "/pantalla"]);
+    expect(links("cajera", null).map((l) => l[0])).toEqual(["/mostrador", "/mostrador/pedidos", "/retiro", "/pantalla", "/stock"]);
+    expect(links("encargada_delivery", null).map((l) => l[0])).toEqual(["/delivery", "/delivery/rendicion", "/pantalla", "/stock"]);
   });
   it("the counter screen link opens in a new tab and no link points at the old kitchen screen", () => {
     for (const [role, kind] of [["cajera", "mostrador"], ["encargada_delivery", "delivery"], ["admin", null], ["encargado", null], ["cocina", null]] as const) {
@@ -53,9 +56,9 @@ describe("navLinksFor (role x station kind)", () => {
       expect(all.some((l) => l.href === "/cocina" || l.label === "Cocina"), role).toBe(false);
     }
   });
-  it("the cocina role only sees the counter screen", () => {
-    expect(links("cocina", null)).toEqual([["/pantalla", "Pantalla"]]);
-    expect(links("cocina", "mostrador")).toEqual([["/pantalla", "Pantalla"]]);
+  it("the cocina role only sees the counter screen and the read-only stock", () => {
+    expect(links("cocina", null)).toEqual([["/pantalla", "Pantalla"], ["/stock", "Stock"]]);
+    expect(links("cocina", "mostrador")).toEqual([["/pantalla", "Pantalla"], ["/stock", "Stock"]]);
   });
   it("a role/kind mismatch (unsupported combination) only offers to change the station", () => {
     expect(links("cajera", "delivery")).toEqual([["/estacion", "Cambiar estación"]]);

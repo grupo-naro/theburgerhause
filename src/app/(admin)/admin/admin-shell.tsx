@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
+import { LiveRefresh } from "@/components/live/live-refresh";
 import { LogoutButton } from "@/components/logout-button";
+import { StockAlert } from "@/components/staff/stock-alert";
+import { loadShortages } from "@/components/staff/stock-alert-data";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
 import { AdminMobileBar } from "./admin-mobile-bar";
 import { AdminNav } from "./admin-nav";
@@ -10,8 +13,11 @@ const OPERATION_HOME = "/mostrador";
 /** Reads the session (request-time data): render it inside <Suspense>. */
 export async function AdminShell({ children }: { children: ReactNode }) {
   const session = await requireSessionOrRedirect(["admin", "encargado"], "/admin");
+  const shortages = await loadShortages();
   return (
     <div data-admin-touch className="flex min-h-dvh flex-col">
+      {/* The admin area's ONE live connection: a stock event refreshes the shortage strip. */}
+      <LiveRefresh indicator={false} />
       <AdminMobileBar userName={session.user.name} role={session.user.role} homeHref={OPERATION_HOME} />
       <header className="hidden items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3 md:flex">
         <span className="font-display text-lg font-extrabold text-brand-600 sm:text-xl">Administración</span>
@@ -22,7 +28,10 @@ export async function AdminShell({ children }: { children: ReactNode }) {
       </header>
       <div className="flex flex-1 flex-col md:flex-row">
         <AdminNav role={session.user.role} />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
+          <StockAlert initial={shortages} />
+          {children}
+        </main>
       </div>
     </div>
   );
