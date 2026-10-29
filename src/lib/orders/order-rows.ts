@@ -72,7 +72,12 @@ export async function loadCatalog(tx: DbTransaction, productIds: number[]): Prom
 }
 
 /** One order_items row per UNIT plus each unit's order_item_modifiers snapshots. */
-export async function insertOrderItems(tx: DbTransaction, orderId: number, units: ResolvedUnit[]): Promise<void> {
+export async function insertOrderItems(
+  tx: DbTransaction,
+  orderId: number,
+  units: ResolvedUnit[],
+  opts: { addonId?: number } = {},
+): Promise<void> {
   // Serial ids follow VALUES order, so sorting by id restores unit order.
   const items = (
     await tx
@@ -84,6 +89,7 @@ export async function insertOrderItems(tx: DbTransaction, orderId: number, units
           nameSnapshot: u.product.name,
           unitPriceSnapshot: u.product.price,
           notes: u.note === "" ? null : u.note,
+          ...(opts.addonId !== undefined ? { addonId: opts.addonId } : {}),
         })),
       )
       .returning({ id: s.orderItems.id })
