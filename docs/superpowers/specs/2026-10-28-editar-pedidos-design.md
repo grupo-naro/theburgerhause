@@ -45,6 +45,7 @@ Hay clientes que hacen el pedido online y después escriben por WhatsApp a las v
 - **Envío fijo:** el costo de envío no se recalcula al editar ni al agregar. No hay descuentos ni cupones que reaplicar (verificar).
 - **Todos los tipos de pedido:** aplica a delivery, retiro y mostrador. En retiro/mostrador en efectivo la diferencia se cobra en el mostrador. Mientras el pedido esté `en_preparacion` se puede agregar; desde `listo_despacho` en adelante no.
 - **Varios adicionales:** puede haber más de uno por pedido, numerados "ADICIONAL 1", "ADICIONAL 2" al #N, cada uno con su propia confirmación. Se enrutan a las estaciones igual que el pedido original. El pedido no puede pasar a "Listo" mientras haya adicionales confirmados sin terminar; los pendientes de pago no cuentan.
+- **Adicional sin pagar al terminar el pedido:** el pedido sale igual sin ese adicional; la cajera lo cancela o espera a que el cliente pague. No traba la cocina. (Opción recomendada por mí; el dueño respondió "perfecto" sin elegir explícitamente: confirmar.)
 - **Adicional pendiente de pago:** la cajera puede cancelarlo (queda registrado, no se borra). Mientras está pendiente, la cocina no lo ve y "Tu pedido" lo muestra como pendiente.
 - **Stock:** se descuenta cuando el adicional se confirma (envía a cocina), con las mismas reglas actuales (productos pausados por stock no se pueden agregar; si falta stock al confirmar, se sigue la regla actual de faltantes).
 - **Permisos:** los cuatro roles pueden editar, agregar y confirmar la transferencia de un adicional, sobre cualquier pedido.
