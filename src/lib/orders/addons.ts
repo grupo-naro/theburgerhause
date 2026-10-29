@@ -42,7 +42,7 @@ const modifierSchema = z.object({
   kitchenLabel: z.string(),
   active: z.boolean(),
 });
-const storedUnitsSchema = z.array(
+export const storedUnitsSchema = z.array(
   z.object({
     product: z.object({
       id: z.number().int(),

@@ -47,6 +47,11 @@ Staff actions on orders additionally apply the sector rule server side (a cashie
 | `src/app/(staff)/caja/actions.ts#approveOrderAction` | staff | cajera, encargada_delivery, admin, encargado | Approve a web order (own sector; admin exempt). | `src/lib/security/authz.test.ts` |
 | `src/app/(staff)/caja/actions.ts#rejectOrderAction` | staff | cajera, encargada_delivery, admin, encargado | Reject a web order with a reason (own sector). | `src/lib/security/authz.test.ts` |
 | `src/app/(staff)/caja/actions.ts#reprintOrderAction` | staff | cajera, encargada_delivery, admin, encargado | Re-queue the tickets of an order (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/editar-pedido/actions.ts#editPendingOrderAction` | staff | cajera, encargada_delivery, admin, encargado | Edit a pending-approval order: remove items, add units (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/editar-pedido/actions.ts#addAddonAction` | staff | cajera, encargada_delivery, admin, encargado | Add products to an order in preparation (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/editar-pedido/actions.ts#confirmAddonAction` | staff | cajera, encargada_delivery, admin, encargado | Confirm a pending-payment add-on (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/editar-pedido/actions.ts#cancelAddonAction` | staff | cajera, encargada_delivery, admin, encargado | Cancel a pending-payment add-on (own sector). | `src/lib/security/authz.test.ts` |
+| `src/app/(staff)/editar-pedido/actions.ts#reprintAddonAction` | staff | cajera, encargada_delivery, admin, encargado | Re-queue the kitchen ticket of one add-on (own sector). | `src/lib/security/authz.test.ts` |
 | `src/app/(staff)/despacho/actions.ts#markReadyAction` | staff | cajera, encargada_delivery, admin, encargado | Order ready (own sector). | `src/lib/security/authz.test.ts` |
 | `src/app/(staff)/despacho/actions.ts#markPickupAction` | staff | cajera, encargada_delivery, admin, encargado | Order to pickup (own sector). | `src/lib/security/authz.test.ts` |
 | `src/app/(staff)/despacho/actions.ts#markDeliveredAction` | staff | cajera, encargada_delivery, admin, encargado | Order delivered, optional cash collected (own sector). | `src/lib/security/authz.test.ts` |

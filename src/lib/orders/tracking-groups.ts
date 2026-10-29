@@ -10,6 +10,8 @@ export type SnapshotItem = {
   unitPrice: number;
   note: string | null;
   modifiers: SnapshotModifier[];
+  /** Staff views: seq of the add-on the unit belongs to (null = the original order). Omitted = not tracked. */
+  addonSeq?: number | null;
 };
 
 export type TrackingGroup = {
@@ -20,13 +22,15 @@ export type TrackingGroup = {
   note: string | null;
   unitTotal: number;
   lineTotal: number;
+  /** Staff views only: seq of the add-on this line belongs to (null = original order). Absent in the public tracking. */
+  addonSeq?: number | null;
 };
 
 const modKey = (m: SnapshotModifier) => (m.modifierId != null ? `#${m.modifierId}` : `n:${m.name}`);
 
 function signature(i: SnapshotItem): string {
   const mods = i.modifiers.map(modKey).sort().join(",");
-  return JSON.stringify([i.productId ?? `n:${i.name}`, i.unitPrice, mods, i.note ?? null]);
+  return JSON.stringify([i.productId ?? `n:${i.name}`, i.unitPrice, mods, i.note ?? null, i.addonSeq ?? null]);
 }
 
 /** Identical units (product + modifiers + note) collapse into one line; order = first appearance. */
@@ -52,6 +56,7 @@ export function groupTrackingItems(items: SnapshotItem[]): { groups: TrackingGro
       note: i.note,
       unitTotal: total,
       lineTotal: total,
+      ...(i.addonSeq !== undefined ? { addonSeq: i.addonSeq } : {}),
     });
   }
   const groups = [...byKey.values()];

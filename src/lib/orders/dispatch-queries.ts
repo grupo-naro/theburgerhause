@@ -1,7 +1,8 @@
-import { and, asc, inArray, sql } from "drizzle-orm";
+import { and, asc, inArray, isNotNull, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import type { Fulfillment, OrderStatus } from "@/domain/order-status";
+import { storedUnitsSchema } from "./addons";
 import { hydrate, orderColumns, sectorScopeSql, type PrintState, type SectorScope } from "./caja-queries";
 import { tandaSummary, type TandaCount } from "./tanda";
 import type { TrackingGroup } from "./tracking-groups";
@@ -43,8 +44,20 @@ export type DispatchOrder = {
   pagerNumber: number | null;
   /** Units grouped as in Caja, with modifier names and kitchen labels. */
   items: TrackingGroup[];
+  /** Pending and confirmed add-ons, by seq. */
+  addons: DispatchAddon[];
   /** Print jobs: `pending` includes jobs being printed now; `failed` only counts unhandled ones. */
   printState: PrintState;
+};
+
+/** An add-on (extra products added after approval) shown on the card: pending payment or confirmed (cancelled ones are left out). */
+export type DispatchAddon = {
+  id: number;
+  seq: number;
+  status: "pendiente_pago" | "confirmado";
+  /** Centavos. */
+  subtotal: number;
+  items: { name: string; modifiers: string[]; note: string | null }[];
 };
 
 /** A cadet with orders en_camino and what they carry in cash. */
@@ -92,6 +105,56 @@ const firstName = (name: string | null): string | null => {
   return first ? first : null;
 };
 
+/** Pending add-ons read their stored units snapshot; confirmed ones read the order_items they inserted. 3 queries for any number of orders. */
+async function loadAddons(db: Db, orderIds: number[]): Promise<Map<number, DispatchAddon[]>> {
+  const out = new Map<number, DispatchAddon[]>();
+  if (orderIds.length === 0) return out;
+  const addonRows = await db
+    .select({ id: s.orderAddons.id, orderId: s.orderAddons.orderId, seq: s.orderAddons.seq, status: s.orderAddons.status, subtotal: s.orderAddons.subtotal, units: s.orderAddons.units })
+    .from(s.orderAddons)
+    .where(and(inArray(s.orderAddons.orderId, orderIds), inArray(s.orderAddons.status, ["pendiente_pago", "confirmado"])))
+    .orderBy(asc(s.orderAddons.orderId), asc(s.orderAddons.seq));
+  if (addonRows.length === 0) return out;
+
+  const confirmedIds = addonRows.filter((a) => a.status === "confirmado").map((a) => a.id);
+  const itemRows = confirmedIds.length
+    ? await db
+        .select({ id: s.orderItems.id, addonId: s.orderItems.addonId, name: s.orderItems.nameSnapshot, note: s.orderItems.notes })
+        .from(s.orderItems)
+        .where(and(isNotNull(s.orderItems.addonId), inArray(s.orderItems.addonId, confirmedIds)))
+        .orderBy(asc(s.orderItems.id))
+    : [];
+  const modRows = itemRows.length
+    ? await db
+        .select({ itemId: s.orderItemModifiers.orderItemId, name: s.orderItemModifiers.nameSnapshot })
+        .from(s.orderItemModifiers)
+        .where(inArray(s.orderItemModifiers.orderItemId, itemRows.map((i) => i.id)))
+        .orderBy(asc(s.orderItemModifiers.id))
+    : [];
+  const modsByItem = new Map<number, string[]>();
+  for (const m of modRows) modsByItem.set(m.itemId, [...(modsByItem.get(m.itemId) ?? []), m.name]);
+  const itemsByAddon = new Map<number, DispatchAddon["items"]>();
+  for (const i of itemRows) {
+    const list = itemsByAddon.get(i.addonId!) ?? [];
+    list.push({ name: i.name, modifiers: modsByItem.get(i.id) ?? [], note: i.note || null });
+    itemsByAddon.set(i.addonId!, list);
+  }
+
+  for (const a of addonRows) {
+    let items: DispatchAddon["items"] = [];
+    if (a.status === "confirmado") items = itemsByAddon.get(a.id) ?? [];
+    else {
+      const stored = storedUnitsSchema.safeParse(a.units);
+      if (stored.success) items = stored.data.map((u) => ({ name: u.product.name, modifiers: u.modifiers.map((m) => m.name), note: u.note || null }));
+      else console.error("[orders] dispatch board: stored add-on units are invalid");
+    }
+    const list = out.get(a.orderId) ?? [];
+    list.push({ id: a.id, seq: a.seq, status: a.status as DispatchAddon["status"], subtotal: a.subtotal, items });
+    out.set(a.orderId, list);
+  }
+  return out;
+}
+
 export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): Promise<DispatchBoard> {
   const now = ctx.now ?? new Date();
 
@@ -104,6 +167,7 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
     .where(and(inArray(s.orders.status, BOARD_STATUSES), sectorScopeSql(ctx)))
     .orderBy(asc(s.orders.createdAt), asc(s.orders.id));
   const hydrated = await hydrate(db, rows, now);
+  const addonsByOrder = await loadAddons(db, rows.map((r) => r.id));
   const meta = new Map(rows.map((r) => [r.id, { cadetId: r.cadetId, tanda: r.fulfillment === "delivery" ? r.tanda : null, since: new Date(r.statusSince).getTime() }]));
 
   const toDto = (o: (typeof hydrated)[number]): DispatchOrder => ({
@@ -126,6 +190,7 @@ export async function getDispatchBoard(db: Db, ctx: DispatchQueryContext = {}): 
     tanda: meta.get(o.id)!.tanda,
     pagerNumber: o.pagerNumber,
     items: o.items,
+    addons: addonsByOrder.get(o.id) ?? [],
     printState: o.printState,
   });
 

@@ -133,8 +133,10 @@ export async function hydrate(db: Db, rows: OrderRow[], now: Date): Promise<Caja
       name: s.orderItems.nameSnapshot,
       unitPrice: s.orderItems.unitPriceSnapshot,
       note: s.orderItems.notes,
+      addonSeq: s.orderAddons.seq,
     })
     .from(s.orderItems)
+    .leftJoin(s.orderAddons, eq(s.orderAddons.id, s.orderItems.addonId))
     .where(inArray(s.orderItems.orderId, ids))
     .orderBy(asc(s.orderItems.id));
   const mods = units.length
@@ -165,6 +167,7 @@ export async function hydrate(db: Db, rows: OrderRow[], now: Date): Promise<Caja
       name: u.name,
       unitPrice: u.unitPrice,
       note: u.note,
+      addonSeq: u.addonSeq ?? null,
       modifiers: modsByItem.get(u.id) ?? [],
     });
     unitsByOrder.set(u.orderId, list);

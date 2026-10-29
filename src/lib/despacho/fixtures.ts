@@ -21,6 +21,7 @@ export function order(over: Partial<DispatchOrder> & { id: number }): DispatchOr
     tanda: null,
     pagerNumber: null,
     items: [],
+    addons: [],
     printState: { pending: 0, failed: 0, done: 0 } as unknown as DispatchOrder["printState"],
     ...over,
   };

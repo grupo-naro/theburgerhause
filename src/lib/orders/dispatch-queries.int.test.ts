@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -9,6 +10,7 @@ import { getEnv } from "@/lib/env";
 import { makeCadet, preparingCounterOrder, preparingWebOrder } from "@/test-support/dispatch";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
 import { assignCadet, markDelivered, markPickup, markReady, returnToDispatch } from "./dispatch";
+import { addOrderAddon, cancelAddon } from "./addons";
 import { getDispatchBoard } from "./dispatch-queries";
 
 const db = () => testDb();
@@ -219,5 +221,56 @@ describe("getDispatchBoard", () => {
       await setEventAt(o.id, "en_preparacion", "2026-10-15T20:05:00Z");
       expect((await find(o.id)).minutesInStatus).toBe(0);
     });
+  });
+});
+
+describe("getDispatchBoard add-ons", () => {
+  const add = (orderId: number, productId: number, modifierIds: number[] = [], note = "") =>
+    addOrderAddon(db(), {
+      orderId,
+      userId: fx.userId,
+      sector: null,
+      units: [{ productId, modifierIds, note }],
+      idempotencyKey: randomUUID(),
+    });
+
+  it("returns the pending add-on with its items (from the stored snapshot) and subtotal", async () => {
+    const o = await preparingWebOrder(fx, { paymentMethod: "transfer", fulfillment: "takeaway" });
+    const a = await add(o.id, fx.ranchita, [fx.dips], "extra");
+    if (!a.ok) throw new Error(a.message);
+    const card = (await board()).preparing.find((x) => x.id === o.id)!;
+    expect(card.addons).toEqual([
+      {
+        id: a.data.addonId,
+        seq: 1,
+        status: "pendiente_pago",
+        subtotal: a.data.subtotal,
+        items: [{ name: "Ranchita simple", modifiers: ["Dips"], note: "extra" }],
+      },
+    ]);
+    expect(card.items.every((i) => i.addonSeq === null)).toBe(true);
+  });
+
+  it("returns the confirmed add-on from its order_items and tags the items with addonSeq", async () => {
+    const o = await preparingWebOrder(fx, { paymentMethod: "cash", fulfillment: "takeaway" });
+    const a = await add(o.id, fx.melt, [fx.sinCheddar]);
+    if (!a.ok) throw new Error(a.message);
+    const card = (await board()).preparing.find((x) => x.id === o.id)!;
+    expect(card.addons).toEqual([
+      { id: a.data.addonId, seq: 1, status: "confirmado", subtotal: a.data.subtotal, items: [{ name: "Melt simple", modifiers: ["Sin cheddar"], note: null }] },
+    ]);
+    expect(card.items.filter((i) => i.addonSeq === 1)).toHaveLength(1);
+    expect(card.items.filter((i) => i.addonSeq === null).length).toBeGreaterThan(0);
+  });
+
+  it("leaves cancelled add-ons out and orders without add-ons get an empty list", async () => {
+    const o = await preparingWebOrder(fx, { paymentMethod: "transfer", fulfillment: "takeaway" });
+    const plain = await preparingCounterOrder(fx);
+    const a = await add(o.id, fx.melt);
+    if (!a.ok) throw new Error(a.message);
+    await cancelAddon(db(), { addonId: a.data.addonId, userId: fx.userId, sector: null, reason: null });
+    const b = await board();
+    expect(b.preparing.find((x) => x.id === o.id)!.addons).toEqual([]);
+    expect(b.preparing.find((x) => x.id === plain.id)!.addons).toEqual([]);
   });
 });
