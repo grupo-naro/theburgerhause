@@ -3,6 +3,7 @@ import type { Db, DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
 import { canTransition, type Fulfillment, type OrderStatus } from "@/domain/order-status";
 import { formatARS } from "@/domain/money";
+import { cancelPendingAddons } from "./addons";
 import { pgErrorCode } from "./create-order";
 import {
   assignCadetInputSchema,
@@ -51,6 +52,8 @@ export type DispatchOrderData = {
   number: number;
   status: OrderStatus;
   paymentStatus: "pending" | "paid";
+  /** markReady only: pending add-ons cancelled by the transition. */
+  cancelledAddons?: number;
 };
 
 export const fail = (code: DispatchFailureCode, message: string, details?: DispatchFailureDetail[]): DispatchFailure =>
@@ -111,6 +114,8 @@ type Move = {
   extra?: (o: LockedOrder) => DispatchFailure | null;
   note?: string;
   patch?: (o: LockedOrder) => Parameters<typeof transitionOrder>[1]["patch"];
+  /** Runs in the same transaction right after the transition; its result is merged into the data. */
+  after?: (tx: DbTransaction, o: LockedOrder) => Promise<Partial<DispatchOrderData>>;
 };
 
 /** Lock -> validate with the domain table -> transition core, all in one transaction. */
@@ -128,9 +133,10 @@ async function move(db: Db, orderId: number, userId: number, sector: Sector | nu
       if (refused) return refused;
       const moved = await transitionOrder(tx, { sector, orderId, to: m.to, userId, note: m.note, patch: m.patch?.(o) });
       if (!moved.ok) return fromTransition(moved);
+      const extraData = m.after ? await m.after(tx, o) : {};
       return {
         ok: true,
-        data: { orderId, number: o.number, status: m.to, paymentStatus: moved.data.order.paymentStatus },
+        data: { orderId, number: o.number, status: m.to, paymentStatus: moved.data.order.paymentStatus, ...extraData },
       };
     });
   } catch (err) {
@@ -147,6 +153,10 @@ export async function markReady(db: Db, raw: { orderId: number; userId: number }
     from: "en_preparacion",
     to: "listo_despacho",
     refusal: "no se puede marcar como listo",
+    // Add-ons still waiting for payment never reached the kitchen: they die with the order leaving preparation.
+    after: async (tx, o) => ({
+      cancelledAddons: await cancelPendingAddons(tx, o.id, input.data.userId, "Pedido marcado como listo sin confirmar el pago"),
+    }),
   });
 }
 

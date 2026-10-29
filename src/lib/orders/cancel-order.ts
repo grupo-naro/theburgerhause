@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { returnStockForOrder } from "@/lib/stock/sales";
+import { cancelPendingAddons } from "./addons";
 import { pgErrorCode } from "./create-order";
 import { rejectReasonSchema } from "./reject-order";
 import type { Sector } from "./sector";
@@ -49,6 +50,7 @@ export async function cancelOrder(db: Db, raw: CancelOrderInput): Promise<OrderR
         .update(s.printJobs)
         .set({ status: "failed", error: CANCELLED_BEFORE_PRINT_ERROR, updatedAt: new Date() })
         .where(and(eq(s.printJobs.orderId, raw.orderId), eq(s.printJobs.status, "pending")));
+      await cancelPendingAddons(tx, raw.orderId, raw.userId, "Pedido cancelado");
       // Reserved / sold drinks go back exactly once (see returnStockForOrder).
       const stock = await returnStockForOrder(tx, { orderId: raw.orderId, userId: raw.userId });
       return {

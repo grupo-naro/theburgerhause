@@ -122,7 +122,7 @@ describe("happy flows", () => {
     const o = await preparingWebOrder(fx);
     expect(await ready(o.id)).toEqual({
       ok: true,
-      data: { orderId: o.id, number: o.number, status: "listo_despacho", paymentStatus: "pending" },
+      data: { orderId: o.id, number: o.number, status: "listo_despacho", paymentStatus: "pending", cancelledAddons: 0 },
     });
   });
 
