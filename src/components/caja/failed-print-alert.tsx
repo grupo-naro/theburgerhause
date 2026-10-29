@@ -40,6 +40,7 @@ function FailedRow({ row }: { row: FailedRowModel }) {
           </p>
         )}
       </div>
+      {row.which.length > 0 && (
       <button
         type="button"
         disabled={pending || queued}
@@ -61,6 +62,7 @@ function FailedRow({ row }: { row: FailedRowModel }) {
       >
         {queued ? "Enviado" : pending ? "Enviando…" : "Reimprimir"}
       </button>
+      )}
     </li>
   );
 }

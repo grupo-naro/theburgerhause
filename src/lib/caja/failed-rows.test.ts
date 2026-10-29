@@ -8,6 +8,7 @@ const job = (jobId: number, orderId: number, type: FailedPrintJob["type"]): Fail
   orderNumber: orderId + 100,
   stationId: 1,
   type,
+  addonSeq: type === "additional" ? 1 : null,
   error: "x",
   attempts: 1,
   createdAt: "2026-10-15T12:00:00.000Z",
@@ -44,5 +45,12 @@ describe("groupFailedByOrder", () => {
     const [c] = groupFailedByOrder([job(5, 1, "delivery")]);
     expect(a.key).not.toBe(b.key);
     expect(a.key).toBe(c.key);
+  });
+  it("a failed add-on ticket adds no reprint (never the customer ticket)", () => {
+    const rows = groupFailedByOrder([job(1, 1, "additional"), job(2, 2, "additional"), job(3, 2, "kitchen")]);
+    expect(rows.map((r) => [r.orderId, r.which])).toEqual([
+      [1, []],
+      [2, ["kitchen"]],
+    ]);
   });
 });

@@ -46,6 +46,8 @@ export type FailedPrintJob = {
   stationId: number;
   /** `ticket` only exists in history (pre Task 10.2); new jobs are `kitchen`/`customer`/`delivery`. */
   type: "kitchen" | "ticket" | "delivery" | "customer" | "additional";
+  /** Add-on seq of an `additional` ticket (from its payload); null for every other type. */
+  addonSeq: number | null;
   error: string | null;
   attempts: number;
   createdAt: string;
@@ -225,6 +227,7 @@ export async function listFailedPrintJobs(db: Db, stationId?: number, scope: Sec
       orderNumber: s.orders.number,
       stationId: s.printJobs.stationId,
       type: s.printJobs.type,
+      addonSeq: sql<string | null>`${s.printJobs.payload}->>'addonSeq'`,
       error: s.printJobs.error,
       attempts: s.printJobs.attempts,
       createdAt: s.printJobs.createdAt,
@@ -255,5 +258,5 @@ export async function listFailedPrintJobs(db: Db, stationId?: number, scope: Sec
     )
     .orderBy(desc(s.printJobs.createdAt), desc(s.printJobs.id))
     .limit(FAILED_LIMIT);
-  return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
+  return rows.map((r) => ({ ...r, addonSeq: r.addonSeq === null ? null : Number(r.addonSeq), createdAt: r.createdAt.toISOString() }));
 }

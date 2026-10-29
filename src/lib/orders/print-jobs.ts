@@ -64,19 +64,24 @@ export async function enqueuePrintJobs(
   return ids;
 }
 
+async function stationKind(tx: DbTransaction, stationId: number) {
+  const [st] = await tx.select({ kind: s.stations.kind }).from(s.stations).where(eq(s.stations.id, stationId));
+  return st?.kind;
+}
+
 /**
  * After an add-on is confirmed: ONE `additional` comanda (only that add-on's items) at the order's station and, for web
- * delivery orders, the full `delivery` ticket again with the updated total (the cadet's earlier paper has the old one).
+ * delivery orders handled at a DELIVERY station (same rule as defaultPrintKinds), the full `delivery` ticket again with the updated total (the cadet's earlier paper has the old one).
  */
 export async function enqueueAddonPrintJobs(
   tx: DbTransaction,
-  input: { orderId: number; addonId: number; seq: number; stationId: number },
+  input: { orderId: number; addonId: number; seq: number; stationId: number; withDelivery?: boolean },
 ): Promise<number[]> {
-  const { orderId, addonId, seq, stationId } = input;
+  const { orderId, addonId, seq, stationId, withDelivery = true } = input;
   const addonOrder = await loadPrintableOrder(tx, orderId, { addonId });
   if (!addonOrder) throw new Error("order vanished inside transaction");
   const rows: { type: PrintKind; payload: unknown }[] = [{ type: "additional", payload: renderAdditionalTicket(addonOrder, { seq }) }];
-  if (hasDeliveryTicket(addonOrder)) {
+  if (withDelivery && hasDeliveryTicket(addonOrder) && (await stationKind(tx, stationId)) === "delivery") {
     const full = await loadPrintableOrder(tx, orderId);
     rows.push({ type: "delivery", payload: renderDeliveryTicket(full!) });
   }

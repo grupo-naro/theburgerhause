@@ -8,7 +8,7 @@ import { getEnv } from "@/lib/env";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
 import { approveOrder } from "./approve-order";
 import { rejectOrder } from "./reject-order";
-import { reprintOrder } from "./reprint";
+import { reprintAddonTicket, reprintOrder } from "./reprint";
 
 const db = () => testDb();
 let fx: Fx;
@@ -182,5 +182,36 @@ describe("reprintOrder", () => {
     } finally {
       await client.end();
     }
+  });
+});
+
+describe("reprintAddonTicket", () => {
+  const addonReprint = (orderId: number, addonSeq: number, over: Partial<Parameters<typeof reprintAddonTicket>[1]> = {}) =>
+    reprintAddonTicket(db(), { orderId, addonSeq, userId: fx.otherUserId, stationId: fx.otherStationId, sector: null, ...over });
+  const withAddon = async (status: "confirmado" | "pendiente_pago" = "confirmado") => {
+    const o = await approved();
+    const [a] = await db().insert(s.orderAddons).values({ orderId: o.id, seq: 1, status, units: [], subtotal: 1 }).returning();
+    await db().insert(s.orderItems).values({ orderId: o.id, productId: fx.melt, nameSnapshot: "Melt simple", unitPriceSnapshot: 1, notes: null, addonId: a.id });
+    return o;
+  };
+
+  it("queues ONLY the additional job (no delivery ticket) and writes the event", async () => {
+    const o = await withAddon();
+    const before = (await jobs(o.id)).length;
+    const r = await addonReprint(o.id, 1);
+    if (!r.ok) throw new Error(r.message);
+    const fresh = (await jobs(o.id)).slice(before);
+    expect(fresh.map((j) => j.type)).toEqual(["additional"]);
+    expect(fresh.map((j) => j.id)).toEqual(r.data.printJobIds);
+    expect((await events(o.id)).at(-1)).toMatchObject({ fromStatus: "en_preparacion", toStatus: "en_preparacion", note: "Reimpresión (adicional 1)" });
+  });
+
+  it("refuses unknown / unconfirmed add-ons, pending-approval orders and a missing station", async () => {
+    const o = await withAddon("pendiente_pago");
+    expect(await addonReprint(o.id, 1)).toMatchObject({ ok: false, code: "NOT_FOUND" });
+    expect(await addonReprint(o.id, 9)).toMatchObject({ ok: false, code: "NOT_FOUND" });
+    expect(await addonReprint(o.id, 1, { stationId: null })).toMatchObject({ ok: false, code: "STATION_REQUIRED" });
+    const p = await placeWebOrder(fx);
+    expect(await addonReprint(p.id, 1)).toMatchObject({ ok: false, code: "INVALID_TRANSITION" });
   });
 });

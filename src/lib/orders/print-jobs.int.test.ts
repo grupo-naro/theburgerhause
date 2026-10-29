@@ -73,7 +73,7 @@ describe("loadPrintableOrder / enqueueAddonPrintJobs", () => {
     const { o, addon } = await orderWithAddon("takeaway", 1);
     const [first] = await db().transaction((tx) => enqueueAddonPrintJobs(tx, { orderId: o.id, addonId: addon.id, seq: 1, stationId: fx.otherStationId }));
     await db().update(s.printJobs).set({ status: "failed", error: "sin papel", attempts: 3 }).where(eq(s.printJobs.id, first));
-    expect(await listFailedPrintJobs(db(), fx.otherStationId)).toMatchObject([{ jobId: first, type: "additional" }]);
+    expect(await listFailedPrintJobs(db(), fx.otherStationId)).toMatchObject([{ jobId: first, type: "additional", addonSeq: 1 }]);
 
     const [addon2] = await db().insert(s.orderAddons).values({ orderId: o.id, seq: 2, status: "confirmado", units: [], subtotal: 1 }).returning();
     await db().transaction((tx) => enqueueAddonPrintJobs(tx, { orderId: o.id, addonId: addon2.id, seq: 2, stationId: fx.otherStationId }));
@@ -81,5 +81,12 @@ describe("loadPrintableOrder / enqueueAddonPrintJobs", () => {
 
     await db().transaction((tx) => enqueueAddonPrintJobs(tx, { orderId: o.id, addonId: addon.id, seq: 1, stationId: fx.otherStationId }));
     expect(await listFailedPrintJobs(db(), fx.otherStationId)).toEqual([]); // reprint of the SAME add-on handles it
+  });
+
+  it("no re-encola el delivery en una estación mostrador (misma regla que defaultPrintKinds)", async () => {
+    const { o, addon } = await orderWithAddon("delivery");
+    const before = (await jobsOf(o.id)).length;
+    await db().transaction((tx) => enqueueAddonPrintJobs(tx, { orderId: o.id, addonId: addon.id, seq: 1, stationId: fx.stationId }));
+    expect((await jobsOf(o.id)).slice(before).map((j) => j.type)).toEqual(["additional"]);
   });
 });
