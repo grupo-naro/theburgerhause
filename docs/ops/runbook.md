@@ -506,6 +506,9 @@ los hashes de commit no se aceptan.)
 **Checklist del deploy que agrega Stock y el rol Encargado:**
 
 1. Aplicar las migraciones **0008** (rol `encargado`), **0009** (stock: artículos y movimientos) y **0010** (ediciones de movimientos). Las aplica `deploy.sh` solo (paso migrar); verificar que el deploy termine en `DEPLOY_OK`. (Las 0011 `orders.tanda` y 0012 `delay_notices` son de otro trabajo.)
+2. Crear el usuario **Encargado** (Admin → Usuarios → rol Encargado, sin estación).
+3. El **primer día** el encargado carga el stock inicial (Admin → Stock → Artículos → Nuevo artículo → **Guardar stock inicial**) y liga cada bebida a su producto (Menú → producto → **Artículo de stock**). Guía: `docs/guias/guia-encargado.md`.
+4. Nada se rompe si no hay ningún artículo ligado: los productos sin vínculo se venden como siempre y la franja "Productos faltantes de stock" no aparece. El televisor `/pantalla` no muestra la alerta.
 
 **Checklist del deploy que agrega Modificar pedidos y Adicionales:**
 
@@ -514,9 +517,6 @@ los hashes de commit no se aceptan.)
 3. **Agente de impresión**: no hay que reinstalarlo. Imprime el ticket adicional con el mismo formato que la comanda.
 4. Pedidos **En preparación** al momento del deploy se pueden modificar de inmediato (Agregar productos); no hace falta migrar datos.
 5. Guías: `docs/guias/guia-cajera-mostrador.md`, `guia-encargada-delivery.md` y `guia-administrador.md` (sección "Modificar un pedido"); casos de prueba **M1 a M13** en `docs/guias/uat-prueba-de-aceptacion.md`.
-2. Crear el usuario **Encargado** (Admin → Usuarios → rol Encargado, sin estación).
-3. El **primer día** el encargado carga el stock inicial (Admin → Stock → Artículos → Nuevo artículo → **Guardar stock inicial**) y liga cada bebida a su producto (Menú → producto → **Artículo de stock**). Guía: `docs/guias/guia-encargado.md`.
-4. Nada se rompe si no hay ningún artículo ligado: los productos sin vínculo se venden como siempre y la franja "Productos faltantes de stock" no aparece. El televisor `/pantalla` no muestra la alerta.
 
 Hacelo **fuera del horario de servicio** (el reinicio corta unos segundos las conexiones en vivo; los agentes y
 las pantallas reconectan solos). Resultado esperado: la última línea dice `DEPLOY_OK`.

@@ -74,9 +74,9 @@ En **En preparación** y en **Listos / Despacho** cada pedido tiene el botón **
 
 Si el cliente escribe para cambiar algo, modificá **el mismo pedido** (no cargues otro): queda un solo número y un solo envío.
 
-**En Por aprobar**: tocá **Editar pedido**. **Quitar** saca una unidad (**Deshacer** la devuelve) y en **Agregar** sumás productos. Mirá el **Total nuevo**, y guardá con **Guardar cambios**. El **costo de envío no cambia**, aunque cambie lo pedido. El pedido tiene que quedar con algún producto: si no se hace, usá **Rechazar**.
+**En la pestaña Por aprobar**: tocá **Editar pedido**. **Quitar** saca una unidad (**Deshacer** la devuelve) y en **Agregar** sumás productos. Mirá el **Total nuevo**, y guardá con **Guardar cambios**. El **costo de envío no cambia**, aunque cambie lo pedido. El pedido tiene que quedar con algún producto: si no se hace, usá **Rechazar**.
 
-**En En preparación**: solo se puede **agregar** (lo que la cocina ya tiene no se saca ni se cambia). Tocá **Agregar productos**, elegí y **Agregar al pedido**. El cuadro te dice cómo se cobra:
+**En la pestaña En preparación**: solo se puede **agregar** (lo que la cocina ya tiene no se saca ni se cambia). Tocá **Agregar productos**, elegí y **Agregar al pedido**. El cuadro te dice cómo se cobra:
 
 - **Efectivo**: **"Se cobra $… al entregar"**. Va directo a la cocina y el cadete cobra todo junto.
 - **Transferencia**: **"Queda pendiente hasta confirmar la transferencia"**. La cocina no lo ve todavía. Pasale los datos de la cuenta al cliente por WhatsApp; cuando verifiques en el banco que llegó, tildá **Verifiqué la acreditación** y apretá **Confirmar adicional**. Si no lo va a pagar, **Cancelar adicional**.

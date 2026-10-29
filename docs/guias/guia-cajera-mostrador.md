@@ -82,13 +82,13 @@ tocar **Entregado** aparece **"Cobrá $… antes de entregar"**: recibí la plat
 
 Si el cliente te escribe por WhatsApp para cambiar algo, **no cargues un pedido nuevo**: modificá el mismo. Así hay un solo número, un solo envío y la cocina ve todo. Lo que se puede hacer depende de en qué punto está el pedido.
 
-**Antes de aprobarlo** (pedidos web de **Retiro en local**, pestaña **Por aprobar**): tocá **Editar pedido** en la tarjeta.
+**Antes de aprobarlo** (pedidos web de **Retiro en local**, en la lista **Pendientes de aprobación**): tocá **Editar pedido** en la tarjeta.
 
 1. Para sacar algo, tocá **Quitar** al lado de esa unidad (si te arrepentís, **Deshacer**). Para sumar algo, elegilo abajo, en **Agregar**.
 2. Mirá el **Total nuevo** que aparece antes de guardar. El costo de envío no cambia.
 3. Tocá **Guardar cambios**. El pedido tiene que quedar con al menos un producto: si no se va a hacer nada, usá **Rechazar**.
 
-**Con el pedido ya aprobado (En preparación)**: ya no se puede sacar ni cambiar lo que estaba, **solo agregar**. En la tarjeta tocá **Agregar productos** (en **Retiro en local**, pestaña **En preparación**, o en **Mostrador** para las ventas de mostrador).
+**Con el pedido ya aprobado (En preparación)**: ya no se puede sacar ni cambiar lo que estaba, **solo agregar**. En la tarjeta tocá **Agregar productos** (en **Retiro en local**, en la columna **En preparación** de la misma pantalla, o en **Mostrador** para las ventas de mostrador).
 
 1. Elegí lo que se suma y tocá **Agregar al pedido**. Antes de guardar, el cuadro te dice cómo se cobra:
    - **Venta de mostrador**: **"Cobrá $… ahora"**. Cobrale la diferencia al cliente en ese momento. Va directo a la cocina.

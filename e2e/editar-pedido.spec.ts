@@ -306,8 +306,9 @@ test.describe("delivery manager", () => {
     expect((await printJobsOf(o.id)).filter((j) => j.type === "delivery")).toHaveLength(deliveryJobs + 1);
   });
 
-  test("an order of the other sector is refused with the sector message and nothing changes", async ({ page }) => {
-    // The delivery manager's screen still shows the card; the order is (behind its back) a counter pickup order.
+  test("server-side guard: a stale card whose order is of the other sector is refused (WRONG_SECTOR) and nothing changes", async ({ page }) => {
+    // Not a user flow: the screens already hide the other sector's cards (UAT M11 covers that). The DB flip
+    // simulates the other sector behind an open card, to prove the Server Action refuses on its own.
     const o = await placeApproved({ fulfillment: "delivery", paymentMethod: "cash" });
     const before = await orderById(o.id);
     await openDelivery(page, "preparing");

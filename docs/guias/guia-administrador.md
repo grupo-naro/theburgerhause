@@ -78,7 +78,7 @@ El **motivo es interno**: lo ve solo el personal, nunca el cliente.
 
 Cuando un cliente pide un cambio por WhatsApp, el personal modifica **el mismo pedido** (un solo número, un solo envío). Vos podés hacerlo en cualquier sector, en las pantallas de trabajo (**Retiro en local**, **Gestión Delivery** y **Mostrador**), donde tenés los mismos botones que la cajera y la encargada. **Vista general** y **Tablero general** son para supervisar y no tienen esos botones. Las reglas:
 
-- **Antes de aprobar** (**Por aprobar**): **Editar pedido** permite quitar y agregar productos libremente. Se recalcula el total; el **envío no cambia**. No puede quedar sin productos.
+- **Antes de aprobar** (lista de pendientes en **Retiro en local**, pestaña **Por aprobar** en **Gestión Delivery**): **Editar pedido** permite quitar y agregar productos libremente. Se recalcula el total; el **envío no cambia**. No puede quedar sin productos.
 - **En preparación**: solo **Agregar productos** (no se saca ni se cambia lo que la cocina ya tiene). Cada agregado es un **Adicional 1, 2…** del mismo pedido.
   - **Efectivo** y **ventas de mostrador**: el adicional va directo a la cocina y se cobra al entregar (mostrador: en el momento).
   - **Transferencia**: queda **sin pagar** hasta que quien atiende verifica la acreditación y toca **Confirmar adicional**. Mientras tanto no suma al total, no descuenta stock ni cuenta para la demora automática, y la cocina no lo ve.
