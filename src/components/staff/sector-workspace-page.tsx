@@ -1,9 +1,11 @@
 import { getDb } from "@/db/client";
 import { StaffShell } from "@/components/staff/staff-shell";
+import { EditorMenuProvider } from "@/components/orders/editor-menu";
 import { SectorWorkspace } from "@/components/staff/sector-workspace";
 import { ToastProvider } from "@/components/ui/toast";
 import { isManager } from "@/lib/auth/roles";
 import { requireWorkspace } from "@/lib/auth/workspace";
+import { getMenu } from "@/lib/menu/queries";
 import { parseTab } from "@/lib/caja/workspaces";
 import { listFailedPrintJobs, listPendingApproval, listRecentProcessed } from "@/lib/orders/caja-queries";
 import { getDispatchBoard } from "@/lib/orders/dispatch-queries";
@@ -34,7 +36,9 @@ export async function SectorWorkspacePage({
   const db = getDb();
   const now = new Date();
   const scope = { sector, channel: "web" } as const;
-  const [pending, recent, board, failed] = await Promise.all([
+  // The order editor picks products from the public menu (cached): edit / add buttons exist only in these workspaces.
+  const [menu, pending, recent, board, failed] = await Promise.all([
+    getMenu(),
     listPendingApproval(db, { now, ...scope }),
     // Recientes keeps the whole sector (the counter sector also holds the counter sales: reprint lives here).
     listRecentProcessed(db, { limit: 30, now, sector }),
@@ -46,6 +50,7 @@ export async function SectorWorkspacePage({
     <StaffShell session={session} ownsOrderAlert>
       <h1 className="sr-only">{title}</h1>
       <ToastProvider>
+        <EditorMenuProvider menu={menu}>
         <SectorWorkspace
           sector={sector}
           role={session.user.role}
@@ -59,6 +64,7 @@ export async function SectorWorkspacePage({
           title={title}
           path={path}
         />
+        </EditorMenuProvider>
       </ToastProvider>
     </StaffShell>
   );

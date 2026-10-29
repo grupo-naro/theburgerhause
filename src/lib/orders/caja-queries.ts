@@ -163,6 +163,7 @@ export async function hydrate(db: Db, rows: OrderRow[], now: Date): Promise<Caja
   for (const u of units) {
     const list = unitsByOrder.get(u.orderId) ?? [];
     list.push({
+      id: u.id,
       productId: u.productId,
       name: u.name,
       unitPrice: u.unitPrice,

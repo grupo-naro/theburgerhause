@@ -90,6 +90,11 @@ export function ItemsSummary({ items }: { items: DispatchOrder["items"] }) {
             </span>
             {g.name}
           </span>
+          {g.addonSeq != null && (
+            <span data-testid="addon-label" className="ml-1.5 inline-block rounded bg-cheddar-400/60 px-1.5 py-px align-middle text-xs font-extrabold tracking-wide text-ink uppercase">
+              Adicional {g.addonSeq}
+            </span>
+          )}
           {g.modifiers.map((m, j) => {
             const label = (m.kitchenLabel ?? m.name).toUpperCase();
             return (

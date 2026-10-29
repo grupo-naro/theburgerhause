@@ -15,6 +15,11 @@ const job = (jobId: number, orderId: number, type: FailedPrintJob["type"]): Fail
 });
 
 describe("groupFailedByOrder", () => {
+  it("collects the failed add-on seqs, apart from the ordinary reprints", () => {
+    const [row] = groupFailedByOrder([{ ...job(1, 1, "additional"), addonSeq: 2 }, { ...job(2, 1, "additional"), addonSeq: 1 }, job(3, 1, "customer")]);
+    expect(row.addonSeqs).toEqual([1, 2]);
+    expect(row.which).toEqual(["customer"]);
+  });
   it("one row per order; both types failed -> reprint both", () => {
     const rows = groupFailedByOrder([job(5, 1, "delivery"), job(6, 1, "customer"), job(7, 2, "customer"), job(8, 3, "delivery"), job(10, 4, "ticket")]);
     expect(rows.map((r) => [r.orderId, r.which])).toEqual([

@@ -14,6 +14,8 @@ export type FailedRowModel = {
   /** Reprints to queue, in this order: the kitchen comanda (if it failed) first, then customer / delivery / both. */
   which: PrintWhich[]; // empty = nothing reprintable from here (e.g. only a failed add-on ticket)
   jobs: FailedPrintJob[];
+  /** Add-on seqs whose ticket failed (ascending): each is reprinted on its own with reprintAddonAction. */
+  addonSeqs: number[];
 };
 
 /** One row per order: customer + delivery both failed -> reprint "both"; the kitchen comanda is reprinted on its own. */
@@ -31,6 +33,7 @@ export function groupFailedByOrder(jobs: FailedPrintJob[]): FailedRowModel[] {
       orderNumber: list[0].orderNumber,
       which,
       jobs: list,
+      addonSeqs: [...new Set(list.flatMap((j) => (j.type === "additional" && j.addonSeq !== null ? [Number(j.addonSeq)] : [])))].sort((a, b) => a - b),
     };
   });
 }

@@ -12,6 +12,8 @@ export type SnapshotItem = {
   modifiers: SnapshotModifier[];
   /** Staff views: seq of the add-on the unit belongs to (null = the original order). Omitted = not tracked. */
   addonSeq?: number | null;
+  /** Staff views: the order_items id of this unit (lets an editor address one unit). Omitted = not tracked. */
+  id?: number;
 };
 
 export type TrackingGroup = {
@@ -24,6 +26,8 @@ export type TrackingGroup = {
   lineTotal: number;
   /** Staff views only: seq of the add-on this line belongs to (null = original order). Absent in the public tracking. */
   addonSeq?: number | null;
+  /** Staff views only: the order_items ids of the units in this line (one per unit). Absent when ids are not tracked. */
+  itemIds?: number[];
 };
 
 const modKey = (m: SnapshotModifier) => (m.modifierId != null ? `#${m.modifierId}` : `n:${m.name}`);
@@ -42,6 +46,7 @@ export function groupTrackingItems(items: SnapshotItem[]): { groups: TrackingGro
     if (found) {
       found.quantity += 1;
       found.lineTotal += found.unitTotal;
+      if (i.id !== undefined) found.itemIds?.push(i.id);
       continue;
     }
     const total = unitTotal({ basePrice: i.unitPrice, modifiers: i.modifiers });
@@ -57,6 +62,7 @@ export function groupTrackingItems(items: SnapshotItem[]): { groups: TrackingGro
       unitTotal: total,
       lineTotal: total,
       ...(i.addonSeq !== undefined ? { addonSeq: i.addonSeq } : {}),
+      ...(i.id !== undefined ? { itemIds: [i.id] } : {}),
     });
   }
   const groups = [...byKey.values()];

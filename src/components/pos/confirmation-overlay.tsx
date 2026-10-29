@@ -42,6 +42,8 @@ export function ConfirmationOverlay({ sale, onNewSale }: Props) {
       // Reprint exactly what failed (kitchen comanda first), or what the agent has not confirmed; never kinds that printed fine.
       const kinds = status === "failed" ? state?.failedKinds : state?.pendingKinds;
       const which = reprintsFor(kinds ?? []);
+      // A failure that is only an add-on ticket has nothing to reprint from here (never fall back to the customer ticket).
+      if (status === "failed" && kinds !== undefined && which.length === 0) return;
       const r = await queueReprints(which.length > 0 ? which : ["customer"], queued.current, (w) =>
         reprintOrderAction({ orderId: sale.orderId, which: w }),
       );
@@ -55,6 +57,9 @@ export function ConfirmationOverlay({ sale, onNewSale }: Props) {
       setReprinting(false);
     }
   }
+
+  // No failed kind at all (the failure is an add-on ticket) = nothing to reprint from here; an answer without kinds keeps the old behaviour.
+  const addonOnlyFailure = status === "failed" && state?.failedKinds !== undefined && reprintsFor(state.failedKinds).length === 0;
 
   return (
     <dialog
@@ -119,7 +124,12 @@ export function ConfirmationOverlay({ sale, onNewSale }: Props) {
             </>
           )}
         </div>
-        {(status === "failed" || status === "waiting") && (
+        {addonOnlyFailure && (
+          <p data-testid="addon-print-failed" className="mt-2 text-base font-semibold text-ink">
+            Falló el ticket de un adicional: reimprimilo desde Pedidos.
+          </p>
+        )}
+        {(status === "waiting" || (status === "failed" && !addonOnlyFailure)) && (
           <button
             type="button"
             data-testid="reprint"

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { queueReprints } from "@/lib/caja/reprint-queue";
 import { reprintOrderAction } from "@/app/(staff)/caja/actions";
+import { reprintAddonAction } from "@/app/(staff)/editar-pedido/actions";
 import type { FailedPrintJob } from "@/lib/orders/caja-queries";
 import { groupFailedByOrder, type FailedRowModel } from "@/lib/caja/failed-rows";
 import { useGuardedAction } from "./use-guarded-action";
@@ -15,6 +16,40 @@ const TYPE_LABEL = {
   kitchen: "Ticket cocina",
   additional: "Ticket adicional",
 } as const;
+
+/** Reprint of ONE failed add-on ticket (they carry the add-on seq, so reprintOrder cannot do it). */
+function AddonReprintButton({ orderId, orderNumber, seq }: { orderId: number; orderNumber: number; seq: number }) {
+  const router = useRouter();
+  const { run, pending, error } = useGuardedAction();
+  const [queued, setQueued] = useState(false);
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        data-testid="reprint-addon"
+        disabled={pending || queued}
+        aria-label={`Reimprimir adicional ${seq} del pedido #${orderNumber}`}
+        onClick={() =>
+          run(() => reprintAddonAction({ orderId, addonSeq: seq }), {
+            lockOnSuccess: true,
+            onOk: () => {
+              setQueued(true);
+              router.refresh();
+            },
+          })
+        }
+        className="min-h-12 shrink-0 rounded-full bg-white px-6 font-display text-lg font-bold text-state-error transition-colors hover:bg-red-50 disabled:cursor-wait disabled:opacity-70"
+      >
+        {queued ? "Enviado" : pending ? "Enviando…" : `Reimprimir adicional ${seq}`}
+      </button>
+      {error && (
+        <p role="alert" className="text-sm font-semibold text-white underline">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function FailedRow({ row }: { row: FailedRowModel }) {
   const router = useRouter();
@@ -63,6 +98,9 @@ function FailedRow({ row }: { row: FailedRowModel }) {
         {queued ? "Enviado" : pending ? "Enviando…" : "Reimprimir"}
       </button>
       )}
+      {row.addonSeqs.map((seq) => (
+        <AddonReprintButton key={seq} orderId={row.orderId} orderNumber={row.orderNumber} seq={seq} />
+      ))}
     </li>
   );
 }

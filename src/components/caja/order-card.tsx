@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { approveOrderAction, rejectOrderAction } from "@/app/(staff)/caja/actions";
 import { ClockIcon } from "@/components/menu/icons";
+import { OrderEditorDialog } from "@/components/orders/order-editor-dialog";
+import { useEditorAvailable } from "@/components/orders/editor-menu";
 import { formatARS } from "@/domain/money";
+import { editorItemsFromGroups } from "@/lib/orders/editor-math";
 import { formatOrderTime } from "@/lib/caja/labels";
 import type { CajaOrder } from "@/lib/orders/caja-queries";
 import { ElapsedBadge, urgencyBar } from "./elapsed-badge";
@@ -57,6 +60,8 @@ export function OrderCard({ order, now, fresh, resolved, onConflict, onDismiss }
   const { run, pending, error, clearError } = useGuardedAction();
   const [leaving, setLeaving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const canEdit = useEditorAvailable();
   const rejectRef = useRef<HTMLButtonElement>(null);
   const busy = pending || leaving;
   const timers = useRef<number[]>([]);
@@ -154,6 +159,18 @@ export function OrderCard({ order, now, fresh, resolved, onConflict, onDismiss }
                 {error}
               </p>
             )}
+            {canEdit && (
+              <button
+                type="button"
+                data-testid="edit-order"
+                disabled={busy}
+                aria-label={`Editar pedido #${order.number}`}
+                onClick={() => setEditing(true)}
+                className="mb-3 min-h-12 w-full rounded-full border-2 border-line bg-surface px-6 font-display text-base font-bold text-ink transition-colors hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Editar pedido
+              </button>
+            )}
             <OrderActions
               orderNumber={order.number}
               paymentMethod={order.paymentMethod}
@@ -170,6 +187,18 @@ export function OrderCard({ order, now, fresh, resolved, onConflict, onDismiss }
         )}
       </div>
 
+      {editing && (
+        <OrderEditorDialog
+          mode="edit"
+          orderId={order.id}
+          items={editorItemsFromGroups(order.items)}
+          open
+          onClose={() => setEditing(false)}
+          channel={order.channel}
+          paymentMethod={order.paymentMethod}
+          deliveryFee={order.deliveryFee}
+        />
+      )}
       {rejecting && (
         <RejectDialog
           orderNumber={order.number}
