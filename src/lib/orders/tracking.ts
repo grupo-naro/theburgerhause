@@ -1,7 +1,8 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import type { Fulfillment, OrderStatus } from "@/domain/order-status";
+import { storedUnitsSchema } from "./addons";
 import { groupTrackingItems, type SnapshotItem, type TrackingGroup } from "./tracking-groups";
 
 /**
@@ -38,6 +39,8 @@ export type TrackingOrder = {
   subtotal: number;
   deliveryFee: number;
   total: number;
+  /** Add-ons awaiting payment (transfer). Shown apart; NOT part of subtotal/total. Names and quantities only. */
+  pendingAddons: { seq: number; subtotal: number; lines: { name: string; quantity: number }[] }[];
 };
 
 export type TrackingStatus = {
@@ -103,6 +106,24 @@ export async function getOrderForTracking(db: Db, token: string): Promise<Tracki
   }
   const { groups } = groupTrackingItems([...items.values()]);
 
+  const addonRows = await db
+    .select({ seq: s.orderAddons.seq, subtotal: s.orderAddons.subtotal, units: s.orderAddons.units })
+    .from(s.orderAddons)
+    .innerJoin(s.orders, eq(s.orders.id, s.orderAddons.orderId))
+    .where(and(eq(s.orders.publicToken, token), eq(s.orderAddons.status, "pendiente_pago")))
+    .orderBy(asc(s.orderAddons.seq));
+  const pendingAddons: TrackingOrder["pendingAddons"] = [];
+  for (const a of addonRows) {
+    const stored = storedUnitsSchema.safeParse(a.units);
+    if (!stored.success) {
+      console.error("[orders] tracking: stored add-on units are invalid");
+      continue;
+    }
+    const counts = new Map<string, number>();
+    for (const u of stored.data) counts.set(u.product.name, (counts.get(u.product.name) ?? 0) + 1);
+    pendingAddons.push({ seq: a.seq, subtotal: a.subtotal, lines: [...counts].map(([name, quantity]) => ({ name, quantity })) });
+  }
+
   return {
     number: head.number,
     status: head.status,
@@ -118,6 +139,7 @@ export async function getOrderForTracking(db: Db, token: string): Promise<Tracki
     subtotal: head.subtotal,
     deliveryFee: head.deliveryFee,
     total: head.total,
+    pendingAddons,
   };
 }
 

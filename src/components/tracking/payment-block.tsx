@@ -11,12 +11,14 @@ type Props = {
   paid: boolean;
   fulfillment: Fulfillment;
   total: number;
+  /** Sum of add-ons still awaiting payment (0 when none). */
+  pendingAddonTotal?: number;
   /** Only passed while a transfer is still to be verified. */
   bank: { alias: string; cbu: string } | null;
 };
 
 /** How the order is paid: transfer data (with the copy affordance of checkout), cash note or "verified". */
-export function PaymentBlock({ paymentMethod, paid, fulfillment, total, bank }: Props) {
+export function PaymentBlock({ paymentMethod, paid, fulfillment, total, pendingAddonTotal = 0, bank }: Props) {
   // Only the LAST copied row confirms ("¡Copiado!"), and the confirmation is announced.
   const [copied, setCopied] = useState<string | null>(null);
   useEffect(() => {
@@ -81,6 +83,12 @@ export function PaymentBlock({ paymentMethod, paid, fulfillment, total, bank }: 
               {copied === "alias" ? "Alias copiado" : copied === "cbu" ? "CBU copiado" : ""}
             </p>
           </div>
+        )}
+        {paymentMethod === "transfer" && pendingAddonTotal > 0 && (
+          <p data-testid="pending-addon-payment" className="rounded-2xl bg-brand-50 p-3 text-sm font-medium text-ink">
+            Te falta pagar <strong className="tabular-nums">{formatARS(pendingAddonTotal)}</strong> del adicional; la vendedora te
+            pasa los datos por WhatsApp.
+          </p>
         )}
       </div>
     </section>

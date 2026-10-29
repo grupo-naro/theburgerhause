@@ -4,6 +4,10 @@ import type { Db } from "@/db/client";
 import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
+import { randomUUID } from "node:crypto";
+import { placeWebOrder, seedMenuAndStaff } from "@/test-support/orders";
+import { addOrderAddon, cancelAddon, confirmAddon } from "./addons";
+import { approveOrder } from "./approve-order";
 import { createOrder } from "./create-order";
 import { getOrderForTracking, getTrackingStatus } from "./tracking";
 
@@ -147,6 +151,7 @@ describe("getOrderForTracking", () => {
         "number",
         "paymentMethod",
         "paymentStatus",
+        "pendingAddons",
         "prepStartedAt",
         "status",
         "subtotal",
@@ -242,5 +247,77 @@ describe("getTrackingStatus", () => {
 
   it("unknown valid-shape token is null", async () => {
     expect(await getTrackingStatus(db(), "e".repeat(32))).toBeNull();
+  });
+});
+
+describe("tracking con adicionales", () => {
+  async function preparedTransfer() {
+    await resetDb();
+    const f = await seedMenuAndStaff();
+    const o = await placeWebOrder(f, { paymentMethod: "transfer" });
+    const r = await approveOrder(db(), { orderId: o.id, userId: f.userId, stationId: f.otherStationId, paymentVerified: true, sector: null });
+    if (!r.ok) throw new Error(r.message);
+    const [row] = await db().select({ token: s.orders.publicToken }).from(s.orders).where(eq(s.orders.id, o.id));
+    const add = async (units: { productId: number; modifierIds: number[]; note: string }[]) => {
+      const a = await addOrderAddon(db(), { orderId: o.id, userId: f.userId, sector: null, units, idempotencyKey: randomUUID() });
+      if (!a.ok) throw new Error("addon failed");
+      return a.data;
+    };
+    return { f, token: row.token, add };
+  }
+  const melt = (f: { melt: number }) => ({ productId: f.melt, modifierIds: [] as number[], note: "" });
+
+  it("el seguimiento muestra los productos del adicional confirmado y el total nuevo", async () => {
+    const { f, token, add } = await preparedTransfer();
+    const before = (await getOrderForTracking(db(), token))!;
+    const a = await add([melt(f)]);
+    const c = await confirmAddon(db(), { addonId: a.addonId, userId: f.userId, sector: null, paymentVerified: true });
+    expect(c.ok).toBe(true);
+    const after = (await getOrderForTracking(db(), token))!;
+    expect(after.total).toBe(before.total + a.subtotal);
+    expect(after.subtotal).toBe(before.subtotal + a.subtotal);
+    expect(after.groups.length).toBeGreaterThan(before.groups.length - 1);
+    expect(after.groups.reduce((n, g) => n + g.quantity, 0)).toBe(before.groups.reduce((n, g) => n + g.quantity, 0) + 1);
+    expect(after.pendingAddons).toEqual([]);
+  });
+
+  it("el adicional pendiente aparece aparte con su subtotal y sin entrar al total", async () => {
+    const { f, token, add } = await preparedTransfer();
+    const before = (await getOrderForTracking(db(), token))!;
+    const a = await add([melt(f), melt(f)]);
+    const after = (await getOrderForTracking(db(), token))!;
+    expect(after.total).toBe(before.total);
+    expect(after.subtotal).toBe(before.subtotal);
+    expect(after.groups).toEqual(before.groups);
+    expect(after.pendingAddons).toHaveLength(1);
+    const p = after.pendingAddons[0];
+    expect(Object.keys(p).sort()).toEqual(["lines", "seq", "subtotal"]);
+    expect(p.seq).toBe(1);
+    expect(p.subtotal).toBe(a.subtotal);
+    expect(p.lines).toHaveLength(1);
+    expect(Object.keys(p.lines[0]).sort()).toEqual(["name", "quantity"]);
+    expect(p.lines[0].quantity).toBe(2);
+    expect(Object.keys(after).sort()).toEqual(Object.keys(before).sort());
+  });
+
+  it("el adicional cancelado no aparece", async () => {
+    const { f, token, add } = await preparedTransfer();
+    const a = await add([melt(f)]);
+    const c = await cancelAddon(db(), { addonId: a.addonId, userId: f.userId, sector: null, reason: "secreto interno" });
+    expect(c.ok).toBe(true);
+    const after = (await getOrderForTracking(db(), token))!;
+    expect(after.pendingAddons).toEqual([]);
+    expect(JSON.stringify(after)).not.toContain("secreto interno");
+  });
+
+  it("el seguimiento detecta el cambio (updatedAt sube)", async () => {
+    const { f, token, add } = await preparedTransfer();
+    const t0 = (await getTrackingStatus(db(), token))!.updatedAt;
+    const a = await add([melt(f)]);
+    const t1 = (await getTrackingStatus(db(), token))!.updatedAt;
+    expect(t1 > t0).toBe(true);
+    await confirmAddon(db(), { addonId: a.addonId, userId: f.userId, sector: null, paymentVerified: true });
+    const t2 = (await getTrackingStatus(db(), token))!.updatedAt;
+    expect(t2 > t1).toBe(true);
   });
 });

@@ -64,6 +64,28 @@ export function OrderSummary({ order }: { order: TrackingOrder }) {
           </dd>
         </div>
       </dl>
+      {order.pendingAddons.length > 0 && (
+        <div data-testid="pending-addons" className="mt-4 space-y-2 rounded-2xl bg-brand-50 p-3">
+          <h3 className="font-display text-base font-bold text-ink">Adicional pendiente de pago</h3>
+          {order.pendingAddons.map((a) => (
+            <div key={a.seq} data-testid="pending-addon" className="border-t border-line pt-2 first:border-t-0 first:pt-0">
+              <ul className="space-y-0.5 text-sm text-ink">
+                {a.lines.map((l, i) => (
+                  <li key={i}>
+                    <span className="tabular-nums">{l.quantity}×</span> {l.name}
+                  </li>
+                ))}
+              </ul>
+              <p className={`${row} mt-1 text-sm`}>
+                <span className="text-ink-muted">Pendiente de pago</span>
+                <span data-testid="pending-addon-subtotal" className="font-bold tabular-nums text-ink">
+                  {formatARS(a.subtotal)}
+                </span>
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

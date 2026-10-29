@@ -93,6 +93,7 @@ export function TrackingView({
                 paid={order.paymentStatus === "paid"}
                 fulfillment={order.fulfillment}
                 total={order.total}
+                pendingAddonTotal={order.pendingAddons.reduce((n, a) => n + a.subtotal, 0)}
                 bank={bank ? { alias: bank.bankAlias, cbu: bank.bankCbu } : null}
               />
             </>
