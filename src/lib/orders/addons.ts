@@ -16,6 +16,7 @@ import { resolveUnits, type ResolvedUnit } from "./resolve-units";
 import { decideSector, type Sector } from "./sector";
 import { currentStateMessage, failure, UNEXPECTED_MESSAGE, type OrderResult } from "./transition";
 import { PAYMENT_NOT_VERIFIED_MESSAGE } from "./approve-order";
+import { idempotencyKeySchema, unitSchema } from "./schemas";
 
 /**
  * Add-ons: extra products added to an order that is already en_preparacion. Web transfer orders need the
@@ -28,7 +29,8 @@ import { PAYMENT_NOT_VERIFIED_MESSAGE } from "./approve-order";
 const id = z.number().int().positive().max(2_147_483_647);
 const NOTE_MAX = 500;
 
-export type AddonStatus = "confirmado" | "pendiente_pago";
+/** "cancelado" can only appear when an idempotent retry replays an add-on that was cancelled since. */
+export type AddonStatus = "confirmado" | "pendiente_pago" | "cancelado";
 
 // Persisted snapshot of the priced units (what insertOrderItems needs), re-validated when read back.
 const modifierSchema = z.object({
@@ -93,9 +95,10 @@ async function applyConfirmed(
   },
 ): Promise<{ ok: true; addonId: number; menuChanged: boolean } | OutOfStockFailure | { ok: false; code: "UNEXPECTED"; message: string }> {
   const { orderId, order, userId, units, subtotal, seq } = args;
+  // Before any write (stock included): the ticket needs the order's station.
+  if (order.stationId === null) return { ok: false, code: "UNEXPECTED", message: UNEXPECTED_MESSAGE };
   const stock = await adjustStockForOrder(tx, { orderId, add: units.map((u) => ({ productId: u.product.id })), remove: [], userId });
   if (!stock.ok) return outOfStock(stock);
-  if (order.stationId === null) return { ok: false, code: "UNEXPECTED", message: UNEXPECTED_MESSAGE };
 
   const addonId = await args.persist();
   await insertOrderItems(tx, orderId, units, { addonId });
@@ -129,10 +132,17 @@ export type AddOrderAddonInput = {
 export type AddOrderAddonData = { addonId: number; seq: number; status: AddonStatus; subtotal: number; menuChanged: boolean };
 
 export async function addOrderAddon(db: Db, raw: AddOrderAddonInput): Promise<OrderResult<AddOrderAddonData> | OutOfStockFailure> {
-  const parsed = z.object({ orderId: id, userId: id, key: z.string().min(1).max(200) }).safeParse({ orderId: raw.orderId, userId: raw.userId, key: raw.idempotencyKey });
-  if (!parsed.success || !Array.isArray(raw.units) || raw.units.length === 0) return failure("VALIDATION", "Solicitud inválida");
+  const parsed = z
+    .object({
+      orderId: id,
+      userId: id,
+      key: idempotencyKeySchema,
+      units: z.array(unitSchema).min(1).max(100),
+    })
+    .safeParse({ orderId: raw.orderId, userId: raw.userId, key: raw.idempotencyKey, units: raw.units });
+  if (!parsed.success) return failure("VALIDATION", "Solicitud inválida");
   const { orderId, userId, key } = parsed.data;
-  const inputUnits = raw.units;
+  const inputUnits: OrderUnitInput[] = parsed.data.units;
 
   try {
     return await db.transaction(async (tx): Promise<OrderResult<AddOrderAddonData> | OutOfStockFailure> => {

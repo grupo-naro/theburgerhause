@@ -260,6 +260,33 @@ describe("addons", () => {
     expect(await cancelAddon(db(), { addonId: c.data.addonId, userId: fx.userId, sector: null, reason: null })).toMatchObject({ ok: false, code: "INVALID_STATE" });
   });
 
+  it("valida unidades y clave: VALIDATION sin escribir nada", async () => {
+    const drink = await seedDrink(5);
+    const id = await prepared("cash");
+    const before = await order(id);
+    const bad = [
+      add(id, []),
+      add(id, Array.from({ length: 101 }, () => unit(fx.melt))),
+      add(id, [unit(fx.melt, [], "x".repeat(2000))]),
+      add(id, [{ productId: "1" as unknown as number, modifierIds: [], note: "" }]),
+      add(id, [unit(drink.productId)], { idempotencyKey: "" }),
+      add(id, [unit(drink.productId)], { idempotencyKey: "k".repeat(500) }),
+    ];
+    for (const r of await Promise.all(bad)) expect(r).toMatchObject({ ok: false, code: "VALIDATION" });
+    expect(await order(id)).toEqual(before);
+    expect(await db().select().from(s.orderAddons)).toHaveLength(0);
+    expect(await itemQty(drink.itemId)).toBe(5000);
+  });
+
+  it("pedido sin estación no deja movimientos de stock", async () => {
+    const drink = await seedDrink(5);
+    const id = await prepared("cash");
+    await db().update(s.orders).set({ stationId: null }).where(eq(s.orders.id, id));
+    expect(await add(id, [unit(drink.productId)])).toMatchObject({ ok: false, code: "UNEXPECTED" });
+    expect(await itemQty(drink.itemId)).toBe(5000);
+    expect(await db().select().from(s.orderAddons)).toHaveLength(0);
+  });
+
   it("respeta el sector", async () => {
     const id = await prepared("cash"); // delivery
     expect(await add(id, [unit(fx.melt)], { sector: "mostrador" })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
