@@ -245,6 +245,14 @@ export async function confirmAddon(db: Db, raw: ConfirmAddonInput): Promise<Orde
         console.error("[orders] confirmAddon: stored units are invalid");
         return failure("UNEXPECTED", UNEXPECTED_MESSAGE);
       }
+      // Re-check availability now: a product, its category or a modifier may have been deactivated since "Agregar".
+      // Only availability: the stored prices (what the customer was told and paid) are kept.
+      const sent: OrderUnitInput[] = stored.data.map((u) => ({ productId: u.product.id, modifierIds: u.modifiers.map((m) => m.id), note: u.note }));
+      const recheck = resolveUnits(sent, await loadCatalog(tx, [...new Set(sent.map((u) => u.productId))]));
+      if (!recheck.ok) {
+        const names = new Map(stored.data.map((u) => [u.product.id, u.product.name]));
+        return failure("VALIDATION", `${describeUnitIssues(recheck.issues, sent, names).join(" ")} Cancelá este adicional y cargá uno nuevo.`);
+      }
       const applied = await applyConfirmed(tx, {
         orderId,
         order,

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
@@ -12,6 +12,7 @@ import { approveOrder } from "./approve-order";
 import { cancelOrder } from "./cancel-order";
 import { createCounterOrder } from "./create-counter-order";
 import { markReady } from "./dispatch";
+import { editPendingOrder } from "./order-edit";
 
 const db = () => testDb();
 let fx: Fx;
@@ -296,5 +297,145 @@ describe("addons", () => {
     expect(await confirm(p.data.addonId, { sector: "mostrador" })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
     expect(await cancelAddon(db(), { addonId: p.data.addonId, userId: fx.userId, sector: "mostrador", reason: null })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
     expect(await confirm(p.data.addonId, { sector: "delivery" })).toMatchObject({ ok: true });
+  });
+});
+
+describe("confirmAddon re-checks availability (I4)", () => {
+  it("producto, categoría u opción desactivados entre Agregar y Confirmar → VALIDATION y nada cambia", async () => {
+    const [melt] = await db().select().from(s.products).where(eq(s.products.id, fx.melt));
+    const cases: [string, () => Promise<unknown>, () => Promise<unknown>, ReturnType<typeof unit>[]][] = [
+      ["producto", () => db().update(s.products).set({ active: false }).where(eq(s.products.id, fx.melt)), () => db().update(s.products).set({ active: true }).where(eq(s.products.id, fx.melt)), [unit(fx.melt)]],
+      ["categoría", () => db().update(s.categories).set({ active: false }).where(eq(s.categories.id, melt.categoryId)), () => db().update(s.categories).set({ active: true }).where(eq(s.categories.id, melt.categoryId)), [unit(fx.melt)]],
+      ["opción", () => db().update(s.modifiers).set({ active: false }).where(eq(s.modifiers.id, fx.dips)), () => db().update(s.modifiers).set({ active: true }).where(eq(s.modifiers.id, fx.dips)), [unit(fx.ranchita, [fx.dips])]],
+    ];
+    for (const [label, deactivate, reactivate, units] of cases) {
+      const id = await prepared("transfer");
+      const r = await add(id, units);
+      if (!r.ok) throw new Error(r.message);
+      await deactivate();
+      const before = await order(id);
+      const jobsBefore = await jobs(id);
+      const c = await confirm(r.data.addonId);
+      expect(c, label).toMatchObject({ ok: false, code: "VALIDATION" });
+      expect((c as { message: string }).message, label).toMatch(/ya no está disponible.*Cancelá este adicional/);
+      expect((await addon(r.data.addonId)).status, label).toBe("pendiente_pago");
+      expect(await order(id), label).toEqual(before);
+      expect(await jobs(id), label).toEqual(jobsBefore);
+      expect((await items(id)).filter((i) => i.addonId !== null), label).toHaveLength(0);
+      await reactivate();
+      expect(await confirm(r.data.addonId), label).toMatchObject({ ok: true });
+    }
+  });
+
+  it("un cambio de precio no bloquea: se mantienen los precios guardados", async () => {
+    const id = await prepared("transfer");
+    const r = await add(id, [unit(fx.melt)]);
+    if (!r.ok) throw new Error(r.message);
+    await db().update(s.products).set({ price: 1_00 }).where(eq(s.products.id, fx.melt));
+    const before = await order(id);
+    expect(await confirm(r.data.addonId)).toMatchObject({ ok: true });
+    expect((await order(id)).total).toBe(before.total + 8800_00);
+    expect((await items(id)).filter((i) => i.addonId === r.data.addonId).map((i) => i.unitPriceSnapshot)).toEqual([8800_00]);
+  });
+});
+
+describe("concurrency and invariants (M7)", () => {
+  it("dos confirmAddon en paralelo del mismo adicional: exactamente uno confirma; total y stock una sola vez", async () => {
+    const drink = await seedDrink(5);
+    const id = await prepared("transfer");
+    const r = await add(id, [unit(drink.productId), unit(fx.melt)]);
+    if (!r.ok) throw new Error(r.message);
+    const before = await order(id);
+    const results = await Promise.all([confirm(r.data.addonId), confirm(r.data.addonId)]);
+    expect(results.filter((x) => x.ok)).toHaveLength(1);
+    expect(results.filter((x) => !x.ok)).toEqual([expect.objectContaining({ ok: false, code: "INVALID_STATE" })]);
+    expect((await order(id)).total).toBe(before.total + 2500_00 + 8800_00);
+    expect(await itemQty(drink.itemId)).toBe(4000);
+    expect((await items(id)).filter((i) => i.addonId === r.data.addonId)).toHaveLength(2);
+    expect((await jobs(id)).filter((j) => j.type === "additional")).toHaveLength(1);
+  });
+
+  it("markReady compitiendo con confirmAddon: resultado consistente (confirmado y en ítems, o cancelado sin efectos)", async () => {
+    const outcomes = new Set<string>();
+    for (let round = 0; round < 6; round++) {
+      const drink = await seedDrink(5);
+      const id = await prepared("transfer");
+      const before = await order(id);
+      const r = await add(id, [unit(drink.productId)]);
+      if (!r.ok) throw new Error(r.message);
+      const [c, m] = await Promise.all([confirm(r.data.addonId), markReady(db(), { orderId: id, userId: fx.userId, sector: null })]);
+      expect(m).toMatchObject({ ok: true });
+      const a = await addon(r.data.addonId);
+      const after = await order(id);
+      const mine = (await items(id)).filter((i) => i.addonId === r.data.addonId);
+      expect(after.status).toBe("listo_despacho");
+      if (c.ok) {
+        // confirm won the lock: the add-on is part of the order that went out as Listo.
+        outcomes.add("confirmed");
+        expect(a.status).toBe("confirmado");
+        expect(mine).toHaveLength(1);
+        expect(after.total).toBe(before.total + 2500_00);
+        expect(await itemQty(drink.itemId)).toBe(4000);
+        expect(m).toMatchObject({ data: { cancelledAddons: 0 } });
+      } else {
+        // markReady won: the pending add-on was auto-cancelled and confirm finds it no longer pending.
+        outcomes.add("cancelled");
+        expect(c).toMatchObject({ code: "INVALID_STATE" });
+        expect(a.status).toBe("cancelado");
+        expect(mine).toHaveLength(0);
+        expect(after.total).toBe(before.total);
+        expect(await itemQty(drink.itemId)).toBe(5000);
+        expect(m).toMatchObject({ data: { cancelledAddons: 1 } });
+      }
+      await resetDb();
+      fx = await seedMenuAndStaff();
+    }
+    expect(outcomes.size).toBeGreaterThan(0);
+  });
+
+  /** orders.total = Σ(items + their modifiers) + deliveryFee, and the order's stock ledger nets to what it holds. */
+  async function expectInvariants(orderId: number, drink: { itemId: number; productId: number }) {
+    const o = await order(orderId);
+    const its = await items(orderId);
+    const mods = its.length
+      ? await db().select().from(s.orderItemModifiers).where(inArray(s.orderItemModifiers.orderItemId, its.map((i) => i.id)))
+      : [];
+    const sum = its.reduce((a, i) => a + i.unitPriceSnapshot, 0) + mods.reduce((a, m) => a + m.priceDelta, 0);
+    expect(o.subtotal).toBe(sum);
+    expect(o.total).toBe(sum + o.deliveryFee);
+    const moves = await db().select().from(s.stockMovements).where(and(eq(s.stockMovements.orderId, orderId), eq(s.stockMovements.itemId, drink.itemId)));
+    const held = its.filter((i) => i.productId === drink.productId).length;
+    expect(moves.reduce((a, mv) => a + mv.qtyDelta, 0)).toBe(-held * 1000);
+  }
+
+  it("invariante tras una secuencia mixta: edición, adicional efectivo, adicional transferencia confirmado y otro cancelado", async () => {
+    const drink = await seedDrink(20);
+
+    // Transfer order: edited while pending (+2 drinks, -1 drink, -1 burger), approved, add-on confirmed, another cancelled.
+    const t = await placeWebOrder(fx, { paymentMethod: "transfer", units: [unit(fx.melt), unit(drink.productId), unit(fx.ranchita, [fx.dips])] });
+    const tItems = await items(t.id);
+    const e1 = await editPendingOrder(db(), { orderId: t.id, userId: fx.userId, sector: null, removeItemIds: [tItems[0].id, tItems[1].id], addUnits: [unit(drink.productId), unit(drink.productId, [], "fría")] });
+    if (!e1.ok) throw new Error(e1.message);
+    await expectInvariants(t.id, drink);
+    const { total } = await order(t.id);
+    expect(await approveOrder(db(), { orderId: t.id, userId: fx.userId, stationId: fx.otherStationId, paymentVerified: true, sector: null, expectedTotal: total })).toMatchObject({ ok: true });
+    const ta = await add(t.id, [unit(drink.productId), unit(fx.ranchita, [fx.dips, fx.sinCheddar])]);
+    const tb = await add(t.id, [unit(drink.productId)]);
+    if (!ta.ok || !tb.ok) throw new Error("setup");
+    expect(await confirm(ta.data.addonId)).toMatchObject({ ok: true });
+    expect(await cancelAddon(db(), { addonId: tb.data.addonId, userId: fx.userId, sector: null, reason: "no pagó" })).toMatchObject({ ok: true });
+    await expectInvariants(t.id, drink);
+
+    // Cash order: edited while pending (-1 drink), approved, cash add-on (+2 drinks) applied at once.
+    const c = await placeWebOrder(fx, { paymentMethod: "cash", units: [unit(drink.productId), unit(fx.melt)] });
+    const cItems = await items(c.id);
+    const e2 = await editPendingOrder(db(), { orderId: c.id, userId: fx.userId, sector: null, removeItemIds: [cItems[0].id], addUnits: [unit(fx.ranchita, [fx.descuento])] });
+    if (!e2.ok) throw new Error(e2.message);
+    expect(await approveOrder(db(), { orderId: c.id, userId: fx.userId, stationId: fx.otherStationId, paymentVerified: false, sector: null })).toMatchObject({ ok: true });
+    expect(await add(c.id, [unit(drink.productId), unit(drink.productId)])).toMatchObject({ ok: true, data: { status: "confirmado" } });
+    await expectInvariants(c.id, drink);
+
+    // Global stock: 20 - transfer (2 held after edit + 1 add-on) - cash (0 after edit + 2 add-on) = 15.
+    expect(await itemQty(drink.itemId)).toBe(15000);
   });
 });
