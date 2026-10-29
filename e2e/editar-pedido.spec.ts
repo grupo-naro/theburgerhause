@@ -139,6 +139,7 @@ test.describe("add-ons on an order in preparation", () => {
     await expect(editor(page).getByTestId("editor-remove")).toHaveCount(0);
     await addInEditor(page);
     await expect(editor(page).getByTestId("editor-payment-copy")).toContainText(`Se cobra ${formatARS(added.price)} al entregar`);
+    await expect(editor(page).getByTestId("editor-order-total")).toHaveText(formatARS(before.total + added.price));
     await editor(page).getByTestId("editor-save").click();
     await expect(editor(page)).toHaveCount(0);
 

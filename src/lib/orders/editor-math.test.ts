@@ -1,6 +1,7 @@
 import { formatARS } from "@/domain/money";
 import { describe, expect, it } from "vitest";
-import { addonPaymentCopy, editedTotal, editorItemsFromGroups, keptSubtotal, unitsAfterEdit, type EditorItem } from "./editor-math";
+import { createKeyHolder } from "@/lib/checkout/idempotency";
+import { addonPaymentCopy, addonSubmissionSignature, editedTotal, editorItemsFromGroups, keptSubtotal, totalWithAddon, unitsAfterEdit, type EditorItem } from "./editor-math";
 
 const items: EditorItem[] = [
   { id: 1, label: "Ranchita", total: 8_000_00, addonSeq: null },
@@ -48,5 +49,43 @@ describe("addonPaymentCopy", () => {
   it("the counter charges right now, whatever the method", () => {
     expect(addonPaymentCopy({ channel: "counter", paymentMethod: "cash", amount })).toBe(`Cobrá ${formatARS(amount)} ahora`);
     expect(addonPaymentCopy({ channel: "counter", paymentMethod: "transfer", amount })).toBe(`Cobrá ${formatARS(amount)} ahora`);
+  });
+});
+
+describe("totalWithAddon (add mode: Total del pedido)", () => {
+  it("web cash and counter orders: current total + the add-on", () => {
+    expect(totalWithAddon({ channel: "web", paymentMethod: "cash", orderTotal: 20_000_00, added: 3_500_00 })).toBe(23_500_00);
+    expect(totalWithAddon({ channel: "counter", paymentMethod: "cash", orderTotal: 9_000_00, added: 1_000_00 })).toBe(10_000_00);
+    expect(totalWithAddon({ channel: "counter", paymentMethod: "transfer", orderTotal: 9_000_00, added: 1_000_00 })).toBe(10_000_00);
+  });
+  it("web transfer: null (the add-on waits for the payment, the total does not change yet)", () => {
+    expect(totalWithAddon({ channel: "web", paymentMethod: "transfer", orderTotal: 20_000_00, added: 3_500_00 })).toBeNull();
+  });
+});
+
+describe("add-on idempotency key (addonSubmissionSignature + createKeyHolder in memory)", () => {
+  const a = { productId: 1, modifierIds: [2], note: "" };
+  const b = { productId: 3, modifierIds: [], note: "fría" };
+  const keys = () => {
+    let i = 0;
+    return () => `${++i}1111111-1111-4111-8111-111111111111`;
+  };
+
+  it("an identical retry (same order, same draft in any order) keeps the key", () => {
+    const h = createKeyHolder(null, keys());
+    const k1 = h.get(addonSubmissionSignature(7, [a, b]));
+    expect(h.get(addonSubmissionSignature(7, [b, a]))).toBe(k1);
+  });
+
+  it("a changed draft after a failed/unknown attempt rotates the key", () => {
+    const h = createKeyHolder(null, keys());
+    const k1 = h.get(addonSubmissionSignature(7, [a]));
+    const k2 = h.get(addonSubmissionSignature(7, [a, b]));
+    expect(k2).not.toBe(k1);
+    expect(h.get(addonSubmissionSignature(7, [a, { ...b, note: "natural" }]))).not.toBe(k2);
+  });
+
+  it("the order is part of the identity", () => {
+    expect(addonSubmissionSignature(7, [a])).not.toBe(addonSubmissionSignature(8, [a]));
   });
 });

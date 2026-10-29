@@ -116,6 +116,7 @@ export function PreparingCard({ order, now, canMark, canEditTanda = false }: Pro
           onClose={() => setAdding(false)}
           channel={order.channel}
           paymentMethod={order.paymentMethod}
+          orderTotal={order.total}
         />
       )}
     </article>

@@ -1,4 +1,6 @@
 import { formatARS } from "@/domain/money";
+import type { OrderUnitInput } from "@/lib/cart/types";
+import { cartSignature } from "@/lib/checkout/idempotency";
 import type { TrackingGroup } from "./tracking-groups";
 
 /** Pure logic of the order editor dialog (no React): what each unit is worth, the new total and the payment copy. */
@@ -45,4 +47,22 @@ export function addonPaymentCopy(args: { channel: "web" | "counter"; paymentMeth
   return args.paymentMethod === "transfer"
     ? `Queda pendiente hasta confirmar la transferencia de ${amount}`
     : `Se cobra ${amount} al entregar`;
+}
+
+/**
+ * Add mode: the order total once the add-on is applied, shown only when the add-on applies at once (web cash and
+ * counter orders). A web transfer add-on waits for payment verification, so the total does not change yet: null.
+ */
+export function totalWithAddon(args: { channel: "web" | "counter"; paymentMethod: "cash" | "transfer"; orderTotal: number; added: number }): number | null {
+  if (args.channel === "web" && args.paymentMethod === "transfer") return null;
+  return args.orderTotal + args.added;
+}
+
+/**
+ * Identity of one add-on submission (order + draft contents) for the idempotency key holder: an identical retry
+ * after a lost answer keeps the key (the server replays the same add-on); a changed draft gets a new key, so new
+ * lines are never silently dropped by a replay of the first attempt.
+ */
+export function addonSubmissionSignature(orderId: number, units: readonly OrderUnitInput[]): string {
+  return `${orderId}|${cartSignature(units)}`;
 }

@@ -82,8 +82,11 @@ export function CartProvider({
   storageKey = CART_STORAGE_KEY,
 }: {
   children: ReactNode;
-  /** localStorage key; the storefront uses the default, the POS one cart per station. */
-  storageKey?: string;
+  /**
+   * localStorage key; the storefront uses the default, the POS one cart per station. `null` = memory only: nothing is
+   * read, written or synced across tabs (the order editor: a draft belongs to ONE dialog opening of ONE order).
+   */
+  storageKey?: string | null;
 }) {
   const index = useMenuIndex();
   const [state, dispatch] = useReducer((s: typeof emptyCart, a: CartAction) => cartReducer(s, a, newId), emptyCart);
@@ -108,7 +111,7 @@ export function CartProvider({
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
-    const loaded = initCart(readRaw(storageKey), index);
+    const loaded = initCart(storageKey === null ? null : readRaw(storageKey), index);
     pricesRef.current = loaded.prices;
     dispatch({ type: "hydrate", lines: loaded.lines });
     setIssues(loaded.issues);
@@ -127,12 +130,13 @@ export function CartProvider({
 
   // 3) Persist every change (never before the stored cart was loaded).
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || storageKey === null) return;
     saveCart(readStorage(), state, pricesRef.current, storageKey);
   }, [ready, state, storageKey]);
 
-  // 4) Other tabs.
+  // 4) Other tabs (never for a memory-only cart).
   useEffect(() => {
+    if (storageKey === null) return;
     const onStorage = (e: StorageEvent) => {
       if (!isCartStorageEvent(e.key, storageKey)) return;
       const loaded = initCart(readRaw(storageKey), indexRef.current);

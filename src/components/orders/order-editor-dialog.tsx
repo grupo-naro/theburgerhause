@@ -14,7 +14,8 @@ import { toOrderUnits } from "@/lib/cart/order-input";
 import { lineTotalFor } from "@/lib/cart/pricing";
 import type { UnitConfig } from "@/lib/cart/types";
 import type { PublicProduct } from "@/lib/menu/public";
-import { addonPaymentCopy, editedTotal, unitsAfterEdit, type EditorItem } from "@/lib/orders/editor-math";
+import { createKeyHolder } from "@/lib/checkout/idempotency";
+import { addonPaymentCopy, addonSubmissionSignature, editedTotal, totalWithAddon, unitsAfterEdit, type EditorItem } from "@/lib/orders/editor-math";
 import { PLAIN_UNIT, ticketTotals } from "@/lib/pos/fast-path";
 
 export type { EditorItem } from "@/lib/orders/editor-math";
@@ -30,10 +31,15 @@ type Props = {
   paymentMethod?: "cash" | "transfer";
   /** Centavos; an edit never recalculates it. */
   deliveryFee?: number;
+  /** Add mode: the order's current total (centavos), to show "Total del pedido" when the add-on applies at once. */
+  orderTotal?: number;
 };
 
-/** Its own cart key: the editor's draft never mixes with the POS ticket or the storefront cart. */
-const EDITOR_CART_KEY = "bh_order_editor_v1";
+/**
+ * Memory-only draft (no localStorage key): it never mixes with the POS ticket or the storefront cart and is never
+ * synced across tabs, so a draft started for one order cannot leak into another tab's dialog (or another order).
+ */
+const EDITOR_CART_KEY = null;
 const MAX_MESSAGE = "Llegaste al máximo de unidades.";
 const NO_PULSES: Record<number, number> = {};
 
@@ -70,6 +76,7 @@ function EditorBody({
   channel = "web",
   paymentMethod = "cash",
   deliveryFee = 0,
+  orderTotal,
   titleId,
   onBusy,
 }: Props & { titleId: string; onBusy: (busy: boolean) => void }) {
@@ -78,27 +85,24 @@ function EditorBody({
   const index = useMenuIndex();
   const { run, pending, error, clearError } = useGuardedAction();
   const searchRef = useRef<HTMLInputElement>(null);
-  /** One key per opening of the dialog: a retry after a lost answer dedups on the server. */
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  /**
+   * Add-on idempotency key, in memory for this opening: an identical retry after a lost answer reuses it (the server
+   * replays the same add-on); a changed draft gets a new one, so its new lines are never dropped by a replay.
+   */
+  const keyHolder = useRef<ReturnType<typeof createKeyHolder> | null>(null);
   const [removed, setRemoved] = useState<ReadonlySet<number>>(new Set());
   const [configure, setConfigure] = useState<ConfigureRequest | null>(null);
   const [soldOut, setSoldOut] = useState<ReadonlySet<number>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Start every opening from an empty draft (the cart persists in localStorage).
-  const cleared = useRef(false);
-  const { ready, clear } = cart;
-  useEffect(() => {
-    if (ready && !cleared.current) {
-      cleared.current = true;
-      clear();
-    }
-  }, [ready, clear]);
+  // Every opening starts from an empty draft: the cart is memory-only and mounted with the dialog.
+  const { ready } = cart;
   useEffect(() => onBusy(pending), [pending, onBusy]);
 
   const added = ticketTotals(cart.lines, index).subtotal;
   const isEdit = mode === "edit";
   const total = editedTotal({ items, removedIds: removed, addedSubtotal: added, deliveryFee });
+  const orderTotalAfter = orderTotal === undefined ? null : totalWithAddon({ channel, paymentMethod, orderTotal, added });
   const leftUnits = unitsAfterEdit(items, removed, cart.count);
   const changed = isEdit ? removed.size > 0 || cart.count > 0 : cart.count > 0;
   const empty = isEdit && leftUnits < 1;
@@ -139,7 +143,11 @@ function EditorBody({
       },
     };
     if (isEdit) run(() => editPendingOrderAction({ orderId, removeItemIds: [...removed], addUnits: units }), handlers);
-    else run(() => addAddonAction({ orderId, units, idempotencyKey }), handlers);
+    else {
+      keyHolder.current ??= createKeyHolder(null);
+      const idempotencyKey = keyHolder.current.get(addonSubmissionSignature(orderId, units));
+      run(() => addAddonAction({ orderId, units, idempotencyKey }), handlers);
+    }
   }
 
   return (
@@ -247,6 +255,14 @@ function EditorBody({
                   {formatARS(added)}
                 </span>
               </p>
+              {cart.count > 0 && orderTotalAfter !== null && (
+                <p className="flex items-baseline justify-between gap-3 text-ink-muted">
+                  <span className="text-base font-semibold">Total del pedido</span>
+                  <span data-testid="editor-order-total" className="text-xl font-bold tabular-nums">
+                    {formatARS(orderTotalAfter)}
+                  </span>
+                </p>
+              )}
               {cart.count > 0 && (
                 <p data-testid="editor-payment-copy" className="rounded-xl bg-cheddar-400/25 px-3 py-2 text-base font-bold text-ink">
                   {addonPaymentCopy({ channel, paymentMethod, amount: added })}
