@@ -256,7 +256,7 @@ describe("seed", () => {
 describe("print_job_type enum (migration 0005)", () => {
   it("keeps the history values and adds delivery + customer, in that order", async () => {
     const r = await db().execute(sql`SELECT unnest(enum_range(NULL::print_job_type))::text AS v`);
-    expect((r.rows as { v: string }[]).map((x) => x.v)).toEqual(["kitchen", "ticket", "delivery", "customer"]);
+    expect((r.rows as { v: string }[]).map((x) => x.v)).toEqual(["kitchen", "ticket", "delivery", "customer", "additional"]);
   });
 
   it("rows of every kind are legal (old kitchen/ticket history, new delivery/customer)", async () => {
@@ -267,5 +267,38 @@ describe("print_job_type enum (migration 0005)", () => {
     }
     const got = await db().select().from(s.printJobs).where(eq(s.printJobs.orderId, o.id)).orderBy(s.printJobs.id);
     expect(got.map((j) => j.type)).toEqual(["kitchen", "ticket", "delivery", "customer"]);
+  });
+});
+
+describe("order_addons", () => {
+  const addonValues = (orderId: number, over: Partial<typeof s.orderAddons.$inferInsert> = {}): typeof s.orderAddons.$inferInsert => ({
+    orderId,
+    seq: 1,
+    status: "pendiente_pago",
+    units: [],
+    subtotal: 1000,
+    ...over,
+  });
+
+  it("order_addons rechaza seq duplicado por pedido", async () => {
+    const [a] = await db().insert(s.orders).values(orderValues()).returning({ id: s.orders.id });
+    const [b] = await db().insert(s.orders).values(orderValues()).returning({ id: s.orders.id });
+    await db().insert(s.orderAddons).values(addonValues(a.id));
+    expect(await pgCode(db().insert(s.orderAddons).values(addonValues(a.id)))).toBe(UNIQUE_VIOLATION);
+    expect(await pgCode(db().insert(s.orderAddons).values(addonValues(b.id)))).toBeUndefined();
+    expect(await pgCode(db().insert(s.orderAddons).values(addonValues(a.id, { seq: 2 })))).toBeUndefined();
+  });
+
+  it("order_addons.idempotency_key es único", async () => {
+    const [a] = await db().insert(s.orders).values(orderValues()).returning({ id: s.orders.id });
+    await db().insert(s.orderAddons).values(addonValues(a.id, { idempotencyKey: "k1" }));
+    expect(await pgCode(db().insert(s.orderAddons).values(addonValues(a.id, { seq: 2, idempotencyKey: "k1" })))).toBe(UNIQUE_VIOLATION);
+    expect(await pgCode(db().insert(s.orderAddons).values(addonValues(a.id, { seq: 2 })))).toBeUndefined();
+    expect(await pgCode(db().insert(s.orderAddons).values(addonValues(a.id, { seq: 3 })))).toBeUndefined();
+  });
+
+  it("order_addons rechaza subtotal negativo", async () => {
+    const [a] = await db().insert(s.orders).values(orderValues()).returning({ id: s.orders.id });
+    expect(await pgCode(db().insert(s.orderAddons).values(addonValues(a.id, { subtotal: -1 })))).toBe(CHECK_VIOLATION);
   });
 });

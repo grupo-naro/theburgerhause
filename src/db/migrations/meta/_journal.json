@@ -92,6 +92,13 @@
       "when": 1793042322727,
       "tag": "0012_delay_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793294092482,
+      "tag": "0013_order_addons",
+      "breakpoints": true
     }
   ]
 }

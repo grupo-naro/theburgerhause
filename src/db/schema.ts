@@ -44,12 +44,13 @@ export const printJobStatus = pgEnum("print_job_status", [
   "failed",
 ]);
 /** `kitchen` and `ticket` are legacy/future: history rows (ticket = the old customer ticket) and the KDS phase. Orders enqueue `kitchen`, `customer` and `delivery` (`ticket` only exists in history). */
-export const printJobType = pgEnum("print_job_type", ["kitchen", "ticket", "delivery", "customer"]);
+export const printJobType = pgEnum("print_job_type", ["kitchen", "ticket", "delivery", "customer", "additional"]);
 export const modifierKind = pgEnum("modifier_kind", ["remove", "add", "swap"]);
 export const stationKind = pgEnum("station_kind", ["mostrador", "delivery"]);
 export const stockItemKind = pgEnum("stock_item_kind", ["bebida", "materia_prima"]);
 export const stockUnit = pgEnum("stock_unit", ["kg", "u", "l"]);
-export const stockMovementKind = pgEnum("stock_movement_kind", ["ajuste_inicial", "ingreso", "consumo", "venta", "devolucion"]);
+export const stockMovementKind = pgEnum("stock_movement_kind", ["ajuste_inicial", "ingreso", "consumo", "venta", "devolucion", "ajuste_pedido"]);
+export const addonStatus = pgEnum("addon_status", ["pendiente_pago", "confirmado", "cancelado"]);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
@@ -239,6 +240,42 @@ export const orders = pgTable(
   ],
 );
 
+/**
+ * Add-on ("adicional") to an existing order. `units` is the serialized ResolvedUnit[] kept while it is
+ * pendiente_pago; confirming it inserts the order_items (with addon_id) and moves the order totals.
+ */
+export const orderAddons = pgTable(
+  "order_addons",
+  {
+    id: serial("id").primaryKey(),
+    orderId: integer("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    seq: smallint("seq").notNull(),
+    status: addonStatus("status").notNull(),
+    units: jsonb("units").notNull(),
+    subtotal: integer("subtotal").notNull(),
+    idempotencyKey: text("idempotency_key"),
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    confirmedBy: integer("confirmed_by").references(() => users.id, { onDelete: "set null" }),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    cancelledBy: integer("cancelled_by").references(() => users.id, { onDelete: "set null" }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
+  },
+  (t) => [
+    unique("order_addons_order_seq_unique").on(t.orderId, t.seq),
+    uniqueIndex("order_addons_idempotency_key_unique")
+      .on(t.idempotencyKey)
+      .where(sql`${t.idempotencyKey} IS NOT NULL`),
+    index("order_addons_created_by_idx").on(t.createdBy),
+    index("order_addons_confirmed_by_idx").on(t.confirmedBy),
+    index("order_addons_cancelled_by_idx").on(t.cancelledBy),
+    check("order_addons_subtotal_nonneg", sql`${t.subtotal} >= 0`),
+  ],
+);
+
 /** One row per unit (2 burgers = 2 rows, each with its own modifiers). */
 export const orderItems = pgTable(
   "order_items",
@@ -252,8 +289,14 @@ export const orderItems = pgTable(
     nameSnapshot: text("name_snapshot").notNull(),
     unitPriceSnapshot: integer("unit_price_snapshot").notNull(),
     notes: text("notes"),
+    /** NULL for the original order; set for units that came in through an add-on. */
+    addonId: integer("addon_id").references(() => orderAddons.id, { onDelete: "restrict" }),
   },
-  (t) => [index("order_items_order_idx").on(t.orderId), index("order_items_product_idx").on(t.productId)],
+  (t) => [
+    index("order_items_order_idx").on(t.orderId),
+    index("order_items_product_idx").on(t.productId),
+    index("order_items_addon_idx").on(t.addonId),
+  ],
 );
 
 export const orderItemModifiers = pgTable(
@@ -446,18 +489,18 @@ export const stockMovements = pgTable(
     uniqueIndex("stock_movements_idempotency_key_unique")
       .on(t.idempotencyKey)
       .where(sql`${t.idempotencyKey} IS NOT NULL`),
-    /** At most one venta and one devolucion per order and item. */
+    /** At most one venta and one devolucion per order and item (ajuste_pedido may repeat). Only old enum values here (the new one cannot be used in its own migration). */
     uniqueIndex("stock_movements_order_item_kind_unique")
       .on(t.orderId, t.itemId, t.kind)
-      .where(sql`${t.orderId} IS NOT NULL`),
+      .where(sql`${t.orderId} IS NOT NULL AND ${t.kind} IN ('venta','devolucion')`),
     index("stock_movements_item_idx").on(t.itemId, t.id),
     index("stock_movements_user_idx").on(t.userId),
     index("stock_movements_edited_by_idx").on(t.editedBy),
     check(
       "stock_movements_sign",
-      sql`(${t.kind} IN ('consumo','venta') AND ${t.qtyDelta} <= 0) OR (${t.kind} IN ('ajuste_inicial','ingreso','devolucion') AND ${t.qtyDelta} >= 0)`,
+      sql`(${t.kind}::text IN ('consumo','venta') AND ${t.qtyDelta} <= 0) OR (${t.kind}::text IN ('ajuste_inicial','ingreso','devolucion') AND ${t.qtyDelta} >= 0) OR (${t.kind}::text = 'ajuste_pedido' AND ${t.qtyDelta} <> 0)`,
     ),
-    check("stock_movements_order_only_sales", sql`${t.orderId} IS NULL OR ${t.kind} IN ('venta','devolucion')`),
+    check("stock_movements_order_only_sales", sql`${t.orderId} IS NULL OR ${t.kind}::text IN ('venta','devolucion','ajuste_pedido')`),
     check("stock_movements_note_len", sql`char_length(${t.note}) <= 200`),
   ],
 );

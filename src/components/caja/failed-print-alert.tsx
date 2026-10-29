@@ -13,6 +13,7 @@ const TYPE_LABEL = {
   customer: "Ticket cliente",
   ticket: "Ticket cliente", // legacy rows (before the ticket redesign)
   kitchen: "Ticket cocina",
+  additional: "Ticket adicional",
 } as const;
 
 function FailedRow({ row }: { row: FailedRowModel }) {

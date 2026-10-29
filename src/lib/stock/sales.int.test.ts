@@ -12,7 +12,7 @@ import { createOrder } from "@/lib/orders/create-order";
 import { rejectOrder } from "@/lib/orders/reject-order";
 import { seedMenuAndStaff, type Fx } from "@/test-support/orders";
 import { registerIngreso, setInitialStock } from "./movements";
-import { outOfStockMessage, returnStockForOrder } from "./sales";
+import { adjustStockForOrder, outOfStockMessage, returnStockForOrder } from "./sales";
 import { itemQty, key, movementsOf, productFlags } from "./test-fixtures";
 
 const db = () => testDb();
@@ -314,6 +314,85 @@ describe("returns on rejection and cancellation, exactly once", () => {
       data: { orderId, status: "cancelado" },
     });
     expect(await db().select().from(s.stockMovements).where(eq(s.stockMovements.orderId, orderId))).toHaveLength(0);
+  });
+});
+
+describe("order adjustments (ajuste_pedido)", () => {
+  const adjustmentsOf = async (itemId: number) => (await movementsOf(itemId)).filter((m) => m.kind === "ajuste_pedido");
+  const adjust = (orderId: number, add: number[], remove: number[]) =>
+    db().transaction((tx) =>
+      adjustStockForOrder(tx, { orderId, add: add.map((productId) => ({ productId })), remove: remove.map((productId) => ({ productId })), userId: fx.userId }),
+    );
+
+  it("adjustStockForOrder agrega una bebida ya vendida sin chocar con el índice único", async () => {
+    await initial(fx.coca, 5);
+    const orderId = await webOrder([fx.cocaProduct]);
+    expect(await adjust(orderId, [fx.cocaProduct], [])).toMatchObject({ ok: true });
+    expect(await itemQty(fx.coca)).toBe(3000);
+    expect(await adjust(orderId, [fx.cocaProduct], [])).toMatchObject({ ok: true });
+    expect(await itemQty(fx.coca)).toBe(2000);
+    const rows = (await movementsOf(fx.coca)).filter((m) => m.orderId === orderId);
+    expect(rows.map((m) => [m.kind, m.qtyDelta])).toEqual([
+      ["venta", -1000],
+      ["ajuste_pedido", -1000],
+      ["ajuste_pedido", -1000],
+    ]);
+  });
+
+  it("adjustStockForOrder repone al quitar", async () => {
+    await initial(fx.coca, 5);
+    const orderId = await webOrder([fx.cocaProduct]);
+    expect(await adjust(orderId, [], [fx.cocaProduct])).toMatchObject({ ok: true });
+    expect(await itemQty(fx.coca)).toBe(5000);
+    expect((await adjustmentsOf(fx.coca)).map((m) => m.qtyDelta)).toEqual([1000]);
+  });
+
+  it("adjustStockForOrder con faltante no escribe nada", async () => {
+    await initial(fx.coca, 1);
+    await initial(fx.sprite, 5);
+    const orderId = await webOrder([fx.cocaProduct]);
+    const r = await adjust(orderId, [fx.cocaProduct, fx.spriteProduct], []);
+    expect(r).toMatchObject({ ok: false, code: "OUT_OF_STOCK", productIds: [fx.cocaProduct] });
+    expect(await adjustmentsOf(fx.coca)).toHaveLength(0);
+    expect(await adjustmentsOf(fx.sprite)).toHaveLength(0);
+    expect(await itemQty(fx.sprite)).toBe(5000);
+  });
+
+  it("adjustStockForOrder netea agregar y quitar del mismo artículo", async () => {
+    await initial(fx.coca, 1);
+    const orderId = await webOrder([fx.cocaProduct]);
+    expect(await adjust(orderId, [fx.cocaProduct], [fx.cocaProduct])).toMatchObject({ ok: true });
+    expect(await adjustmentsOf(fx.coca)).toHaveLength(0);
+    expect(await itemQty(fx.coca)).toBe(0);
+  });
+
+  it("returnStockForOrder devuelve el neto tras ajustes", async () => {
+    await initial(fx.coca, 5);
+    const orderId = await webOrder([fx.cocaProduct]);
+    await adjust(orderId, [fx.cocaProduct, fx.cocaProduct], []);
+    expect(await itemQty(fx.coca)).toBe(2000);
+    await db().transaction((tx) => returnStockForOrder(tx, { orderId, userId: fx.userId }));
+    expect(await itemQty(fx.coca)).toBe(5000);
+    expect((await salesOf(fx.coca)).filter((m) => m.kind === "devolucion").map((m) => m.qtyDelta)).toEqual([3000]);
+  });
+
+  it("returnStockForOrder sigue siendo idempotente", async () => {
+    await initial(fx.coca, 5);
+    const orderId = await webOrder([fx.cocaProduct]);
+    await adjust(orderId, [fx.cocaProduct], []);
+    await db().transaction((tx) => returnStockForOrder(tx, { orderId, userId: null }));
+    await db().transaction((tx) => returnStockForOrder(tx, { orderId, userId: null }));
+    expect(await itemQty(fx.coca)).toBe(5000);
+    expect((await salesOf(fx.coca)).filter((m) => m.kind === "devolucion")).toHaveLength(1);
+  });
+
+  it("returnStockForOrder no escribe si el neto vendido es cero", async () => {
+    await initial(fx.coca, 5);
+    const orderId = await webOrder([fx.cocaProduct]);
+    await adjust(orderId, [], [fx.cocaProduct]);
+    await db().transaction((tx) => returnStockForOrder(tx, { orderId, userId: null }));
+    expect(await itemQty(fx.coca)).toBe(5000);
+    expect((await salesOf(fx.coca)).filter((m) => m.kind === "devolucion")).toHaveLength(0);
   });
 });
 

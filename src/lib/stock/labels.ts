@@ -12,4 +12,5 @@ export const MOVEMENT_LABEL: Record<MovementKind, string> = {
   consumo: "Consumo",
   venta: "Venta",
   devolucion: "Devolución",
+  ajuste_pedido: "Ajuste de pedido",
 };

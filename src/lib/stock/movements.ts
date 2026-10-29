@@ -41,6 +41,7 @@ const REASON: Record<MovementKind, StockEventReason> = {
   consumo: "consumo",
   venta: "venta",
   devolucion: "devolucion",
+  ajuste_pedido: "venta",
 };
 
 /**
