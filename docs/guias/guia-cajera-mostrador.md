@@ -78,6 +78,34 @@ tocar **Entregado** aparece **"Cobrá $… antes de entregar"**: recibí la plat
 
 **Recientes** (abajo): últimos pedidos con su estado y la marca de impresión (**Impresión: ok / pendiente / falló**) y el botón **Reimprimir**.
 
+## Modificar un pedido
+
+Si el cliente te escribe por WhatsApp para cambiar algo, **no cargues un pedido nuevo**: modificá el mismo. Así hay un solo número, un solo envío y la cocina ve todo. Lo que se puede hacer depende de en qué punto está el pedido.
+
+**Antes de aprobarlo** (pedidos web de **Retiro en local**, pestaña **Por aprobar**): tocá **Editar pedido** en la tarjeta.
+
+1. Para sacar algo, tocá **Quitar** al lado de esa unidad (si te arrepentís, **Deshacer**). Para sumar algo, elegilo abajo, en **Agregar**.
+2. Mirá el **Total nuevo** que aparece antes de guardar. El costo de envío no cambia.
+3. Tocá **Guardar cambios**. El pedido tiene que quedar con al menos un producto: si no se va a hacer nada, usá **Rechazar**.
+
+**Con el pedido ya aprobado (En preparación)**: ya no se puede sacar ni cambiar lo que estaba, **solo agregar**. En la tarjeta tocá **Agregar productos** (en **Retiro en local**, pestaña **En preparación**, o en **Mostrador** para las ventas de mostrador).
+
+1. Elegí lo que se suma y tocá **Agregar al pedido**. Antes de guardar, el cuadro te dice cómo se cobra:
+   - **Venta de mostrador**: **"Cobrá $… ahora"**. Cobrale la diferencia al cliente en ese momento. Va directo a la cocina.
+   - **Pedido web en efectivo**: **"Se cobra $… al entregar"**. Va directo a la cocina y se cobra junto con el resto cuando retira.
+   - **Pedido web por transferencia**: **"Queda pendiente hasta confirmar la transferencia"**. La cocina todavía **no** lo ve. Pasale al cliente los datos de la cuenta por WhatsApp.
+2. En la tarjeta aparece el **Adicional 1** (y 2, 3… si agregás más veces). Es el mismo pedido, con el mismo número.
+3. Si era por transferencia, el adicional aparece como **"Adicional 1 · sin pagar"**. **Primero verificá en tu banco que llegó la plata**, tildá **Verifiqué la acreditación** y apretá **Confirmar adicional**: recién ahí se suma al total y se imprime en la cocina. Si el cliente se arrepiente, tocá **Cancelar adicional** (queda registrado, no se borra).
+4. En la cocina sale un papel aparte que dice **ADICIONAL** con el número del pedido y **solo** lo agregado. Si el pedido es un delivery, también se vuelve a imprimir el ticket de delivery con el total nuevo.
+
+> Si tocás **Listo** y quedaba un adicional **sin pagar**, se cancela solo y la pantalla avisa **"Se canceló el adicional sin pagar"**: el pedido sale sin eso. Si el cliente igual lo quiere, hacé un pedido nuevo.
+
+**Desde Listo en adelante no se puede agregar nada** (tampoco a un pedido cancelado): hacé un pedido nuevo. Si un producto se quedó **sin stock**, no te deja agregarlo y aparece como "Sin stock".
+
+**Si el papel del adicional no sale**: en el cuadro rojo de impresión fallida aparece **Reimprimir adicional 1** (con el número de ese adicional). Revisá el papel y apretalo.
+
+El cliente ve todo en **Tu pedido**: los productos agregados ya cobrados suman al total, y lo que falta pagar figura aparte como **Adicional pendiente de pago**.
+
 ## Avisar una demora
 
 Si la cocina se atrasa o pasa algo (se pinchó el delivery, falta un ingrediente), podés avisar una demora desde el botón **Demora** de la

@@ -506,6 +506,14 @@ los hashes de commit no se aceptan.)
 **Checklist del deploy que agrega Stock y el rol Encargado:**
 
 1. Aplicar las migraciones **0008** (rol `encargado`), **0009** (stock: artículos y movimientos) y **0010** (ediciones de movimientos). Las aplica `deploy.sh` solo (paso migrar); verificar que el deploy termine en `DEPLOY_OK`. (Las 0011 `orders.tanda` y 0012 `delay_notices` son de otro trabajo.)
+
+**Checklist del deploy que agrega Modificar pedidos y Adicionales:**
+
+1. Aplicar la migración **0013** (`0013_order_addons.sql`): tabla `order_addons` (adicionales por pedido: estado `pendiente_pago` / `confirmado` / `cancelado`), columna `order_items.addon_id`, tipo de movimiento de stock **`ajuste_pedido`** (agregar o quitar productos de un pedido ajusta el saldo) y tipo de trabajo de impresión **`additional`** (ticket de cocina del adicional). Solo agrega: es compatible hacia atrás y la aplica `deploy.sh` solo (paso migrar); verificar que el deploy termine en `DEPLOY_OK`.
+2. Las versiones anteriores del código no conocen el tipo `additional`: si se hiciera rollback del código después de haber creado adicionales, esos trabajos de impresión `additional` pendientes los tiene que descartar el soporte (Estaciones / base de datos) antes de reactivar el agente.
+3. **Agente de impresión**: no hay que reinstalarlo. Imprime el ticket adicional con el mismo formato que la comanda.
+4. Pedidos **En preparación** al momento del deploy se pueden modificar de inmediato (Agregar productos); no hace falta migrar datos.
+5. Guías: `docs/guias/guia-cajera-mostrador.md`, `guia-encargada-delivery.md` y `guia-administrador.md` (sección "Modificar un pedido"); casos de prueba **M1 a M13** en `docs/guias/uat-prueba-de-aceptacion.md`.
 2. Crear el usuario **Encargado** (Admin → Usuarios → rol Encargado, sin estación).
 3. El **primer día** el encargado carga el stock inicial (Admin → Stock → Artículos → Nuevo artículo → **Guardar stock inicial**) y liga cada bebida a su producto (Menú → producto → **Artículo de stock**). Guía: `docs/guias/guia-encargado.md`.
 4. Nada se rompe si no hay ningún artículo ligado: los productos sin vínculo se venden como siempre y la franja "Productos faltantes de stock" no aparece. El televisor `/pantalla` no muestra la alerta.

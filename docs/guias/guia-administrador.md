@@ -74,6 +74,22 @@ la nueva la reemplaza.
 
 El **motivo es interno**: lo ve solo el personal, nunca el cliente.
 
+## Modificar un pedido
+
+Cuando un cliente pide un cambio por WhatsApp, el personal modifica **el mismo pedido** (un solo número, un solo envío). Vos podés hacerlo en cualquier sector, en las pantallas de trabajo (**Retiro en local**, **Gestión Delivery** y **Mostrador**), donde tenés los mismos botones que la cajera y la encargada. **Vista general** y **Tablero general** son para supervisar y no tienen esos botones. Las reglas:
+
+- **Antes de aprobar** (**Por aprobar**): **Editar pedido** permite quitar y agregar productos libremente. Se recalcula el total; el **envío no cambia**. No puede quedar sin productos.
+- **En preparación**: solo **Agregar productos** (no se saca ni se cambia lo que la cocina ya tiene). Cada agregado es un **Adicional 1, 2…** del mismo pedido.
+  - **Efectivo** y **ventas de mostrador**: el adicional va directo a la cocina y se cobra al entregar (mostrador: en el momento).
+  - **Transferencia**: queda **sin pagar** hasta que quien atiende verifica la acreditación y toca **Confirmar adicional**. Mientras tanto no suma al total, no descuenta stock ni cuenta para la demora automática, y la cocina no lo ve.
+- Al confirmarse sale un ticket de cocina aparte que dice **ADICIONAL** con solo lo agregado (y, en delivery, se reimprime el ticket de delivery con el total nuevo). El descuento de stock de bebidas se hace en ese momento; un producto pausado o sin stock no se puede agregar.
+- Si el pedido pasa a **Listo** con un adicional sin pagar, se cancela solo (con aviso). Desde **Listo** en adelante y en pedidos cancelados no se puede agregar nada.
+- Si se cancela el pedido, el stock de lo agregado vuelve junto con el del resto, y los adicionales sin pagar se cancelan.
+- Queda registrado quién modificó o agregó qué y cuándo (historial del pedido). Nada se borra.
+- Pueden hacerlo la cajera (retiro y mostrador), la encargada de delivery (delivery), el encargado y vos. El usuario del televisor (**Cocina**) no puede.
+
+Detalle de uso: [cajera](guia-cajera-mostrador.md) y [encargada de delivery](guia-encargada-delivery.md).
+
 ## Controles del día a día
 
 - **Abrir / cerrar el local para pedidos web**: Ajustes → **Pausar pedidos** / **Reanudar pedidos**.

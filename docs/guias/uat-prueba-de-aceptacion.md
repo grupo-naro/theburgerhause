@@ -106,6 +106,26 @@ Con el usuario **Encargado** (sin estación) y una bebida de prueba ligada a un 
 | G11 | Lista de solo lectura | C y E abren **Stock**; cocina abre `/stock`. | Ven saldos y estados, sin botones para cargar. | [ ] OK  [ ] FALLÓ |
 | G12 | Producto sin artículo | Vender un producto sin artículo ligado. | Se vende normal, sin control de stock. | [ ] OK  [ ] FALLÓ |
 
+## Parte 4d: Modificar un pedido y adicionales (M)
+
+Para los casos con bebida, usar la bebida de prueba del stock (G2). Los pedidos de prueba se cancelan al terminar.
+
+| N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |
+| --- | --- | --- | --- | --- |
+| M1 | Editar antes de aprobar | K pide retiro en efectivo con 3 productos. C en **Retiro en local**: **Editar pedido** → **Quitar** uno, agregar otro → mirar **Total nuevo** → **Guardar cambios**. | El total de la tarjeta coincide con el **Total nuevo**; K lo ve igual en su seguimiento. No salió ningún papel. Al aprobar, el ticket de cocina y el del cliente muestran lo nuevo. | [ ] OK  [ ] FALLÓ |
+| M2 | No queda vacío | En M1, **Quitar** todos los productos. | Avisa que el pedido no puede quedar sin productos y **Guardar cambios** no funciona; **Deshacer** lo habilita de nuevo. | [ ] OK  [ ] FALLÓ |
+| M3 | Delivery: el envío no cambia | E edita un pedido de delivery (quita un producto). | El total baja solo por el producto; el **costo de envío** queda igual. | [ ] OK  [ ] FALLÓ |
+| M4 | Adicional en efectivo | Pedido web en efectivo aprobado (**En preparación**). C o E: **Agregar productos** → una bebida → **Agregar al pedido**. | El cuadro decía "Se cobra $… al entregar". La tarjeta muestra **Adicional 1** y el total sube. En la cocina sale un papel **ADICIONAL** con solo la bebida (en delivery, además, el ticket de delivery con el total nuevo). La bebida baja del stock. | [ ] OK  [ ] FALLÓ |
+| M5 | Adicional por transferencia | Pedido web por transferencia aprobado. **Agregar productos** → algo → guardar. | Queda **Adicional 1 · sin pagar**; el total **no** cambia, no sale papel en la cocina y el stock no baja. K ve **Adicional pendiente de pago** y el total anterior. | [ ] OK  [ ] FALLÓ |
+| M6 | Confirmar la transferencia | Seguir M5: hacer la transferencia real de la diferencia, tildar **Verifiqué la acreditación**, tocar **Confirmar adicional** (probar un doble toque). | Sin la tilde el botón no funciona. Se suma **una sola vez** al total, sale **un** papel ADICIONAL y baja el stock una vez. K ve el producto en **Tu pedido** y el total nuevo en unos segundos. | [ ] OK  [ ] FALLÓ |
+| M7 | Listo con adicional sin pagar | Repetir M5 y, sin confirmar, tocar **Listo**. | Aparece "Se canceló el adicional sin pagar"; el pedido sale sin eso y el total no cambia. K ya no ve el bloque pendiente. | [ ] OK  [ ] FALLÓ |
+| M8 | Cancelar un adicional | Repetir M5 y tocar **Cancelar adicional**. | Desaparece de la tarjeta; no se cobra ni se imprime nada. | [ ] OK  [ ] FALLÓ |
+| M9 | Venta de mostrador | En **Mostrador**, una venta en **En preparación**: **Agregar productos** → algo. | El cuadro dice "Cobrá $… ahora"; se confirma de inmediato, suma al total y sale el papel ADICIONAL. | [ ] OK  [ ] FALLÓ |
+| M10 | Papel del adicional | Sacar el papel y agregar un adicional; después reponer. | Cuadro rojo con **Ticket adicional**; **Reimprimir adicional 1** lo imprime. | [ ] OK  [ ] FALLÓ |
+| M11 | Límites | Con un pedido en **Listo**, buscar cómo agregarle algo. Probar que E no pueda tocar un pedido de retiro y C uno de delivery. Entrar con el usuario **Cocina**. | En **Listo** no hay botón **Agregar productos**. Cada una solo ve y modifica los pedidos de su sector. El usuario **Cocina** no tiene ningún botón de edición. | [ ] OK  [ ] FALLÓ |
+| M12 | Producto sin stock | Con una bebida en cero, intentar agregarla a un pedido. | No se puede elegir ("Sin stock"); si se agotó justo antes de guardar, avisa con un mensaje y no se cambia nada. | [ ] OK  [ ] FALLÓ |
+| M13 | Cancelar un pedido con adicionales | Pedido con un adicional confirmado y uno sin pagar: **Cancelar pedido**. | El stock de todo vuelve una sola vez y el adicional sin pagar queda cancelado. | [ ] OK  [ ] FALLÓ |
+
 ## Parte 5: Fallas (S con el local)
 
 | N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |
