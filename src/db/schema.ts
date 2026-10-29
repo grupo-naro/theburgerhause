@@ -290,7 +290,7 @@ export const orderItems = pgTable(
     unitPriceSnapshot: integer("unit_price_snapshot").notNull(),
     notes: text("notes"),
     /** NULL for the original order; set for units that came in through an add-on. */
-    addonId: integer("addon_id").references(() => orderAddons.id, { onDelete: "restrict" }),
+    addonId: integer("addon_id").references(() => orderAddons.id, { onDelete: "no action" }),
   },
   (t) => [
     index("order_items_order_idx").on(t.orderId),

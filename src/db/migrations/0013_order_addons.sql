@@ -32,7 +32,7 @@ CREATE UNIQUE INDEX "order_addons_idempotency_key_unique" ON "order_addons" USIN
 CREATE INDEX "order_addons_created_by_idx" ON "order_addons" USING btree ("created_by");--> statement-breakpoint
 CREATE INDEX "order_addons_confirmed_by_idx" ON "order_addons" USING btree ("confirmed_by");--> statement-breakpoint
 CREATE INDEX "order_addons_cancelled_by_idx" ON "order_addons" USING btree ("cancelled_by");--> statement-breakpoint
-ALTER TABLE "order_items" ADD CONSTRAINT "order_items_addon_id_order_addons_id_fk" FOREIGN KEY ("addon_id") REFERENCES "public"."order_addons"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "order_items" ADD CONSTRAINT "order_items_addon_id_order_addons_id_fk" FOREIGN KEY ("addon_id") REFERENCES "public"."order_addons"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "order_items_addon_idx" ON "order_items" USING btree ("addon_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "stock_movements_order_item_kind_unique" ON "stock_movements" USING btree ("order_id","item_id","kind") WHERE "stock_movements"."order_id" IS NOT NULL AND "stock_movements"."kind" IN ('venta','devolucion');--> statement-breakpoint
 ALTER TABLE "stock_movements" ADD CONSTRAINT "stock_movements_sign" CHECK (("stock_movements"."kind"::text IN ('consumo','venta') AND "stock_movements"."qty_delta" <= 0) OR ("stock_movements"."kind"::text IN ('ajuste_inicial','ingreso','devolucion') AND "stock_movements"."qty_delta" >= 0) OR ("stock_movements"."kind"::text = 'ajuste_pedido' AND "stock_movements"."qty_delta" <> 0));--> statement-breakpoint
