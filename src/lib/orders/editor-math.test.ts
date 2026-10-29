@@ -1,3 +1,4 @@
+import { formatARS } from "@/domain/money";
 import { describe, expect, it } from "vitest";
 import { addonPaymentCopy, editedTotal, editorItemsFromGroups, keptSubtotal, unitsAfterEdit, type EditorItem } from "./editor-math";
 
@@ -39,13 +40,13 @@ describe("editorItemsFromGroups", () => {
 describe("addonPaymentCopy", () => {
   const amount = 5_000_00;
   it("transfer on the web stays pending until the transfer is confirmed", () => {
-    expect(addonPaymentCopy({ channel: "web", paymentMethod: "transfer", amount })).toMatch(/^Queda pendiente hasta confirmar la transferencia de \$/);
+    expect(addonPaymentCopy({ channel: "web", paymentMethod: "transfer", amount })).toBe(`Queda pendiente hasta confirmar la transferencia de ${formatARS(amount)}`);
   });
   it("cash on the web is collected on delivery", () => {
-    expect(addonPaymentCopy({ channel: "web", paymentMethod: "cash", amount })).toMatch(/^Se cobra \$.* al entregar$/);
+    expect(addonPaymentCopy({ channel: "web", paymentMethod: "cash", amount })).toBe(`Se cobra ${formatARS(amount)} al entregar`);
   });
   it("the counter charges right now, whatever the method", () => {
-    expect(addonPaymentCopy({ channel: "counter", paymentMethod: "cash", amount })).toMatch(/^Cobrá \$.* ahora$/);
-    expect(addonPaymentCopy({ channel: "counter", paymentMethod: "transfer", amount })).toMatch(/^Cobrá \$.* ahora$/);
+    expect(addonPaymentCopy({ channel: "counter", paymentMethod: "cash", amount })).toBe(`Cobrá ${formatARS(amount)} ahora`);
+    expect(addonPaymentCopy({ channel: "counter", paymentMethod: "transfer", amount })).toBe(`Cobrá ${formatARS(amount)} ahora`);
   });
 });
