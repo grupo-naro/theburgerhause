@@ -17,17 +17,19 @@ export function StatusPoller({
   token,
   status,
   paymentStatus,
+  updatedAt,
 }: {
   token: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  updatedAt: string;
 }) {
   const router = useRouter();
 
   useEffect(() => {
     const controller = new AbortController();
     const poller = createPoller({
-      initial: { status, paymentStatus },
+      initial: { status, paymentStatus, updatedAt },
       isVisible: () => document.visibilityState === "visible",
       schedule: (fn, ms) => window.setTimeout(fn, ms),
       cancel: (handle) => window.clearTimeout(handle as number),
@@ -42,9 +44,13 @@ export function StatusPoller({
         if (res.status === 404) return { kind: "gone" };
         if (!res.ok) return { kind: "error" };
         const body: unknown = await res.json();
-        const b = body as { status?: unknown; paymentStatus?: unknown };
+        const b = body as { status?: unknown; paymentStatus?: unknown; updatedAt?: unknown };
         if (!isStatus(b.status) || !isPayment(b.paymentStatus)) return { kind: "error" };
-        return { kind: "ok", status: b.status, paymentStatus: b.paymentStatus };
+        return {
+          kind: "ok",
+          status: b.status, paymentStatus: b.paymentStatus,
+          updatedAt: typeof b.updatedAt === "string" ? b.updatedAt : undefined,
+        };
       },
     });
     const onVisibility = () => poller.visibilityChanged();
@@ -58,7 +64,7 @@ export function StatusPoller({
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
     };
-  }, [token, status, paymentStatus, router]);
+  }, [token, status, paymentStatus, updatedAt, router]);
 
   return null;
 }

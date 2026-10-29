@@ -46,7 +46,7 @@ export function TrackingView({
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 pb-8 pt-6 md:pt-8" data-testid="tracking" data-status={order.status}>
-      <StatusPoller token={token} status={order.status} paymentStatus={order.paymentStatus} />
+      <StatusPoller token={token} status={order.status} paymentStatus={order.paymentStatus} updatedAt={order.updatedAt} />
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_24rem]">
         <div className="space-y-4">
           <section

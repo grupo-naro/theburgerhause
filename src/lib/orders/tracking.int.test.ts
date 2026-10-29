@@ -156,6 +156,7 @@ describe("getOrderForTracking", () => {
         "status",
         "subtotal",
         "total",
+        "updatedAt",
       ].sort(),
     );
     expect(Object.keys(dto!.groups[0]).sort()).toEqual(["lineTotal", "modifiers", "name", "note", "quantity", "unitTotal"]);
@@ -276,7 +277,9 @@ describe("tracking con adicionales", () => {
     const after = (await getOrderForTracking(db(), token))!;
     expect(after.total).toBe(before.total + a.subtotal);
     expect(after.subtotal).toBe(before.subtotal + a.subtotal);
-    expect(after.groups.length).toBeGreaterThan(before.groups.length - 1);
+    const meltQty = (o: typeof after) => o.groups.filter((g) => g.name === "Melt simple").reduce((n, g) => n + g.quantity, 0);
+    expect(meltQty(after)).toBe(meltQty(before) + 1);
+    expect(after.updatedAt > before.updatedAt).toBe(true);
     expect(after.groups.reduce((n, g) => n + g.quantity, 0)).toBe(before.groups.reduce((n, g) => n + g.quantity, 0) + 1);
     expect(after.pendingAddons).toEqual([]);
   });

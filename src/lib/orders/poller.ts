@@ -15,7 +15,8 @@ export const POLL_INTERVAL_MS = 8_000;
 export const MAX_BACKOFF_MS = 60_000;
 
 export type PaymentStatus = "pending" | "paid";
-export type PolledState = { status: OrderStatus; paymentStatus: PaymentStatus };
+/** `updatedAt` (ISO) is the version token: it moves on any order event, e.g. add-ons, which change neither status. */
+export type PolledState = { status: OrderStatus; paymentStatus: PaymentStatus; updatedAt?: string };
 export type PollResult = ({ kind: "ok" } & PolledState) | { kind: "gone" } | { kind: "error" };
 
 export const isTerminal = (status: OrderStatus): boolean => status === "entregado" || status === "cancelado";
@@ -24,6 +25,15 @@ export const isTerminal = (status: OrderStatus): boolean => status === "entregad
 export function backoffDelay(failures: number): number {
   if (failures <= 0) return POLL_INTERVAL_MS;
   return Math.min(POLL_INTERVAL_MS * 2 ** Math.min(failures, 10), MAX_BACKOFF_MS);
+}
+
+/** True when status, payment status or (when the server sent it) the version token differ. */
+export function hasChanged(current: PolledState, next: PolledState): boolean {
+  return (
+    next.status !== current.status ||
+    next.paymentStatus !== current.paymentStatus ||
+    (next.updatedAt !== undefined && next.updatedAt !== current.updatedAt)
+  );
 }
 
 export type PollerDeps = {
@@ -91,8 +101,8 @@ export function createPoller(deps: PollerDeps): Poller {
       return scheduleNext(backoffDelay(failures));
     }
     failures = 0;
-    if (result.status !== current.status || result.paymentStatus !== current.paymentStatus) {
-      current = { status: result.status, paymentStatus: result.paymentStatus };
+    if (hasChanged(current, result)) {
+      current = { status: result.status, paymentStatus: result.paymentStatus, updatedAt: result.updatedAt };
       deps.onChange(current);
     }
     if (isTerminal(current.status)) return stop();

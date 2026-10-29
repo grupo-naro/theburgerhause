@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { backoffDelay, createPoller, isTerminal, MAX_BACKOFF_MS, POLL_INTERVAL_MS, type PollResult } from "./poller";
+import { backoffDelay, createPoller, hasChanged, isTerminal, MAX_BACKOFF_MS, POLL_INTERVAL_MS, type PollResult } from "./poller";
 
 /** Deterministic clock: timers fire only when the test advances time. */
 function fakeClock() {
@@ -278,5 +278,38 @@ describe("createPoller", () => {
     poller.start();
     await clock.advance(8000);
     expect(fetchStatus).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("hasChanged (version token)", () => {
+  const base = { status: "en_preparacion", paymentStatus: "paid", updatedAt: "2026-10-15T12:00:00.000Z" } as never;
+  it("an updatedAt change alone is a change", () => {
+    expect(hasChanged(base, { ...(base as object), updatedAt: "2026-10-15T12:05:00.000Z" } as never)).toBe(true);
+  });
+  it("an identical payload is not", () => {
+    expect(hasChanged(base, { ...(base as object) } as never)).toBe(false);
+  });
+});
+
+describe("poller with updatedAt", () => {
+  it("refreshes when only updatedAt moves, and not when identical", async () => {
+    const clock = fakeClock();
+    const mk = (updatedAt: string): PollResult => ({ kind: "ok", status: "en_preparacion" as never, paymentStatus: "paid" as never, updatedAt });
+    const queue = [mk("t0"), mk("t1")];
+    const onChange = vi.fn();
+    const poller = createPoller({
+      initial: { status: "en_preparacion" as never, paymentStatus: "paid", updatedAt: "t0" },
+      fetchStatus: async () => queue.shift()!,
+      onChange,
+      isVisible: () => true,
+      schedule: clock.schedule,
+      cancel: clock.cancel,
+    });
+    poller.start();
+    await clock.advance(POLL_INTERVAL_MS);
+    expect(onChange).not.toHaveBeenCalled();
+    await clock.advance(POLL_INTERVAL_MS);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    poller.stop();
   });
 });

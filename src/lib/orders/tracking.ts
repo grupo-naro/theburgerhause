@@ -40,6 +40,8 @@ export type TrackingOrder = {
   deliveryFee: number;
   total: number;
   /** Add-ons awaiting payment (transfer). Shown apart; NOT part of subtotal/total. Names and quantities only. */
+  /** ISO 8601: version token of the page (same value the status endpoint serves); the poller refreshes when it moves. */
+  updatedAt: string;
   pendingAddons: { seq: number; subtotal: number; lines: { name: string; quantity: number }[] }[];
 };
 
@@ -69,6 +71,7 @@ export async function getOrderForTracking(db: Db, token: string): Promise<Tracki
       prepStartedAt: sql<Date | null>`(select max(e.at) from order_events e where e.order_id = orders.id and e.to_status = 'en_preparacion' and e.from_status is distinct from e.to_status)`.mapWith(
         (v) => (v === null ? null : new Date(v as string | Date)),
       ),
+      updatedAt: sql<Date>`coalesce((select max(e.at) from order_events e where e.order_id = orders.id), orders.created_at)`.mapWith((v) => new Date(v as string | Date)),
       customerName: s.orders.customerName,
       address: s.orders.address,
       subtotal: s.orders.subtotal,
@@ -139,6 +142,7 @@ export async function getOrderForTracking(db: Db, token: string): Promise<Tracki
     subtotal: head.subtotal,
     deliveryFee: head.deliveryFee,
     total: head.total,
+    updatedAt: head.updatedAt.toISOString(),
     pendingAddons,
   };
 }
