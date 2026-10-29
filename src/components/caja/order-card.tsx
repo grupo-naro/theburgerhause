@@ -82,10 +82,14 @@ export function OrderCard({ order, now, fresh, resolved, onConflict, onDismiss }
       onConflict(order, f.message);
       router.refresh();
     }
+    // The order was edited since this card rendered ("El pedido cambió…"): pull the new items/total; the error stays
+    // visible and the transfer check resets (OrderActions is keyed by the total) so the new amount is verified.
+    if (f.code === "INVALID_STATE") router.refresh();
   };
 
+  // expectedTotal: the total on screen; the server refuses the approval if the order changed since.
   const approve = (paymentVerified: boolean) =>
-    run(() => approveOrderAction({ orderId: order.id, paymentVerified }), { lockOnSuccess: true, onOk: afterSuccess, onFail });
+    run(() => approveOrderAction({ orderId: order.id, paymentVerified, expectedTotal: order.total }), { lockOnSuccess: true, onOk: afterSuccess, onFail });
   const reject = (reason: string) =>
     run(() => rejectOrderAction({ orderId: order.id, reason }), { lockOnSuccess: true, onOk: afterSuccess, onFail });
   const closeDialog = () => {
@@ -172,6 +176,7 @@ export function OrderCard({ order, now, fresh, resolved, onConflict, onDismiss }
               </button>
             )}
             <OrderActions
+              key={order.total}
               orderNumber={order.number}
               paymentMethod={order.paymentMethod}
               total={order.total}

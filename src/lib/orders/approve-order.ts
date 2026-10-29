@@ -15,16 +15,29 @@ import { failure, isId, transitionOrder, UNEXPECTED_MESSAGE, type OrderResult } 
  */
 
 const id = z.number().int().positive().max(2_147_483_647);
-const inputSchema = z.object({ orderId: id, userId: id, paymentVerified: z.boolean() });
+const inputSchema = z.object({
+  orderId: id,
+  userId: id,
+  paymentVerified: z.boolean(),
+  expectedTotal: z.number().int().nonnegative().max(2_147_483_647).optional(),
+});
 
 export const STATION_REQUIRED_MESSAGE = "Elegí tu estación para imprimir";
 export const PAYMENT_NOT_VERIFIED_MESSAGE = "Confirmá que verificaste la acreditación del pago";
+export const ORDER_CHANGED_MESSAGE = "El pedido cambió, revisalo antes de aprobar";
 
 export type ApproveOrderInput = {
   orderId: number;
   userId: number;
   stationId: number | null;
   paymentVerified: boolean;
+  /**
+   * Total (cents) the approver was looking at. When it no longer matches orders.total (someone edited the pending
+   * order meanwhile) the approval is refused with INVALID_STATE: a transfer must not be marked paid for an amount
+   * nobody verified, nor unseen products sent to the kitchen. The Caja action always sends it; omitted only by
+   * internal/test callers that approve what they just created.
+   */
+  expectedTotal?: number;
   /** Sector of the approving station (null/undefined = admin, exempt). */
   sector: Sector | null;
 };
@@ -39,7 +52,7 @@ export type ApproveOrderData = {
 export async function approveOrder(db: Db, raw: ApproveOrderInput): Promise<OrderResult<ApproveOrderData>> {
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) return failure("VALIDATION", "Solicitud inválida");
-  const { orderId, userId, paymentVerified } = parsed.data;
+  const { orderId, userId, paymentVerified, expectedTotal } = parsed.data;
   if (!isId(raw.stationId)) return failure("STATION_REQUIRED", STATION_REQUIRED_MESSAGE);
   const stationId = raw.stationId;
 
@@ -50,7 +63,7 @@ export async function approveOrder(db: Db, raw: ApproveOrderInput): Promise<Orde
 
       // Lock first: the payment rule depends on the method, and a double approve queues here.
       const [locked] = await tx
-        .select({ status: s.orders.status, paymentMethod: s.orders.paymentMethod, fulfillment: s.orders.fulfillment })
+        .select({ status: s.orders.status, paymentMethod: s.orders.paymentMethod, fulfillment: s.orders.fulfillment, total: s.orders.total })
         .from(s.orders)
         .where(eq(s.orders.id, orderId))
         .for("update");
@@ -58,6 +71,11 @@ export async function approveOrder(db: Db, raw: ApproveOrderInput): Promise<Orde
       if (locked) {
         const sectorOk = decideSector(raw.sector, locked.fulfillment);
         if (!sectorOk.ok) return failure("WRONG_SECTOR", sectorOk.message);
+      }
+      // Under the lock, so an edit cannot slip in between this check and the approval. Only for a still-pending
+      // order: an already handled one falls through to transitionOrder's INVALID_TRANSITION ("ya fue aprobado…").
+      if (locked?.status === "pendiente_aprobacion" && expectedTotal !== undefined && expectedTotal !== locked.total) {
+        return failure("INVALID_STATE", ORDER_CHANGED_MESSAGE);
       }
       const isTransfer = locked?.paymentMethod === "transfer";
       if (locked?.status === "pendiente_aprobacion" && isTransfer && !paymentVerified) {

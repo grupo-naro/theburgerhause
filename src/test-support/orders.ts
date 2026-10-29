@@ -60,7 +60,7 @@ export type Fx = Awaited<ReturnType<typeof seedMenuAndStaff>>;
 export async function placeWebOrder(
   fx: Fx,
   over: { fulfillment?: "delivery" | "takeaway"; paymentMethod?: "cash" | "transfer"; units?: unknown[] } = {},
-): Promise<{ id: number; number: number }> {
+): Promise<{ id: number; number: number; total: number }> {
   const fulfillment = over.fulfillment ?? "delivery";
   const r = await createOrder(testDb(), {
     idempotencyKey: randomUUID(),
@@ -78,6 +78,6 @@ export async function placeWebOrder(
     bh_ref: "",
   });
   if (!r.ok) throw new Error(`seed order failed: ${r.code}`);
-  const rows = await testDb().select({ id: s.orders.id, number: s.orders.number }).from(s.orders);
+  const rows = await testDb().select({ id: s.orders.id, number: s.orders.number, total: s.orders.total }).from(s.orders);
   return rows.find((x) => x.number === r.data.number)!;
 }

@@ -49,7 +49,7 @@ describe("encargado: staff access in every sector, without a station", () => {
     const d = await placeWebOrder(fx, { fulfillment: "delivery" });
     const t = await placeWebOrder(fx, { fulfillment: "takeaway" });
     for (const o of [d, t]) {
-      expect(await approveOrderAction({ orderId: o.id, paymentVerified: false })).toMatchObject({ ok: true });
+      expect(await approveOrderAction({ orderId: o.id, paymentVerified: false, expectedTotal: o.total })).toMatchObject({ ok: true });
       expect((await orderRow(o.id)).status).toBe("en_preparacion");
     }
   });

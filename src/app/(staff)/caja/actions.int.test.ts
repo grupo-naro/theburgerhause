@@ -55,16 +55,16 @@ beforeEach(async () => {
 afterAll(closeDb);
 
 describe("authorization", () => {
-  const calls: [string, (id: number) => Promise<unknown>, () => unknown][] = [
-    ["approveOrderAction", (id) => approveOrderAction({ orderId: id, paymentVerified: true }), () => approveOrder],
-    ["rejectOrderAction", (id) => rejectOrderAction({ orderId: id, reason: "motivo" }), () => rejectOrder],
-    ["reprintOrderAction", (id) => reprintOrderAction({ orderId: id, which: "both" }), () => reprintOrder],
+  const calls: [string, (o: { id: number; total: number }) => Promise<unknown>, () => unknown][] = [
+    ["approveOrderAction", (o) => approveOrderAction({ orderId: o.id, paymentVerified: true, expectedTotal: o.total }), () => approveOrder],
+    ["rejectOrderAction", (o) => rejectOrderAction({ orderId: o.id, reason: "motivo" }), () => rejectOrder],
+    ["reprintOrderAction", (o) => reprintOrderAction({ orderId: o.id, which: "both" }), () => reprintOrder],
   ];
 
   it.each(calls)("%s: anonymous is sent to /login and the core is not called", async (_n, run, core) => {
     const o = await place();
     vi.mocked(requireRole).mockRejectedValue(new AuthError("UNAUTHENTICATED"));
-    expect(await redirectOf(run(o.id))).toBe("/login");
+    expect(await redirectOf(run(o))).toBe("/login");
     expect(core()).not.toHaveBeenCalled();
     expect((await status(o.id)).status).toBe("pendiente_aprobacion");
   });
@@ -72,7 +72,7 @@ describe("authorization", () => {
   it.each(calls)("%s: a role outside the allowed set gets a generic error and the core is not called", async (_n, run, core) => {
     const o = await place();
     vi.mocked(requireRole).mockRejectedValue(new AuthError("FORBIDDEN"));
-    const r = (await run(o.id)) as { ok: boolean; message: string };
+    const r = (await run(o)) as { ok: boolean; message: string };
     expect(r.ok).toBe(false);
     expect(r.message).toMatch(/permisos/);
     expect(core()).not.toHaveBeenCalled();
@@ -83,14 +83,14 @@ describe("authorization", () => {
   it("requires exactly cajera, encargada_delivery and admin, before anything else", async () => {
     const o = await place();
     as("cajera");
-    await approveOrderAction({ orderId: o.id, paymentVerified: false });
+    await approveOrderAction({ orderId: o.id, paymentVerified: false, expectedTotal: o.total });
     expect(requireRole).toHaveBeenCalledWith("cajera", "encargada_delivery", "admin", "encargado");
   });
 
   it.each(["cajera", "encargada_delivery", "admin", "encargado"] as const)("%s can approve (an order of their sector)", async (role) => {
     const o = await place({ fulfillment: role === "encargada_delivery" ? "delivery" : "takeaway" });
     as(role, role === "encargada_delivery" ? fx.otherStationId : fx.stationId);
-    expect(await approveOrderAction({ orderId: o.id, paymentVerified: false })).toMatchObject({ ok: true });
+    expect(await approveOrderAction({ orderId: o.id, paymentVerified: false, expectedTotal: o.total })).toMatchObject({ ok: true });
     expect((await status(o.id)).status).toBe("en_preparacion");
   });
 });
@@ -99,7 +99,7 @@ describe("approveOrderAction", () => {
   it("takes userId and stationId from the session, ignoring client-sent ones", async () => {
     const o = await place();
     as("cajera", fx.stationId, fx.userId);
-    const forged = { orderId: o.id, paymentVerified: false, userId: fx.otherUserId, stationId: fx.otherStationId };
+    const forged = { orderId: o.id, paymentVerified: false, expectedTotal: o.total, userId: fx.otherUserId, stationId: fx.otherStationId };
     const r = await approveOrderAction(forged as never);
     expect(r).toMatchObject({ ok: true });
     expect(vi.mocked(approveOrder).mock.calls[0][1]).toEqual({
@@ -107,6 +107,7 @@ describe("approveOrderAction", () => {
       userId: fx.userId,
       stationId: fx.stationId,
       paymentVerified: false,
+      expectedTotal: o.total,
       sector: "mostrador",
     });
     const row = await status(o.id);
@@ -118,7 +119,7 @@ describe("approveOrderAction", () => {
   it("returns serializable data on success", async () => {
     const o = await place();
     as("cajera");
-    const r = await approveOrderAction({ orderId: o.id, paymentVerified: false });
+    const r = await approveOrderAction({ orderId: o.id, paymentVerified: false, expectedTotal: o.total });
     expect(JSON.parse(JSON.stringify(r))).toEqual(r);
     expect(r).toMatchObject({ ok: true, data: { orderId: o.id, number: o.number, printJobIds: expect.any(Array) } });
   });
@@ -126,7 +127,7 @@ describe("approveOrderAction", () => {
   it("admin without station -> STATION_REQUIRED result (cannot print), not thrown", async () => {
     const o = await place();
     as("admin", null);
-    expect(await approveOrderAction({ orderId: o.id, paymentVerified: false })).toEqual({
+    expect(await approveOrderAction({ orderId: o.id, paymentVerified: false, expectedTotal: o.total })).toEqual({
       ok: false,
       code: "STATION_REQUIRED",
       message: "Elegí tu estación para imprimir",
@@ -136,14 +137,14 @@ describe("approveOrderAction", () => {
   it("transfer without verification is an expected failure result", async () => {
     const o = await place({ paymentMethod: "transfer" });
     as("cajera");
-    expect(await approveOrderAction({ orderId: o.id, paymentVerified: false })).toMatchObject({
+    expect(await approveOrderAction({ orderId: o.id, paymentVerified: false, expectedTotal: o.total })).toMatchObject({
       ok: false,
       code: "VALIDATION",
     });
     expect(await jobs()).toHaveLength(0);
   });
 
-  it.each([undefined, null, "x", {}, [], { orderId: "1", paymentVerified: true }, { orderId: 1 }, { orderId: -1, paymentVerified: true }])(
+  it.each([undefined, null, "x", {}, [], { orderId: "1", paymentVerified: true, expectedTotal: 1 }, { orderId: 1 }, { orderId: -1, paymentVerified: true, expectedTotal: 1 }, { orderId: 1, paymentVerified: true }, { orderId: 1, paymentVerified: true, expectedTotal: 1.5 }])(
     "malformed input %j -> VALIDATION without touching the core",
     async (input) => {
       as("cajera");
@@ -155,8 +156,8 @@ describe("approveOrderAction", () => {
   it("double approval: second call returns INVALID_TRANSITION", async () => {
     const o = await place();
     as("cajera");
-    await approveOrderAction({ orderId: o.id, paymentVerified: false });
-    expect(await approveOrderAction({ orderId: o.id, paymentVerified: false })).toMatchObject({
+    await approveOrderAction({ orderId: o.id, paymentVerified: false, expectedTotal: o.total });
+    expect(await approveOrderAction({ orderId: o.id, paymentVerified: false, expectedTotal: o.total })).toMatchObject({
       ok: false,
       code: "INVALID_TRANSITION",
     });
@@ -215,7 +216,7 @@ describe("reprintOrderAction", () => {
   it("reprints at the session station", async () => {
     const o = await place();
     as("cajera", fx.stationId);
-    await approveOrderAction({ orderId: o.id, paymentVerified: false });
+    await approveOrderAction({ orderId: o.id, paymentVerified: false, expectedTotal: o.total });
     as("cajera", fx.otherStationId);
     // A cashier moved to the other station kind is not a supported combination: the sector rule refuses.
     expect(await reprintOrderAction({ orderId: o.id, which: "customer" })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
@@ -239,7 +240,7 @@ describe("reprintOrderAction", () => {
 
 describe("unexpected errors", () => {
   it.each([
-    ["approve", () => approveOrderAction({ orderId: 1, paymentVerified: true }), approveOrder],
+    ["approve", () => approveOrderAction({ orderId: 1, paymentVerified: true, expectedTotal: 0 }), approveOrder],
     ["reject", () => rejectOrderAction({ orderId: 1, reason: "motivo" }), rejectOrder],
     ["reprint", () => reprintOrderAction({ orderId: 1, which: "both" }), reprintOrder],
   ] as const)("%s: a throwing core becomes a fixed generic message and leaks nothing", async (_n, run, core) => {
@@ -274,7 +275,7 @@ describe("sector rule (server side)", () => {
   ] as const)("%s: approve/reject on the other sector's order -> WRONG_SECTOR, nothing written", async (_n, role, kind, orderKind) => {
     const o = await place({ fulfillment: orderKind });
     as(role, kind === "mostrador" ? fx.stationId : fx.otherStationId);
-    expect(await approveOrderAction({ orderId: o.id, paymentVerified: true })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(await approveOrderAction({ orderId: o.id, paymentVerified: true, expectedTotal: o.total })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
     expect(await rejectOrderAction({ orderId: o.id, reason: "motivo" })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
     expect((await status(o.id)).status).toBe("pendiente_aprobacion");
     expect(await jobs()).toHaveLength(0);
@@ -284,7 +285,7 @@ describe("sector rule (server side)", () => {
   it("reprint of the other sector's approved order -> WRONG_SECTOR, no job queued", async () => {
     const o = await place({ fulfillment: "delivery" });
     as("admin", fx.stationId);
-    await approveOrderAction({ orderId: o.id, paymentVerified: true });
+    await approveOrderAction({ orderId: o.id, paymentVerified: true, expectedTotal: o.total });
     const before = (await jobs()).length;
     as("cajera", fx.stationId);
     expect(await reprintOrderAction({ orderId: o.id, which: "both" })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
@@ -294,14 +295,14 @@ describe("sector rule (server side)", () => {
   it("admin is exempt: approves a delivery order from any station", async () => {
     const o = await place({ fulfillment: "delivery" });
     as("admin", fx.stationId);
-    expect(await approveOrderAction({ orderId: o.id, paymentVerified: true })).toMatchObject({ ok: true });
+    expect(await approveOrderAction({ orderId: o.id, paymentVerified: true, expectedTotal: o.total })).toMatchObject({ ok: true });
     expect(vi.mocked(approveOrder).mock.calls[0][1]).toMatchObject({ sector: null });
   });
 
   it.each(["cajera", "encargada_delivery"] as const)("%s without a station is refused before the core (STATION_REQUIRED)", async (role) => {
     const o = await place();
     as(role, null);
-    expect(await approveOrderAction({ orderId: o.id, paymentVerified: true })).toMatchObject({ ok: false, code: "STATION_REQUIRED" });
+    expect(await approveOrderAction({ orderId: o.id, paymentVerified: true, expectedTotal: o.total })).toMatchObject({ ok: false, code: "STATION_REQUIRED" });
     expect(await rejectOrderAction({ orderId: o.id, reason: "motivo" })).toMatchObject({ ok: false, code: "STATION_REQUIRED" });
     expect(await reprintOrderAction({ orderId: o.id, which: "both" })).toMatchObject({ ok: false, code: "STATION_REQUIRED" });
     expect(approveOrder).not.toHaveBeenCalled();
@@ -317,7 +318,7 @@ describe("role/station-kind mismatch is refused before any write", () => {
   ] as const)("%s cannot approve even an order of the station's own kind", async (_n, role, orderKind) => {
     const o = await place({ fulfillment: orderKind === "delivery" ? "delivery" : "takeaway" });
     as(role, role === "cajera" ? fx.otherStationId : fx.stationId);
-    expect(await approveOrderAction({ orderId: o.id, paymentVerified: true })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
+    expect(await approveOrderAction({ orderId: o.id, paymentVerified: true, expectedTotal: o.total })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
     expect(await rejectOrderAction({ orderId: o.id, reason: "motivo" })).toMatchObject({ ok: false, code: "WRONG_SECTOR" });
     expect(approveOrder).not.toHaveBeenCalled();
     expect((await status(o.id)).status).toBe("pendiente_aprobacion");

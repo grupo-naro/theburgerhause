@@ -8,7 +8,8 @@ import { formatARS } from "@/domain/money";
 import { renderCustomerTicket, renderDeliveryTicket, renderKitchenTicket } from "@/domain/print-document";
 import { getEnv } from "@/lib/env";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
-import { approveOrder } from "./approve-order";
+import { approveOrder, ORDER_CHANGED_MESSAGE } from "./approve-order";
+import { editPendingOrder } from "./order-edit";
 import { orderToPrintable } from "./printable";
 
 const db = () => testDb();
@@ -37,6 +38,32 @@ afterEach(dropFailureTriggers);
 afterAll(async () => {
   await dropFailureTriggers();
   await closeDb();
+});
+
+describe("approveOrder: expectedTotal (the total the approver saw)", () => {
+  it("an edit raised the total: approving with the stale total is refused and nothing changes", async () => {
+    const o = await placeWebOrder(fx, { paymentMethod: "transfer" });
+    const seen = (await order(o.id)).total;
+    const edited = await editPendingOrder(db(), { orderId: o.id, userId: fx.otherUserId, sector: null, removeItemIds: [], addUnits: [{ productId: fx.melt, modifierIds: [], note: "" }] });
+    if (!edited.ok) throw new Error(edited.message);
+    expect(edited.data.total).toBeGreaterThan(seen);
+    const eventsBefore = (await events(o.id)).length;
+
+    const r = await approve(o.id, { paymentVerified: true, expectedTotal: seen });
+    expect(r).toEqual({ ok: false, code: "INVALID_STATE", message: ORDER_CHANGED_MESSAGE });
+    expect(await order(o.id)).toMatchObject({ status: "pendiente_aprobacion", paymentStatus: "pending", approvedBy: null, stationId: null, total: edited.data.total });
+    expect(await jobs(o.id)).toHaveLength(0);
+    expect(await events(o.id)).toHaveLength(eventsBefore);
+
+    expect(await approve(o.id, { paymentVerified: true, expectedTotal: edited.data.total })).toMatchObject({ ok: true, data: { paymentStatus: "paid" } });
+  });
+
+  it("approving with the right total works; an already approved order still answers INVALID_TRANSITION", async () => {
+    const o = await placeWebOrder(fx);
+    const { total } = await order(o.id);
+    expect(await approve(o.id, { expectedTotal: total })).toMatchObject({ ok: true });
+    expect(await approve(o.id, { expectedTotal: total + 1 })).toMatchObject({ ok: false, code: "INVALID_TRANSITION" });
+  });
 });
 
 describe("approveOrder: payment rules and state", () => {

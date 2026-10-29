@@ -31,7 +31,8 @@ const FORBIDDEN_MESSAGE = "No tenés permisos para realizar esta acción.";
 const INVALID_REQUEST = "Solicitud inválida";
 
 const orderId = z.number().int().positive().max(2_147_483_647);
-const approveSchema = z.object({ orderId, paymentVerified: z.boolean() });
+/** `expectedTotal`: the total (cents) shown on the card; the core refuses the approval if the order changed since. */
+const approveSchema = z.object({ orderId, paymentVerified: z.boolean(), expectedTotal: z.number().int().nonnegative().max(2_147_483_647) });
 const rejectSchema = z.object({ orderId, reason: z.string() });
 const reprintSchema = z.object({ orderId, which: z.enum(["kitchen", "customer", "delivery", "both"]) });
 
@@ -84,6 +85,7 @@ export async function approveOrderAction(
       userId: session.user.id,
       stationId: session.stationId,
       paymentVerified: parsed.data.paymentVerified,
+      expectedTotal: parsed.data.expectedTotal,
     }),
   );
 }
