@@ -42,6 +42,15 @@ export async function loadPrintableOrder(
   return orderToPrintable(order, items, modifiers);
 }
 
+/**
+ * The delivery ticket; once the order holds confirmed add-ons it is marked "TICKET ACTUALIZADO - reemplaza al anterior
+ * (incluye ADICIONAL n)": the cadet may already hold an older paper with the old total to collect.
+ */
+function renderUpdatableDeliveryTicket(order: PrintableOrder) {
+  const addonSeqs = [...new Set(order.items.flatMap((i) => (i.addonSeq != null ? [i.addonSeq] : [])))];
+  return renderDeliveryTicket(order, addonSeqs.length ? { updated: { addonSeqs } } : {});
+}
+
 /** Inserts the requested ticket kinds for `stationId` (pending, attempts 0) and notifies once per job. */
 export async function enqueuePrintJobs(
   tx: DbTransaction,
@@ -52,7 +61,7 @@ export async function enqueuePrintJobs(
   const rows: { type: PrintKind; payload: unknown }[] = [];
   if (kinds.includes("kitchen")) rows.push({ type: "kitchen", payload: renderKitchenTicket(printable) });
   if (kinds.includes("customer")) rows.push({ type: "customer", payload: renderCustomerTicket(printable) });
-  if (kinds.includes("delivery")) rows.push({ type: "delivery", payload: renderDeliveryTicket(printable) });
+  if (kinds.includes("delivery")) rows.push({ type: "delivery", payload: renderUpdatableDeliveryTicket(printable) });
   if (rows.length === 0) return [];
 
   const inserted = await tx
@@ -83,7 +92,7 @@ export async function enqueueAddonPrintJobs(
   const rows: { type: PrintKind; payload: unknown }[] = [{ type: "additional", payload: renderAdditionalTicket(addonOrder, { seq }) }];
   if (withDelivery && hasDeliveryTicket(addonOrder) && (await stationKind(tx, stationId)) === "delivery") {
     const full = await loadPrintableOrder(tx, orderId);
-    rows.push({ type: "delivery", payload: renderDeliveryTicket(full!) });
+    rows.push({ type: "delivery", payload: renderUpdatableDeliveryTicket(full!) });
   }
   const inserted = await tx
     .insert(s.printJobs)

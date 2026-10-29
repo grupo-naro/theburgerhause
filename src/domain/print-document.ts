@@ -80,10 +80,18 @@ function serviceType(order: PrintableOrder): string {
   return order.fulfillment === "delivery" ? "DELIVERY" : "RETIRO";
 }
 
-/** One numbered entry per physical unit with its kitchen labels and note (no prices). */
-function kitchenItemBlocks(order: PrintableOrder): PrintBlock[] {
+/** " (ADICIONAL n)" for a unit that came in a confirmed add-on; "" for the original order. */
+function addonSuffix(item: PrintableItem): string {
+  return item.addonSeq != null ? ` (ADICIONAL ${item.addonSeq})` : "";
+}
+
+/**
+ * One numbered entry per physical unit with its kitchen labels and note (no prices). With `markAddons` (full-order
+ * comandas) each add-on unit is tagged "(ADICIONAL n)" so a re-sent comanda does not make the kitchen cook it twice.
+ */
+function kitchenItemBlocks(order: PrintableOrder, opts: { markAddons: boolean }): PrintBlock[] {
   return order.items.flatMap((item, i): PrintBlock[] => [
-    text(`${i + 1}) ${item.name.toUpperCase()}`, { bold: true, size: 1, align: "left" }),
+    text(`${i + 1}) ${item.name.toUpperCase()}${opts.markAddons ? addonSuffix(item) : ""}`, { bold: true, size: 1, align: "left" }),
     ...item.modifiers.map((m) =>
       text(`   ${m.kitchenLabel.toUpperCase()}`, { bold: true, size: 2, align: "left" }),
     ),
@@ -107,7 +115,7 @@ export function renderAdditionalTicket(order: PrintableOrder, addon: { seq: numb
       ...pagerBlocks(order),
       text(timeFormat.format(order.createdAt), { size: 1, align: "center" }),
       DIVIDER,
-      ...kitchenItemBlocks(order),
+      ...kitchenItemBlocks(order, { markAddons: false }),
       DIVIDER,
       CUT,
     ],
@@ -118,7 +126,7 @@ export function renderAdditionalTicket(order: PrintableOrder, addon: { seq: numb
  * Kitchen comanda: number, service type (+ llamador), time and every physical unit with its kitchen labels and note. Printed first on every station.
  */
 export function renderKitchenTicket(order: PrintableOrder): PrintDocument {
-  const items = kitchenItemBlocks(order);
+  const items = kitchenItemBlocks(order, { markAddons: true });
 
   return {
     blocks: [
@@ -167,7 +175,7 @@ function customerBlocks(order: PrintableOrder): PrintBlock[] {
 
 function priceItems(order: PrintableOrder): PrintBlock[] {
   return order.items.flatMap((item): PrintBlock[] => [
-    text(`${item.name}  ${formatARS(item.unitPrice)}`, { align: "left" }),
+    text(`${item.name}${addonSuffix(item)}  ${formatARS(item.unitPrice)}`, { align: "left" }),
     ...item.modifiers.map((m) =>
       text(`   ${m.name}${m.priceDelta !== 0 ? `  (${signedARS(m.priceDelta)})` : ""}`),
     ),
@@ -183,16 +191,29 @@ function totalsBlocks(order: PrintableOrder): PrintBlock[] {
   ];
 }
 
+/** Marks a delivery ticket re-printed after an add-on was confirmed. */
+export type DeliveryTicketOptions = { updated?: { addonSeqs: number[] } };
+
+/** ASCII hyphen on purpose: the printer code pages (cp858/cp437/cp850) have no en dash. */
+function updatedBlocks(opts: DeliveryTicketOptions): PrintBlock[] {
+  if (!opts.updated) return [];
+  const seqs = [...opts.updated.addonSeqs].sort((a, b) => a - b);
+  const includes = seqs.length ? ` (incluye ADICIONAL ${seqs.join(", ")})` : "";
+  return [text(`TICKET ACTUALIZADO - reemplaza al anterior${includes}`, { bold: true, align: "center" })];
+}
+
 /**
  * Delivery (dispatch) ticket: the one that travels with the order. Address, phone, payment, items; no
- * logo, no thanks. Cash still to collect is spelled out as "Efectivo: cobrar $X" for the cadet.
+ * logo, no thanks. Cash still to collect is spelled out as "Efectivo: cobrar $X" for the cadet. With `updated`
+ * (re-printed after an add-on) it says so right under the header, so the cadet discards the older paper.
  */
-export function renderDeliveryTicket(order: PrintableOrder): PrintDocument {
+export function renderDeliveryTicket(order: PrintableOrder, opts: DeliveryTicketOptions = {}): PrintDocument {
   const collect = order.paymentMethod === "cash" && order.paymentStatus === "pending";
   return {
     blocks: [
       big(`PEDIDO #${order.number}`),
       big(serviceType(order)),
+      ...updatedBlocks(opts),
       ...pagerBlocks(order),
       text(timeFormat.format(order.createdAt), { size: 1, align: "center" }),
       DIVIDER,

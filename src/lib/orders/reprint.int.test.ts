@@ -206,6 +206,16 @@ describe("reprintAddonTicket", () => {
     expect((await events(o.id)).at(-1)).toMatchObject({ fromStatus: "en_preparacion", toStatus: "en_preparacion", note: "Reimpresión (adicional 1)" });
   });
 
+  it("a full kitchen reprint tags the add-on units; a delivery reprint is marked as the updated ticket", async () => {
+    const o = await withAddon();
+    const before = (await jobs(o.id)).length;
+    await reprint(o.id, "kitchen");
+    await reprint(o.id, "delivery");
+    const [kitchen, delivery] = (await jobs(o.id)).slice(before);
+    expect(JSON.stringify(kitchen.payload)).toContain("MELT SIMPLE (ADICIONAL 1)");
+    expect(JSON.stringify(delivery.payload)).toContain("TICKET ACTUALIZADO - reemplaza al anterior (incluye ADICIONAL 1)");
+  });
+
   it("refuses unknown / unconfirmed add-ons, pending-approval orders and a missing station", async () => {
     const o = await withAddon("pendiente_pago");
     expect(await addonReprint(o.id, 1)).toMatchObject({ ok: false, code: "NOT_FOUND" });

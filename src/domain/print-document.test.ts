@@ -340,6 +340,49 @@ describe("renderDeliveryTicket", () => {
   });
 });
 
+describe("add-on units in full-order tickets", () => {
+  const withAddons = makeOrder({
+    items: [
+      { name: "Burger Clásica", unitPrice: 250000, note: null, modifiers: [], addonSeq: null },
+      { name: "Papas", unitPrice: 120000, note: null, modifiers: [], addonSeq: 1 },
+      { name: "Coca", unitPrice: 90000, note: null, modifiers: [], addonSeq: 2 },
+    ],
+  });
+
+  it("the kitchen comanda tags each add-on unit (ADICIONAL n) and leaves the original ones untouched", () => {
+    const texts = textsOf(renderKitchenTicket(withAddons));
+    expect(texts).toContain("1) BURGER CLÁSICA");
+    expect(texts).toContain("2) PAPAS (ADICIONAL 1)");
+    expect(texts).toContain("3) COCA (ADICIONAL 2)");
+  });
+
+  it("the add-on comanda itself is not tagged (its header already says ADICIONAL n)", () => {
+    const texts = textsOf(renderAdditionalTicket(makeOrder({ number: 7, items: [withAddons.items[1]] }), { seq: 1 }));
+    expect(texts).toContain("1) PAPAS");
+    expect(texts.filter((t) => t.includes("ADICIONAL"))).toEqual(["ADICIONAL 1 al #7"]);
+  });
+
+  it("customer and delivery item lists tag add-on units next to the price", () => {
+    for (const doc of [renderCustomerTicket(withAddons), renderDeliveryTicket(withAddons)]) {
+      const texts = textsOf(doc);
+      expect(texts).toContain(`Burger Clásica  ${formatARS(250000)}`);
+      expect(texts).toContain(`Papas (ADICIONAL 1)  ${formatARS(120000)}`);
+      expect(texts).toContain(`Coca (ADICIONAL 2)  ${formatARS(90000)}`);
+    }
+  });
+
+  it("an updated delivery ticket says it replaces the previous one, right under the header", () => {
+    const doc = renderDeliveryTicket(withAddons, { updated: { addonSeqs: [2, 1] } });
+    expect(doc.blocks[2]).toEqual({
+      type: "text",
+      text: "TICKET ACTUALIZADO - reemplaza al anterior (incluye ADICIONAL 1, 2)",
+      bold: true,
+      align: "center",
+    });
+    expect(textsOf(renderDeliveryTicket(withAddons)).some((t) => t.includes("ACTUALIZADO"))).toBe(false);
+  });
+});
+
 describe("purity", () => {
   it("returns equal documents for equal input and does not mutate it", () => {
     const order = makeOrder();

@@ -61,7 +61,12 @@ describe("loadPrintableOrder / enqueueAddonPrintJobs", () => {
     await db().transaction((tx) => enqueueAddonPrintJobs(tx, { orderId: d.o.id, addonId: d.addon.id, seq: 1, stationId: fx.otherStationId }));
     const dFresh = (await jobsOf(d.o.id)).slice(dBefore);
     expect(dFresh.map((j) => j.type)).toEqual(["additional", "delivery"]);
-    expect(JSON.stringify(dFresh[1].payload)).toContain("Melt simple"); // full order incl. the add-on
+    const deliveryJson = JSON.stringify(dFresh[1].payload);
+    expect(deliveryJson).toContain("Melt simple (ADICIONAL 1)"); // full order incl. the add-on, marked
+    expect(deliveryJson).toContain("TICKET ACTUALIZADO - reemplaza al anterior (incluye ADICIONAL 1)");
+    // The original delivery ticket (enqueued at approval) carries no such mark.
+    const original = (await jobsOf(d.o.id)).slice(0, dBefore).find((j) => j.type === "delivery");
+    expect(JSON.stringify(original!.payload)).not.toContain("TICKET ACTUALIZADO");
 
     const t = await orderWithAddon("takeaway");
     const tBefore = (await jobsOf(t.o.id)).length;
