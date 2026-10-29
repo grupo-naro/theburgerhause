@@ -366,6 +366,43 @@ describe("order adjustments (ajuste_pedido)", () => {
     expect(await itemQty(fx.coca)).toBe(0);
   });
 
+  it("quitar un producto vinculado DESPUÉS de la venta no repone nada (sin stock fantasma)", async () => {
+    await initial(fx.coca, 5);
+    await db().update(s.products).set({ stockItemId: null }).where(eq(s.products.id, fx.cocaProduct));
+    const orderId = await webOrder([fx.cocaProduct]); // sold while unlinked: the order took nothing
+    await db().update(s.products).set({ stockItemId: fx.coca }).where(eq(s.products.id, fx.cocaProduct));
+    expect(await adjust(orderId, [], [fx.cocaProduct])).toMatchObject({ ok: true });
+    expect(await itemQty(fx.coca)).toBe(5000);
+    expect(await adjustmentsOf(fx.coca)).toHaveLength(0);
+  });
+
+  it("la reposición se topa en lo que el pedido tiene neto (venta + ajustes previos)", async () => {
+    await initial(fx.coca, 5);
+    const orderId = await webOrder([fx.cocaProduct]); // holds 1
+    expect(await adjust(orderId, [fx.cocaProduct], [])).toMatchObject({ ok: true }); // holds 2
+    expect(await itemQty(fx.coca)).toBe(3000);
+    // Three removals (e.g. one unit sold before the link existed): only the 2 the order holds come back.
+    expect(await adjust(orderId, [], [fx.cocaProduct, fx.cocaProduct, fx.cocaProduct])).toMatchObject({ ok: true });
+    expect(await itemQty(fx.coca)).toBe(5000);
+    expect((await adjustmentsOf(fx.coca)).map((m) => m.qtyDelta)).toEqual([-1000, 2000]);
+    // Nothing left to give back.
+    expect(await adjust(orderId, [], [fx.cocaProduct])).toMatchObject({ ok: true });
+    expect(await itemQty(fx.coca)).toBe(5000);
+  });
+
+  it("tras una devolución no se repone más al quitar; agregar y quitar a la vez solo descuenta lo agregado si no hay nada tenido", async () => {
+    await initial(fx.coca, 5);
+    const orderId = await webOrder([fx.cocaProduct]);
+    await db().transaction((tx) => returnStockForOrder(tx, { orderId, userId: null }));
+    expect(await itemQty(fx.coca)).toBe(5000);
+    expect(await adjust(orderId, [], [fx.cocaProduct])).toMatchObject({ ok: true });
+    expect(await itemQty(fx.coca)).toBe(5000);
+
+    const other = await webOrder([fx.melt]); // holds no coca
+    expect(await adjust(other, [fx.cocaProduct], [fx.cocaProduct])).toMatchObject({ ok: true });
+    expect(await itemQty(fx.coca)).toBe(4000);
+  });
+
   it("returnStockForOrder devuelve el neto tras ajustes", async () => {
     await initial(fx.coca, 5);
     const orderId = await webOrder([fx.cocaProduct]);

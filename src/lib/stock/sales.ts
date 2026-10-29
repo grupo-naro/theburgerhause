@@ -103,6 +103,10 @@ export async function reserveStockForOrder(
  * is written. One signed `ajuste_pedido` movement per item (outside the venta/devolucion unique
  * index, so an order can be adjusted any number of times). Runs inside the caller's transaction,
  * after the order row is locked; the order row must exist in `tx`.
+ *
+ * A removal gives back at most what the ORDER actually took for that item (-(venta + ajuste_pedido)
+ * of this order; nothing once a devolucion exists), not what the product's CURRENT link says: a drink
+ * linked (or a link changed / an item reactivated) after the sale must not create phantom stock.
  */
 export async function adjustStockForOrder(
   tx: DbTransaction,
@@ -118,22 +122,45 @@ export async function adjustStockForOrder(
 
   const items = await lockStockItems(tx, linked.map((p) => p.itemId!));
   const byProduct = new Map(linked.map((p) => [p.id, p]));
-  const delta = new Map<number, number>();
+  const consumed = new Map<number, number>();
+  const released = new Map<number, number>();
   const addedProducts = new Map<number, { id: number; name: string }[]>();
-  const bump = (units: { productId: number }[], sign: 1 | -1) => {
+  const bump = (units: { productId: number }[], into: Map<number, number>, track: boolean) => {
     for (const u of units) {
       const p = byProduct.get(u.productId);
       if (!p || !controlled(items.get(p.itemId!))) continue;
-      delta.set(p.itemId!, (delta.get(p.itemId!) ?? 0) + sign * MILLI_PER_UNIT);
-      if (sign === -1) {
+      into.set(p.itemId!, (into.get(p.itemId!) ?? 0) + MILLI_PER_UNIT);
+      if (track) {
         const list = addedProducts.get(p.itemId!) ?? [];
         if (!list.some((x) => x.id === p.id)) list.push({ id: p.id, name: p.name });
         addedProducts.set(p.itemId!, list);
       }
     }
   };
-  bump(input.add, -1);
-  bump(input.remove, 1);
+  bump(input.add, consumed, true);
+  bump(input.remove, released, false);
+
+  // What the order holds per item, read AFTER the item locks (a concurrent adjustment/return of the same order has committed).
+  const held = new Map<number, number>();
+  if (released.size > 0) {
+    const settled = await tx
+      .select({ itemId: s.stockMovements.itemId, kind: s.stockMovements.kind, qtyDelta: s.stockMovements.qtyDelta })
+      .from(s.stockMovements)
+      .where(
+        and(
+          eq(s.stockMovements.orderId, input.orderId),
+          inArray(s.stockMovements.itemId, [...released.keys()]),
+          inArray(s.stockMovements.kind, ["venta", "ajuste_pedido", "devolucion"]),
+        ),
+      );
+    const returned = new Set(settled.filter((m) => m.kind === "devolucion").map((m) => m.itemId));
+    for (const m of settled) if (m.kind !== "devolucion") held.set(m.itemId, (held.get(m.itemId) ?? 0) - m.qtyDelta);
+    for (const itemId of returned) held.set(itemId, 0);
+  }
+
+  const delta = new Map<number, number>();
+  for (const [itemId, milli] of released) delta.set(itemId, Math.min(milli, Math.max(0, held.get(itemId) ?? 0)));
+  for (const [itemId, milli] of consumed) delta.set(itemId, (delta.get(itemId) ?? 0) - milli);
   const moves = [...delta].filter(([, d]) => d !== 0).sort((a, b) => a[0] - b[0]);
   if (moves.length === 0) return { ok: true, pauseChanged: false };
 
