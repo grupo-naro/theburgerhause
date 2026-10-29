@@ -115,7 +115,7 @@ describe("approveOrder: print jobs", () => {
       const row = await order(o.id);
       const items = await db().select().from(s.orderItems).where(eq(s.orderItems.orderId, o.id));
       const mods = await db().select().from(s.orderItemModifiers);
-      const printable = orderToPrintable(row, items, mods);
+      const printable = orderToPrintable(row, items.map((i) => ({ ...i, addonSeq: null })), mods);
       const byType = Object.fromEntries(js.map((j) => [j.type, j.payload]));
       const hasDelivery = expected.length === 3;
       if (hasDelivery) expect(byType.delivery).toEqual(JSON.parse(JSON.stringify(renderDeliveryTicket(printable))));

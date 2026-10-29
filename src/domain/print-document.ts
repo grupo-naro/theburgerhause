@@ -19,6 +19,8 @@ export type PrintableItem = {
   unitPrice: number;
   note: string | null;
   modifiers: PrintableModifier[];
+  /** Sequence number of the add-on this unit belongs to; null = part of the original order. */
+  addonSeq: number | null;
 };
 export type PrintableOrder = {
   number: number;
@@ -78,11 +80,9 @@ function serviceType(order: PrintableOrder): string {
   return order.fulfillment === "delivery" ? "DELIVERY" : "RETIRO";
 }
 
-/**
- * Kitchen comanda: number, service type (+ llamador), time and every physical unit with its kitchen labels and note. Printed first on every station.
- */
-export function renderKitchenTicket(order: PrintableOrder): PrintDocument {
-  const items = order.items.flatMap((item, i): PrintBlock[] => [
+/** One numbered entry per physical unit with its kitchen labels and note (no prices). */
+function kitchenItemBlocks(order: PrintableOrder): PrintBlock[] {
+  return order.items.flatMap((item, i): PrintBlock[] => [
     text(`${i + 1}) ${item.name.toUpperCase()}`, { bold: true, size: 1, align: "left" }),
     ...item.modifiers.map((m) =>
       text(`   ${m.kitchenLabel.toUpperCase()}`, { bold: true, size: 2, align: "left" }),
@@ -91,6 +91,34 @@ export function renderKitchenTicket(order: PrintableOrder): PrintDocument {
       ? [text(`   NOTA: ${item.note.toUpperCase()}`, { bold: true, size: 1, align: "left" })]
       : []),
   ]);
+}
+
+/**
+ * Add-on kitchen comanda: `order.items` must hold ONLY that add-on's units (loadPrintableOrder with `addonId`); no prices.
+ * `addonSeq` is not a printable block: it rides in the job payload so a failed ticket is matched only with the
+ * reprint of the SAME add-on (SAME_KIND in caja-queries.ts); the agent ignores unknown keys.
+ */
+export function renderAdditionalTicket(order: PrintableOrder, addon: { seq: number }): PrintDocument & { addonSeq: number } {
+  return {
+    addonSeq: addon.seq,
+    blocks: [
+      big(`ADICIONAL ${addon.seq} al #${order.number}`),
+      big(serviceType(order)),
+      ...pagerBlocks(order),
+      text(timeFormat.format(order.createdAt), { size: 1, align: "center" }),
+      DIVIDER,
+      ...kitchenItemBlocks(order),
+      DIVIDER,
+      CUT,
+    ],
+  };
+}
+
+/**
+ * Kitchen comanda: number, service type (+ llamador), time and every physical unit with its kitchen labels and note. Printed first on every station.
+ */
+export function renderKitchenTicket(order: PrintableOrder): PrintDocument {
+  const items = kitchenItemBlocks(order);
 
   return {
     blocks: [

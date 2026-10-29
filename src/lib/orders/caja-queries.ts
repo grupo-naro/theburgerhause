@@ -75,7 +75,9 @@ const FAILED_LIMIT = 100;
 
 /** The legacy `ticket` type (before the ticket redesign) reads as its successor, the customer ticket. `kitchen` is a kind of its own again (the comanda is back). */
 const jobKind = (col: string) => `(case ${col} when 'ticket' then 'customer' else ${col}::text end)`;
-const SAME_KIND = `${jobKind('"later"."type"')} = ${jobKind('"print_jobs"."type"')}`;
+/** `additional` tickets also carry the add-on seq in their payload (renderAdditionalTicket): add-on 1's reprint must not hide add-on 2's failure. Other kinds have no `addonSeq` (null = null). */
+const addonSeq = (col: string) => `(${col}->>'addonSeq')`;
+const SAME_KIND = `${jobKind('"later"."type"')} = ${jobKind('"print_jobs"."type"')} and ${addonSeq('"later"."payload"')} is not distinct from ${addonSeq('"print_jobs"."payload"')}`;
 
 /**
  * A failed job is "handled" once a LATER job of the same type for the same station was queued

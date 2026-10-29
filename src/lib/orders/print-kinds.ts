@@ -6,9 +6,10 @@
  * kitchen comanda for a kitchen screen; the screen moved to the counter TV and the comanda is back.)
  */
 
-export type PrintKind = "kitchen" | "delivery" | "customer";
+/** `additional` = the kitchen comanda of one add-on; only enqueued by enqueueAddonPrintJobs, never part of a reprint selection. */
+export type PrintKind = "kitchen" | "delivery" | "customer" | "additional";
 /** Reprint selection. "both" keeps its old meaning (customer + delivery, WITHOUT the kitchen comanda): the kitchen is its own option. */
-export type PrintWhich = PrintKind | "both";
+export type PrintWhich = Exclude<PrintKind, "additional"> | "both";
 export type PrintStationKind = "mostrador" | "delivery";
 type OrderShape = { channel: "web" | "counter"; fulfillment: "delivery" | "takeaway" };
 

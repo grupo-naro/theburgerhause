@@ -8,7 +8,7 @@ import type { PrintableItem, PrintableModifier, PrintableOrder } from "@/domain/
 export type PrintableOrderRow = Omit<PrintableOrder, "items" | "customerName"> & {
   customerName: string | null;
 };
-export type PrintableItemRow = { id: number; nameSnapshot: string; unitPriceSnapshot: number; notes: string | null };
+export type PrintableItemRow = { id: number; nameSnapshot: string; unitPriceSnapshot: number; notes: string | null; addonSeq: number | null };
 export type PrintableModifierRow = {
   id: number;
   orderItemId: number;
@@ -35,6 +35,7 @@ export function orderToPrintable(
       name: i.nameSnapshot,
       unitPrice: i.unitPriceSnapshot,
       note: i.notes,
+      addonSeq: i.addonSeq,
       modifiers: (byItem.get(i.id) ?? [])
         .slice()
         .sort((a, b) => a.id - b.id)

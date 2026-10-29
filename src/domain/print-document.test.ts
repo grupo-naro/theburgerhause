@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatARS } from "@/domain/money";
 import {
+  renderAdditionalTicket,
   renderCustomerTicket,
   renderDeliveryTicket,
   renderKitchenTicket,
@@ -35,8 +36,9 @@ function makeOrder(partial: Partial<PrintableOrder> = {}): PrintableOrder {
           { name: "Sin cebolla", kitchenLabel: "sin cebolla", kind: "remove", priceDelta: 0 },
           { name: "Extra queso", kitchenLabel: "extra queso", kind: "add", priceDelta: 20000 },
         ],
+        addonSeq: null,
       },
-      { name: "Papas", unitPrice: 250000, note: null, modifiers: [] },
+      { name: "Papas", unitPrice: 250000, note: null, modifiers: [], addonSeq: null },
     ],
     ...partial,
   };
@@ -49,6 +51,27 @@ function textsOf(doc: PrintDocument): string[] {
 function textBlock(doc: PrintDocument, text: string): PrintBlock | undefined {
   return doc.blocks.find((b) => b.type === "text" && b.text === text);
 }
+
+describe("renderAdditionalTicket", () => {
+  it('muestra "ADICIONAL 2 al #23" y solo los ítems del adicional, sin precios', () => {
+    const doc = renderAdditionalTicket(
+      makeOrder({
+        number: 23,
+        items: [{ name: "Papas", unitPrice: 123400, note: "sin sal", modifiers: [{ name: "Dips", kitchenLabel: "+ dips", kind: "add", priceDelta: 5000 }], addonSeq: 2 }],
+      }),
+      { seq: 2 },
+    );
+    const texts = textsOf(doc);
+    expect(texts).toContain("ADICIONAL 2 al #23");
+    expect(textBlock(doc, "ADICIONAL 2 al #23")).toMatchObject({ bold: true, size: 2, align: "center" });
+    expect(texts).toContain("1) PAPAS");
+    expect(texts).toContain("   + DIPS");
+    expect(texts).toContain("   NOTA: SIN SAL");
+    expect(texts).not.toContain("2) BURGER CLÁSICA");
+    expect(texts.join("\n")).not.toContain(formatARS(123400));
+    expect(doc.blocks.at(-1)).toEqual({ type: "cut" });
+  });
+});
 
 describe("renderKitchenTicket", () => {
   it("lists one numbered entry per unit", () => {
@@ -90,7 +113,7 @@ describe("renderKitchenTicket", () => {
 
   it("emits only the name line for a unit without modifiers or note", () => {
     const doc = renderKitchenTicket(
-      makeOrder({ items: [{ name: "Papas", unitPrice: 100, note: null, modifiers: [] }] }),
+      makeOrder({ items: [{ name: "Papas", unitPrice: 100, note: null, modifiers: [], addonSeq: null }] }),
     );
     const idx = doc.blocks.findIndex((b) => b.type === "text" && b.text === "1) PAPAS");
     expect(doc.blocks[idx + 1]).toEqual({ type: "divider" });
@@ -100,7 +123,7 @@ describe("renderKitchenTicket", () => {
   it("renders the item note as uppercase NOTA", () => {
     const doc = renderKitchenTicket(
       makeOrder({
-        items: [{ name: "Papas", unitPrice: 100, note: "bien cocida", modifiers: [] }],
+        items: [{ name: "Papas", unitPrice: 100, note: "bien cocida", modifiers: [], addonSeq: null }],
       }),
     );
     expect(textBlock(doc, "   NOTA: BIEN COCIDA")).toMatchObject({ bold: true });
@@ -208,6 +231,7 @@ describe("renderCustomerTicket", () => {
               unitPrice: 100000,
               note: "sin apuro",
               modifiers: [{ name: "Sin carne", kitchenLabel: "sin carne", kind: "remove", priceDelta: -5000 }],
+              addonSeq: null,
             },
           ],
         }),
@@ -290,7 +314,7 @@ describe("renderDeliveryTicket", () => {
   });
 
   it("shows the unit note", () => {
-    const d = renderDeliveryTicket(makeOrder({ items: [{ name: "Papas", unitPrice: 100, note: "bien cocida", modifiers: [] }] }));
+    const d = renderDeliveryTicket(makeOrder({ items: [{ name: "Papas", unitPrice: 100, note: "bien cocida", modifiers: [], addonSeq: null }] }));
     expect(textsOf(d)).toContain("   Nota: bien cocida");
   });
 

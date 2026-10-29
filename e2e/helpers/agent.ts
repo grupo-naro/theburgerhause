@@ -8,7 +8,7 @@ import { db, findStation } from "./db";
 const rnd = () => Math.floor(Math.random() * 250) + 1;
 const AGENT_IP = `10.${rnd()}.${rnd()}.${rnd()}`;
 
-export type AgentJob = { id: number; type: "kitchen" | "ticket" | "delivery" | "customer"; attempts: number; createdAt: string; document: { blocks: unknown[] } };
+export type AgentJob = { id: number; type: "kitchen" | "ticket" | "delivery" | "customer" | "additional"; attempts: number; createdAt: string; document: { blocks: unknown[] } };
 
 const headers = (token: string): Record<string, string> => ({ authorization: `Bearer ${token}`, "x-forwarded-for": AGENT_IP });
 

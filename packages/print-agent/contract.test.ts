@@ -37,8 +37,9 @@ const order: PrintableOrder = {
         { name: "Sin cheddar", kitchenLabel: "Sin cheddar", kind: "remove", priceDelta: 0 },
         { name: "Dips de cheddar", kitchenLabel: "+ Dips cheddar", kind: "add", priceDelta: 120_000 },
       ],
+      addonSeq: null,
     },
-    { name: "Papas fritas", unitPrice: 900_000, note: null, modifiers: [] },
+    { name: "Papas fritas", unitPrice: 900_000, note: null, modifiers: [], addonSeq: null },
   ],
 };
 

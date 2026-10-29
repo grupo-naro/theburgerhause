@@ -26,8 +26,8 @@ describe("orderToPrintable", () => {
     const out = orderToPrintable(
       base,
       [
-        { id: 1, nameSnapshot: "Ranchita", unitPriceSnapshot: 8500, notes: "bien cocida" },
-        { id: 2, nameSnapshot: "Melt", unitPriceSnapshot: 1500, notes: null },
+        { id: 1, nameSnapshot: "Ranchita", unitPriceSnapshot: 8500, notes: "bien cocida", addonSeq: null },
+        { id: 2, nameSnapshot: "Melt", unitPriceSnapshot: 1500, notes: null, addonSeq: null },
       ],
       [
         { id: 11, orderItemId: 1, nameSnapshot: "Dips", kitchenLabel: "+ DIPS", kind: "add", priceDelta: 1200 },
@@ -55,12 +55,13 @@ describe("orderToPrintable", () => {
           name: "Ranchita",
           unitPrice: 8500,
           note: "bien cocida",
+          addonSeq: null,
           modifiers: [
             { name: "Sin cheddar", kitchenLabel: "SIN CHEDDAR", kind: "remove", priceDelta: 0 },
             { name: "Dips", kitchenLabel: "+ DIPS", kind: "add", priceDelta: 1200 },
           ],
         },
-        { name: "Melt", unitPrice: 1500, note: null, modifiers: [] },
+        { name: "Melt", unitPrice: 1500, note: null, modifiers: [], addonSeq: null },
       ],
     });
   });
@@ -69,8 +70,8 @@ describe("orderToPrintable", () => {
     const out = orderToPrintable(
       base,
       [
-        { id: 9, nameSnapshot: "B", unitPriceSnapshot: 1, notes: null },
-        { id: 3, nameSnapshot: "A", unitPriceSnapshot: 1, notes: null },
+        { id: 9, nameSnapshot: "B", unitPriceSnapshot: 1, notes: null, addonSeq: null },
+        { id: 3, nameSnapshot: "A", unitPriceSnapshot: 1, notes: null, addonSeq: null },
       ],
       [
         { id: 7, orderItemId: 3, nameSnapshot: "m7", kitchenLabel: "M7", kind: "add", priceDelta: 1 },
@@ -97,19 +98,19 @@ describe("orderToPrintable", () => {
         paymentStatus: "pending",
         deliveryFee: 0,
       },
-      [{ id: 1, nameSnapshot: "Ranchita", unitPriceSnapshot: 8500, notes: null }],
+      [{ id: 1, nameSnapshot: "Ranchita", unitPriceSnapshot: 8500, notes: null, addonSeq: null }],
       [],
     );
     expect(out.pagerNumber).toBe(7);
     expect(out.channel).toBe("counter");
     expect(out.whatsapp).toBeNull();
-    expect(out.items).toEqual([{ name: "Ranchita", unitPrice: 8500, note: null, modifiers: [] }]);
+    expect(out.items).toEqual([{ name: "Ranchita", unitPrice: 8500, note: null, modifiers: [], addonSeq: null }]);
   });
 
   it("keeps negative price deltas and ignores modifiers of other orders' items", () => {
     const out = orderToPrintable(
       base,
-      [{ id: 1, nameSnapshot: "X", unitPriceSnapshot: 100, notes: null }],
+      [{ id: 1, nameSnapshot: "X", unitPriceSnapshot: 100, notes: null, addonSeq: null }],
       [
         { id: 1, orderItemId: 1, nameSnapshot: "Descuento", kitchenLabel: "DESC", kind: "swap", priceDelta: -300 },
         { id: 2, orderItemId: 99, nameSnapshot: "Ajeno", kitchenLabel: "AJENO", kind: "add", priceDelta: 5 },
@@ -120,8 +121,8 @@ describe("orderToPrintable", () => {
 
   it("does not mutate its inputs", () => {
     const items = [
-      { id: 2, nameSnapshot: "B", unitPriceSnapshot: 1, notes: null },
-      { id: 1, nameSnapshot: "A", unitPriceSnapshot: 1, notes: null },
+      { id: 2, nameSnapshot: "B", unitPriceSnapshot: 1, notes: null, addonSeq: null },
+      { id: 1, nameSnapshot: "A", unitPriceSnapshot: 1, notes: null, addonSeq: null },
     ];
     const copy = structuredClone(items);
     orderToPrintable(base, items, []);
