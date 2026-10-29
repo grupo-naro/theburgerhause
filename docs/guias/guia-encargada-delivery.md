@@ -81,7 +81,7 @@ Si el cliente escribe para cambiar algo, modificá **el mismo pedido** (no cargu
 - **Efectivo**: **"Se cobra $… al entregar"**. Va directo a la cocina y el cadete cobra todo junto.
 - **Transferencia**: **"Queda pendiente hasta confirmar la transferencia"**. La cocina no lo ve todavía. Pasale los datos de la cuenta al cliente por WhatsApp; cuando verifiques en el banco que llegó, tildá **Verifiqué la acreditación** y apretá **Confirmar adicional**. Si no lo va a pagar, **Cancelar adicional**.
 
-Cada agregado figura como **Adicional 1**, **Adicional 2**… en la tarjeta. Al confirmarse, la cocina recibe un papel aparte que dice **ADICIONAL** con solo lo agregado y se **reimprime el ticket de delivery** con el total nuevo (descartá el anterior: el cadete lleva el nuevo). Si el papel del adicional falla, en el cuadro rojo aparece **Reimprimir adicional 1**.
+Cada agregado figura como **Adicional 1**, **Adicional 2**… en la tarjeta. Al confirmarse, la cocina recibe un papel aparte que dice **ADICIONAL** con solo lo agregado y se **reimprime el ticket de delivery** con el total nuevo; arriba dice **TICKET ACTUALIZADO - reemplaza al anterior (incluye ADICIONAL n)** y lo agregado figura como "(ADICIONAL n)" (descartá el anterior: el cadete lleva el nuevo). Si el papel del adicional falla, en el cuadro rojo aparece **Reimprimir adicional 1**.
 
 Si tocás **Listo** con un adicional **sin pagar**, se cancela solo y te avisa **"Se canceló el adicional sin pagar"**: el pedido sale sin eso. **Desde Listo en adelante no se puede agregar nada**: hay que hacer un pedido nuevo.
 

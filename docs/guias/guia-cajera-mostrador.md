@@ -87,10 +87,11 @@ Si el cliente te escribe por WhatsApp para cambiar algo, **no cargues un pedido 
 1. Para sacar algo, tocá **Quitar** al lado de esa unidad (si te arrepentís, **Deshacer**). Para sumar algo, elegilo abajo, en **Agregar**.
 2. Mirá el **Total nuevo** que aparece antes de guardar. El costo de envío no cambia.
 3. Tocá **Guardar cambios**. El pedido tiene que quedar con al menos un producto: si no se va a hacer nada, usá **Rechazar**.
+4. Si otra persona modificó el pedido mientras lo tenías abierto, al aprobar aparece **"El pedido cambió, revisalo antes de aprobar"**: la tarjeta se actualiza con los productos y el total nuevos (y en transferencia se destilda la verificación). Revisalo y volvé a aprobar.
 
 **Con el pedido ya aprobado (En preparación)**: ya no se puede sacar ni cambiar lo que estaba, **solo agregar**. En la tarjeta tocá **Agregar productos** (en **Retiro en local**, en la columna **En preparación** de la misma pantalla, o en **Mostrador** para las ventas de mostrador).
 
-1. Elegí lo que se suma y tocá **Agregar al pedido**. Antes de guardar, el cuadro te dice cómo se cobra:
+1. Elegí lo que se suma y tocá **Agregar al pedido**. Antes de guardar, el cuadro te dice cómo se cobra (y, salvo en transferencia, el **Total del pedido** con el adicional incluido):
    - **Venta de mostrador**: **"Cobrá $… ahora"**. Cobrale la diferencia al cliente en ese momento. Va directo a la cocina.
    - **Pedido web en efectivo**: **"Se cobra $… al entregar"**. Va directo a la cocina y se cobra junto con el resto cuando retira.
    - **Pedido web por transferencia**: **"Queda pendiente hasta confirmar la transferencia"**. La cocina todavía **no** lo ve. Pasale al cliente los datos de la cuenta por WhatsApp.
