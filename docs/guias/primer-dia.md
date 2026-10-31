@@ -15,7 +15,7 @@
 | **Cajera, venta en mostrador** | **Venta** → tocar productos → pago → **llamador** → **Cobrar e imprimir** |
 | **Cajera, pedido web de retiro** | **Retiro en local** → **Aprobar** (o **Aprobar y pagado** tildando que verificaste la transferencia) → **Listo** → **Llamar / Para retirar** → **Entregado** |
 | **Encargada, pedido web de delivery** | **Gestión Delivery** → **Por aprobar** → **Aprobar** → **Listo** → tildar pedidos → **Asignar a <cadete>** → **Entregado** |
-| **Encargada, cadete vuelve** | **Rendición** → nombre del cadete → contar → **Confirmar rendición** → **Sí, confirmar** |
+| **Encargada, cadete vuelve** | Contar la plata y tocar **Entregado** en cada pedido: el efectivo queda rendido solo (la pantalla **Rendición** queda para el historial y casos raros) |
 
 ## Primer día del stock (encargado)
 

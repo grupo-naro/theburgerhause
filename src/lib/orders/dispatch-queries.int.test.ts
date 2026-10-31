@@ -9,6 +9,7 @@ import { resetDb, testDb } from "@/db/test-utils";
 import { getEnv } from "@/lib/env";
 import { makeCadet, preparingCounterOrder, preparingWebOrder } from "@/test-support/dispatch";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
+import { reopenDebt } from "@/test-support/settlements";
 import { assignCadet, markDelivered, markPickup, markReady, returnToDispatch } from "./dispatch";
 import { addOrderAddon, cancelAddon } from "./addons";
 import { getDispatchBoard } from "./dispatch-queries";
@@ -126,7 +127,10 @@ describe("getDispatchBoard", () => {
       orders.push(o);
     }
     await assignCadet(db(), { sector: null, orderIds: orders.map((o) => o.id), cadetId: alfa.id, userId: fx.userId });
-    for (const o of orders.slice(0, 3)) await markDelivered(db(), { sector: null, orderId: o.id, userId: fx.userId });
+    for (const o of orders.slice(0, 3)) {
+      await markDelivered(db(), { sector: null, orderId: o.id, userId: fx.userId });
+      await reopenDebt(o.id);
+    }
     const total = async (id: number) => (await db().select().from(s.orders).where(eq(s.orders.id, id)))[0].total;
 
     const b = await board();

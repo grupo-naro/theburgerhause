@@ -85,6 +85,7 @@ type LockedOrder = {
   paymentMethod: "cash" | "transfer";
   paymentStatus: "pending" | "paid";
   total: number;
+  cadetId: number | null;
 };
 const orderColumns = {
   id: s.orders.id,
@@ -94,6 +95,7 @@ const orderColumns = {
   paymentMethod: s.orders.paymentMethod,
   paymentStatus: s.orders.paymentStatus,
   total: s.orders.total,
+  cadetId: s.orders.cadetId,
 };
 
 async function lockOrder(tx: DbTransaction, orderId: number): Promise<LockedOrder | null> {
@@ -176,11 +178,15 @@ export async function markPickup(db: Db, raw: { orderId: number; userId: number 
   });
 }
 
+/** Note stamped on the rendicion that `markDelivered` creates by itself. */
+export const AUTO_SETTLEMENT_NOTE = "Rendición automática al entregar";
+
 /**
  * para_retirar (takeaway) | en_camino (delivery) -> entregado, stamping `delivered_at`.
  * Payment rule: a takeaway order still `pending` (cash at pickup) REQUIRES `collected: true` and
- * becomes `paid` in the same update. Delivery orders never change payment status here: cash
- * stays pending until the cadet's rendicion.
+ * becomes `paid` in the same update. A delivery cash order is settled in the same transaction
+ * (the cadet is back with the money when staff marks it delivered): it becomes `paid` and gets
+ * its own automatic rendicion record. Transfer deliveries are untouched.
  */
 export async function markDelivered(
   db: Db,
@@ -195,6 +201,8 @@ export async function markDelivered(
   // a settlement needs amount > 0).
   const free = (o: LockedOrder) => o.total === 0 && o.paymentStatus === "pending";
   const collects = (o: LockedOrder) => o.fulfillment === "takeaway" && o.paymentStatus === "pending" && o.total > 0;
+  const cadetCash = (o: LockedOrder) =>
+    o.fulfillment === "delivery" && o.paymentMethod === "cash" && o.paymentStatus === "pending" && o.total > 0 && o.cadetId !== null;
   return move(db, orderId, userId, raw.sector, {
     op: "markDelivered",
     // The domain table also allows para_retirar -> entregado for any order; a delivery order is
@@ -206,7 +214,25 @@ export async function markDelivered(
       if (collects(o) && collected !== true) return fail("VALIDATION", `Confirmá que cobraste ${formatARS(o.total)}`);
       return null;
     },
-    patch: (o) => ({ deliveredAt: at, ...(collects(o) || free(o) ? { paymentStatus: "paid" as const } : {}) }),
+    patch: (o) => ({ deliveredAt: at, ...(collects(o) || free(o) || cadetCash(o) ? { paymentStatus: "paid" as const } : {}) }),
+    // No cadet row lock (settleCadet locks cadet -> orders, this path locks the order first): the unique
+    // index on settlement_orders.order_id keeps "settled at most once" without it.
+    after: async (tx, o) => {
+      if (!cadetCash(o) || o.cadetId === null) return {};
+      const [settlement] = await tx
+        .insert(s.settlements)
+        .values({ cadetId: o.cadetId, amount: o.total, receivedAmount: o.total, settledBy: userId, note: AUTO_SETTLEMENT_NOTE })
+        .returning({ id: s.settlements.id });
+      await tx.insert(s.settlementOrders).values({ settlementId: settlement.id, orderId: o.id, amount: o.total });
+      await tx.insert(s.orderEvents).values({
+        orderId: o.id,
+        fromStatus: "entregado",
+        toStatus: "entregado",
+        userId,
+        note: `Rendición #${settlement.id}`,
+      });
+      return {};
+    },
   });
 }
 

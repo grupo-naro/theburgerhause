@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, like } from "drizzle-orm";
 import { expect, type Locator, type Page } from "@playwright/test";
 import * as s from "../../src/db/schema";
 import { markDelivered } from "../../src/lib/orders/dispatch";
@@ -19,6 +19,14 @@ export async function deliveredFor(
     const encargada = await findUser("encargada");
     const r = await markDelivered(db(), { sector: null, orderId: fx.id, userId: encargada.id });
     if (!r.ok) throw new Error(`markDelivered failed: ${r.message}`);
+    // markDelivered settles cash by itself: reopen the debt (the state of orders delivered before that existed).
+    if ((o.paymentMethod ?? "cash") === "cash") {
+      for (const l of await db().select({ id: s.settlementOrders.settlementId }).from(s.settlementOrders).where(eq(s.settlementOrders.orderId, fx.id))) {
+        await db().delete(s.settlements).where(eq(s.settlements.id, l.id));
+      }
+      await db().delete(s.orderEvents).where(and(eq(s.orderEvents.orderId, fx.id), like(s.orderEvents.note, "Rendición #%")));
+      await db().update(s.orders).set({ paymentStatus: "pending" }).where(eq(s.orders.id, fx.id));
+    }
   }
   return fx;
 }

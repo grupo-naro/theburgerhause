@@ -8,6 +8,7 @@ import { listCadetBalances } from "@/lib/settlements/queries";
 import { settleCadet } from "@/lib/settlements/settle-cadet";
 import { makeCadet, orderEventsOf, orderRow, preparingCounterOrder, preparingWebOrder } from "@/test-support/dispatch";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
+import { reopenDebt } from "@/test-support/settlements";
 import { cancelOrder } from "./cancel-order";
 import { assignCadet, markDelivered, markPickup, markReady, returnToDispatch } from "./dispatch";
 import { getOrderPrintState } from "./print-state";
@@ -87,6 +88,7 @@ describe("cancelOrder (after approval)", () => {
     await ready(b.id);
     await assignCadet(db(), { orderIds: [a.id, b.id], cadetId: cadet.id, userId: fx.userId, sector: null });
     await markDelivered(db(), { orderId: a.id, userId: fx.userId, sector: null });
+    await reopenDebt(a.id);
     await returnToDispatch(db(), { orderId: b.id, userId: fx.userId, sector: null, reason: "No atendió" });
     expect(await cancel(b.id, "Cliente no responde")).toMatchObject({ ok: true });
 

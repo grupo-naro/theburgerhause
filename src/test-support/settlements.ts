@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import * as s from "@/db/schema";
 import { testDb } from "@/db/test-utils";
 import { assignCadet, markDelivered, markPickup, markReady } from "@/lib/orders/dispatch";
@@ -35,10 +35,23 @@ export async function enRouteOrder(fx: Fx, cadetId: number, o: { paymentMethod?:
   return order;
 }
 
-/** A delivery order delivered by `cadetId` (cash ones stay payment `pending`). */
+/**
+ * `markDelivered` settles a cash delivery by itself; undo that so the cadet OWES it, the state of an
+ * order delivered before the automatic rendicion existed (what the manual rendicion flow still handles).
+ */
+export async function reopenDebt(orderId: number) {
+  const db = testDb();
+  const links = await db.select({ id: s.settlementOrders.settlementId }).from(s.settlementOrders).where(eq(s.settlementOrders.orderId, orderId));
+  for (const l of links) await db.delete(s.settlements).where(eq(s.settlements.id, l.id));
+  await db.delete(s.orderEvents).where(and(eq(s.orderEvents.orderId, orderId), like(s.orderEvents.note, "Rendición #%")));
+  await db.update(s.orders).set({ paymentStatus: "pending" }).where(and(eq(s.orders.id, orderId), eq(s.orders.paymentMethod, "cash")));
+}
+
+/** A delivery order delivered by `cadetId` (cash ones are left payment `pending`: the cadet owes them). */
 export async function deliveredOrder(fx: Fx, cadetId: number, o: { paymentMethod?: Pay; units?: UnitsKind; now?: Date } = {}) {
   const order = await enRouteOrder(fx, cadetId, o);
   must(await markDelivered(testDb(), { sector: null, orderId: order.id, userId: fx.userId }, o.now ? { now: o.now } : {}), "markDelivered");
+  await reopenDebt(order.id);
   return order;
 }
 

@@ -113,7 +113,7 @@ export function EnRouteCard({ group, phone, now, caps }: { group: EnRouteGroup; 
         <p data-testid="cash-pending" className="font-display text-3xl leading-tight font-extrabold text-ink tabular-nums">
           {formatARS(cashPending)}
         </p>
-        {hasCash && <p className="text-sm text-ink-muted">El efectivo se rinde cuando vuelve el cadete.</p>}
+        {hasCash && <p className="text-sm text-ink-muted">El efectivo se rinde solo al marcar Entregado.</p>}
       </div>
 
       <ul className="mt-3 space-y-3" aria-label={`Pedidos de ${cadet.name}`}>

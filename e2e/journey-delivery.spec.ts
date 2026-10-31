@@ -232,30 +232,22 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
       await shot(page, "journey-1-tracking-en-camino-mobile");
     });
 
-    await test.step("the encargada delivers the transfer order and both cash orders; cash stays pending", async () => {
+    await test.step("the encargada delivers the transfer order and both cash orders; the cash is settled by that same click", async () => {
       for (const n of [orderNumber, extra[0].number, extra[1].number]) {
         await routeOrder(dispatch, n).getByTestId("deliver").click();
         await expect(routeOrder(dispatch, n)).toHaveCount(0);
       }
       expect(await orderById(orderId)).toMatchObject({ status: "entregado", paymentStatus: "paid" });
-      for (const e of extra) expect(await orderById(e.id)).toMatchObject({ status: "entregado", paymentStatus: "pending" });
+      for (const e of extra) expect(await orderById(e.id)).toMatchObject({ status: "entregado", paymentStatus: "paid" });
     });
 
     const owed = extra[0].total + extra[1].total;
-    await test.step("rendición: 'A rendir' is the sum of the two cash orders; exact settlement leaves balance $0 and a receipt", async () => {
+    await test.step("rendición: nothing is left to settle by hand; each cash order has its automatic settlement", async () => {
       expect(owed).toBe(2 * (ranchita + sinCheddar + settings.deliveryFee)); // from the seed prices
       await openDetail(dispatch, cadet.id);
-      await expect(dispatch.getByTestId("owed-row")).toHaveCount(2);
-      await expect(dispatch.getByTestId("owed-amount")).toHaveText(formatARS(owed));
-      await dispatch.getByTestId("confirm-settlement").click();
-      const dialog = dispatch.getByTestId("confirm-dialog");
-      await expect(dialog.getByTestId("confirm-expected")).toHaveText(formatARS(owed));
-      await expect(dialog.getByTestId("confirm-received")).toHaveText(formatARS(owed));
-      await dialog.getByTestId("confirm-yes").click();
-      await expect(dispatch.getByTestId("receipt-title")).toHaveText(/^Rendición #\d+$/);
-      await expect(dispatch.getByTestId("receipt-received")).toHaveText(formatARS(owed));
+      await expect(dispatch.getByTestId("owed-row")).toHaveCount(0);
       await expect(dispatch.getByTestId("owed-amount")).toHaveText(formatARS(0));
-      await shot(dispatch, "journey-1-rendicion-receipt");
+      await shot(dispatch, "journey-1-rendicion-al-dia");
     });
 
     await test.step("final state across the whole cycle (DB)", async () => {
@@ -277,13 +269,15 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
         .toBe(true);
       for (const id of ids) expect((await printJobsOf(id)).map((j) => j.type)).toEqual(["kitchen", "customer", "delivery"]);
 
-      // settlement: only the two cash orders, exact, no shortage
+      // settlements: one automatic per cash order (the transfer one has none), exact, no shortage
       const settlements = await settlementsOf(cadet.id);
-      expect(settlements).toHaveLength(1);
-      const [st] = settlements;
-      expect(st).toMatchObject({ amount: owed, receivedAmount: owed, settledBy: encargada.id });
-      expect(st.amount - st.receivedAmount).toBe(0);
-      expect((await settlementLines(st.id)).map((l) => l.orderId).sort((a, b) => a - b)).toEqual(extra.map((e) => e.id).sort((a, b) => a - b));
+      expect(settlements).toHaveLength(2);
+      expect(settlements.reduce((sum, st) => sum + st.amount, 0)).toBe(owed);
+      for (const st of settlements) {
+        expect(st).toMatchObject({ receivedAmount: st.amount, settledBy: encargada.id, note: "Rendición automática al entregar" });
+      }
+      const lines = (await Promise.all(settlements.map((st) => settlementLines(st.id)))).flat();
+      expect(lines.map((l) => l.orderId).sort((a, b) => a - b)).toEqual(extra.map((e) => e.id).sort((a, b) => a - b));
 
       // the audit trail of the web order: complete, in order, by the right actors
       const events = await eventsOf(orderId);

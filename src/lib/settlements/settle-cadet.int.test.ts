@@ -11,7 +11,7 @@ import { getEnv } from "@/lib/env";
 import { assignCadet, markDelivered, markReady } from "@/lib/orders/dispatch";
 import { makeCadet, orderEventsOf, orderRow, preparingWebOrder } from "@/test-support/dispatch";
 import { seedMenuAndStaff, type Fx } from "@/test-support/orders";
-import { deliveredCounter, deliveredOrder, deliveredTakeaway, enRouteOrder, sumTotals } from "@/test-support/settlements";
+import { deliveredCounter, deliveredOrder, deliveredTakeaway, enRouteOrder, reopenDebt, sumTotals } from "@/test-support/settlements";
 import { settleCadet } from "./settle-cadet";
 
 const db = () => testDb();
@@ -93,6 +93,7 @@ describe("settleCadet: happy path", () => {
     const b = await enRouteOrder(fx, cadet.id, { units: "two" });
     expect(await settle(cadet.id, await sumTotals([b.id]))).toMatchObject({ ok: false, code: "NOTHING_TO_SETTLE" });
     await markDelivered(db(), { sector: null, orderId: b.id, userId: fx.userId });
+    await reopenDebt(b.id);
     const r = await settle(cadet.id, await sumTotals([b.id]));
     expect(r).toMatchObject({ ok: true, data: { orderCount: 1, amount: await sumTotals([b.id]) } });
     expect(await db().select().from(s.settlements)).toHaveLength(2);
@@ -270,21 +271,18 @@ describe("settleCadet: concurrency (Review Focus 5)", () => {
       const owed = await sumTotals(base.map((o) => o.id));
       const [r, d] = await Promise.all([settle(cadet.id, owed), markDelivered(db(), { sector: null, orderId: late.id, userId: fx.userId })]);
       expect(d.ok).toBe(true);
-      expect(r.ok || r.code === "AMOUNT_MISMATCH").toBe(true);
+      // markDelivered settles `late` by itself and never enters the manual settlement's figure
+      expect(r).toMatchObject({ ok: true });
 
       // each settlement amount equals the sum of its lines; a settled order is paid exactly once.
       const sts = await db().select().from(s.settlements).where(eq(s.settlements.cadetId, cadet.id));
-      expect(sts).toHaveLength(r.ok ? 1 : 0);
+      expect(sts).toHaveLength(2);
       for (const st of sts) {
         const lines = await db().select().from(s.settlementOrders).where(eq(s.settlementOrders.settlementId, st.id));
         expect(lines.reduce((a, l) => a + l.amount, 0)).toBe(st.amount);
         for (const l of lines) expect((await orderRow(l.orderId)).paymentStatus).toBe("paid");
       }
-      expect(await orderRow(late.id)).toMatchObject({ status: "entregado", paymentStatus: "pending" });
-      // whatever was left over is collectible by the next settlement
-      const bal = await balanceOf(cadet.id);
-      expect(bal.owed).toBe(r.ok ? await sumTotals([late.id]) : owed + (await sumTotals([late.id])));
-      expect(await settle(cadet.id, bal.owed)).toMatchObject({ ok: true });
+      expect(await orderRow(late.id)).toMatchObject({ status: "entregado", paymentStatus: "paid" });
       expect((await balanceOf(cadet.id)).owed).toBe(0);
     }
   });

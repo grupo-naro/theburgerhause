@@ -86,7 +86,7 @@ test("delivery flow without reloading: prepare, ready, select three, assign to a
   }
 });
 
-test("en camino actions: deliver, fail with a reason, re-assign; cash stays pending", async ({ page }) => {
+test("en camino actions: deliver (cash is settled by the same click), fail with a reason, re-assign", async ({ page }) => {
   const c1 = await ensureCadet(`Uno ${tag()}`);
   const c2 = await ensureCadet(`Dos ${tag()}`);
   const a = await placeReady({ paymentMethod: "cash" });
@@ -97,7 +97,7 @@ test("en camino actions: deliver, fail with a reason, re-assign; cash stays pend
   await openDespacho(page);
   const group = cadetGroup(page, c1.id);
   await expect(group.getByTestId("cash-pending")).toHaveText(formatARS(a.total + b.total + d.total));
-  await expect(group.getByText("El efectivo se rinde cuando vuelve el cadete.")).toBeVisible();
+  await expect(group.getByText("El efectivo se rinde solo al marcar Entregado.")).toBeVisible();
   await expect(group.getByTestId("render-link")).toHaveAttribute("href", `/delivery/rendicion?cadet=${c1.id}`);
 
   // Transfer order: one click, no dialog.
@@ -106,12 +106,12 @@ test("en camino actions: deliver, fail with a reason, re-assign; cash stays pend
   expect((await orderById(c.id)).status).toBe("entregado");
   await expect(page.locator("dialog[open]")).toHaveCount(0);
 
-  // Cash delivered by the cadet: payment stays pending until the rendicion.
+  // Cash delivered by the cadet: settled automatically in the same click.
   await routeOrder(page, b.number).getByTestId("deliver").click();
   await expect(routeOrder(page, b.number)).toHaveCount(0);
   const delivered = await orderById(b.id);
   expect(delivered.status).toBe("entregado");
-  expect(delivered.paymentStatus).toBe("pending");
+  expect(delivered.paymentStatus).toBe("paid");
   await expect(group.getByTestId("cash-pending")).toHaveText(formatARS(a.total + d.total));
 
   // Could not deliver: quick reason, back to ready, cadet cleared.

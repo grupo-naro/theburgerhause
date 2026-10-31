@@ -93,7 +93,8 @@ Solo podés modificar pedidos de **delivery**; los de retiro los ve y los modifi
 
 Un bloque por cadete, con **Efectivo a rendir**. Por cada pedido:
 
-- **Entregado**: el cadete entregó. (Los pedidos en efectivo quedan con el cobro pendiente hasta la rendición.)
+- **Entregado**: el cadete volvió con la plata. Marcalo recién cuando lo tenés delante. Si es en efectivo, **queda rendido en ese mismo momento**
+  (pasa a pagado y queda guardada la rendición, sin pasar por la pantalla de Rendición). Si es transferencia, no cambia nada con el cobro.
 - **No se pudo entregar**: elegí o escribí el motivo → **Volver a despacho**. El pedido vuelve a **Listos / Despacho** y el cadete queda libre de él.
 - **Rendir**: va directo a la rendición de ese cadete.
 
@@ -104,7 +105,13 @@ Un bloque por cadete, con **Efectivo a rendir**. Por cada pedido:
 
 ![Menú Reimprimir](img/reimprimir-menu.png)
 
-## 2. Rendición: cuando el cadete vuelve con la plata
+## 2. Rendición
+
+Al tocar **Entregado** en un pedido en efectivo, ese pedido **se rinde solo**: no hace falta pasar por esta pantalla. Cada uno deja su propia rendición
+(nota "Rendición automática al entregar"), con quién lo marcó y cuándo, y se ve en el historial.
+
+Esta pantalla sirve para ver el historial y para rendir lo que haya quedado **pendiente de antes** (pedidos entregados antes de esta mejora) o cualquier
+caso raro, como un faltante. Se hace así:
 
 1. Entrá a **Rendición**. Ves la lista de cadetes con lo que debe cada uno (**Al día** si no debe nada).
 
