@@ -77,7 +77,7 @@ export const SURFACE: Record<string, Entry> = {
   [`action:${ADMIN_DIR}/stock/actions.ts#updateStockItemAction`]: managerAction("Rename / minimum / (de)activate a stock item (may flip the stock pause of a linked drink)."),
   [`action:${ADMIN_DIR}/stock/actions.ts#setInitialStockAction`]: managerAction("Starting balance of an item, once."),
   [`action:${ADMIN_DIR}/stock/actions.ts#registerIngresoAction`]: managerAction("Stock replenishment (idempotency key; same key with other data is refused)."),
-  [`action:${ADMIN_DIR}/stock/actions.ts#registerConsumoAction`]: managerAction("Daily consumption, all or nothing (idempotency key; negative balance needs confirmation)."),
+  [`action:${ADMIN_DIR}/stock/actions.ts#closeStockDayAction`]: managerAction("Rendición de materia prima: closes one date once (unique date + idempotency key; negative balance needs confirmation)."),
   [`action:${ADMIN_DIR}/stock/actions.ts#editMovementAction`]: managerAction("Correct an ingreso / consumo / initial stock (full edit trail; negative needs confirmation)."),
   [`action:${ADMIN_DIR}/usuarios/actions.ts#saveUserAction`]: adminAction("Create/edit staff users and passwords."),
   [`action:${ADMIN_DIR}/usuarios/actions.ts#toggleUserActiveAction`]: adminAction("Deactivate/reactivate a user (revokes sessions)."),

@@ -4,3 +4,8 @@ import { revalidatePath } from "next/cache";
 export function revalidateStockPages(): void {
   revalidatePath("/admin/stock", "layout");
 }
+
+/** After a rendición: the admin shell (every admin page) shows the "rendición pendiente" reminder. */
+export function revalidateAdminShell(): void {
+  revalidatePath("/admin", "layout");
+}

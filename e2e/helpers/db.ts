@@ -187,3 +187,26 @@ export async function deleteStockItem(name: string): Promise<void> {
 export async function stockMovementsOf(itemId: number) {
   return db().select().from(s.stockMovements).where(eq(s.stockMovements.itemId, itemId)).orderBy(asc(s.stockMovements.id));
 }
+
+/**
+ * Removes the rendiciones de materia prima of these dates so a spec can close them again: their
+ * movements first (putting the stock back, so quantity = sum of movements still holds), then the closing.
+ */
+export async function deleteStockClosings(dates: string[]): Promise<void> {
+  for (const date of dates) {
+    const [c] = await db().select({ id: s.stockClosings.id }).from(s.stockClosings).where(eq(s.stockClosings.businessDate, date));
+    if (!c) continue;
+    await db().execute(sql`delete from stock_movement_edits where movement_id in (select id from stock_movements where closing_id = ${c.id})`);
+    await db().execute(
+      sql`update stock_items i set quantity = i.quantity - m.total from (select item_id, sum(qty_delta)::int as total from stock_movements where closing_id = ${c.id} group by item_id) m where i.id = m.item_id`,
+    );
+    await db().delete(s.stockMovements).where(eq(s.stockMovements.closingId, c.id));
+    await db().delete(s.stockClosings).where(eq(s.stockClosings.id, c.id));
+  }
+}
+
+/** The rendición de materia prima of a date, if closed. */
+export async function findStockClosing(date: string) {
+  const [row] = await db().select().from(s.stockClosings).where(eq(s.stockClosings.businessDate, date));
+  return row;
+}

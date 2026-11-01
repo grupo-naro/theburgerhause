@@ -20,6 +20,8 @@ export type MovementView = {
   note: string | null;
   userName: string | null;
   orderId: number | null;
+  /** Written by a rendición de materia prima (dated to the day it closes). */
+  fromClosing: boolean;
   edits: { previousDelta: number; newDelta: number; editedByName: string | null; when: string }[];
 };
 
@@ -45,7 +47,8 @@ export function MovementCard({ m }: { m: MovementView }) {
         <div className="min-w-0 flex-1">
           <p className="font-medium [overflow-wrap:anywhere]">{m.itemName}</p>
           <p className="text-sm text-ink-muted">
-            {MOVEMENT_LABEL[m.kind]} · {m.when}
+            {MOVEMENT_LABEL[m.kind]}
+            {m.fromClosing ? ` de la rendición · cargado ${m.when}` : ` · ${m.when}`}
           </p>
         </div>
         <p className="text-lg font-bold whitespace-nowrap">{signed}</p>

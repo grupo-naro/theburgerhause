@@ -41,7 +41,11 @@ const nextConfig: NextConfig = {
   },
   // Task 10.1: the rendición moved into the Delivery workspace (the query, e.g. ?cadet=, is kept).
   async redirects() {
-    return [{ source: "/despacho/rendicion", destination: "/delivery/rendicion", permanent: false }];
+    return [
+      { source: "/despacho/rendicion", destination: "/delivery/rendicion", permanent: false },
+      // "Consumo del día" was replaced by the daily rendición de materia prima.
+      { source: "/admin/stock/consumo", destination: "/admin/stock/rendicion", permanent: false },
+    ];
   },
   turbopack: {
     rules: {

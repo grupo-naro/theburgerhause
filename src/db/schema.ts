@@ -465,8 +465,31 @@ export const stockItems = pgTable(
 );
 
 /**
+ * "Rendición de materia prima": the end-of-day closing of the raw material used on ONE date (Buenos
+ * Aires calendar day), at most once per date (unique). Its lines are NOT stored here: they are the
+ * `consumo` movements that point to it (`stock_movements.closing_id`), so a correction made from the
+ * history is what the closing shows. Never deleted nor reopened.
+ */
+export const stockClosings = pgTable(
+  "stock_closings",
+  {
+    id: serial("id").primaryKey(),
+    businessDate: date("business_date", { mode: "string" }).notNull(),
+    closedBy: integer("closed_by").references(() => users.id, { onDelete: "set null" }),
+    closedAt: timestamp("closed_at", { withTimezone: true }).notNull().defaultNow(),
+    idempotencyKey: text("idempotency_key").notNull(),
+  },
+  (t) => [
+    uniqueIndex("stock_closings_business_date_unique").on(t.businessDate),
+    uniqueIndex("stock_closings_idempotency_key_unique").on(t.idempotencyKey),
+    index("stock_closings_closed_by_idx").on(t.closedBy),
+  ],
+);
+
+/**
  * Append-only ledger. Only `qty_delta` of ajuste_inicial/ingreso/consumo may be edited, and an edit
  * keeps the value it replaced in `superseded_value` (+ who/when). Signs: consumo/venta <= 0, the rest >= 0.
+ * `closing_id` ties a consumo to the rendición that wrote it (its business_date is the closing's date).
  */
 export const stockMovements = pgTable(
   "stock_movements",
@@ -485,6 +508,7 @@ export const stockMovements = pgTable(
     supersededValue: integer("superseded_value"),
     editedBy: integer("edited_by").references(() => users.id, { onDelete: "set null" }),
     editedAt: timestamp("edited_at", { withTimezone: true }),
+    closingId: integer("closing_id").references(() => stockClosings.id, { onDelete: "restrict" }),
     createdAt: createdAt(),
   },
   (t) => [
@@ -498,12 +522,16 @@ export const stockMovements = pgTable(
     index("stock_movements_item_idx").on(t.itemId, t.id),
     index("stock_movements_user_idx").on(t.userId),
     index("stock_movements_edited_by_idx").on(t.editedBy),
+    index("stock_movements_closing_idx").on(t.closingId),
+    /** Day filter of the history. */
+    index("stock_movements_business_date_idx").on(t.businessDate, t.id),
     check(
       "stock_movements_sign",
       sql`(${t.kind}::text IN ('consumo','venta') AND ${t.qtyDelta} <= 0) OR (${t.kind}::text IN ('ajuste_inicial','ingreso','devolucion') AND ${t.qtyDelta} >= 0) OR (${t.kind}::text = 'ajuste_pedido' AND ${t.qtyDelta} <> 0)`,
     ),
     check("stock_movements_order_only_sales", sql`${t.orderId} IS NULL OR ${t.kind}::text IN ('venta','devolucion','ajuste_pedido')`),
     check("stock_movements_note_len", sql`char_length(${t.note}) <= 200`),
+    check("stock_movements_closing_only_consumo", sql`${t.closingId} IS NULL OR ${t.kind}::text = 'consumo'`),
   ],
 );
 

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, like, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { Db, DbTransaction } from "@/db/client";
 import { businessDateFor } from "@/db/order-number";
 import * as s from "@/db/schema";
@@ -9,7 +9,6 @@ import { pgError } from "@/lib/orders/order-rows";
 import { getBusinessDayCutoff } from "@/lib/settings";
 import type { Kind, Unit } from "./quantity";
 import {
-  consumoSchema,
   editMovementSchema,
   balanceFits,
   fitsUnit,
@@ -19,6 +18,7 @@ import {
   stockFailure,
   validationFailure,
   type Result,
+  type StockFailure,
   type StockNegative,
 } from "./schemas";
 
@@ -106,6 +106,8 @@ export type RecordMovementInput = {
   orderId?: number | null;
   note?: string | null;
   idempotencyKey?: string | null;
+  /** The rendición that writes this consumo (see closings.ts). */
+  closingId?: number | null;
 };
 
 /**
@@ -129,6 +131,7 @@ export async function recordMovement(
       orderId: input.orderId ?? null,
       note: input.note ? input.note : null,
       idempotencyKey: input.idempotencyKey ?? null,
+      closingId: input.closingId ?? null,
     })
     .returning({ id: s.stockMovements.id });
   const quantity = input.item.quantity + input.qtyDelta;
@@ -140,7 +143,8 @@ async function businessDateNow(tx: DbTransaction, ctx: StockContext): Promise<st
   return businessDateFor(ctx.now ?? new Date(), await getBusinessDayCutoff(tx));
 }
 
-const lockKey = (tx: DbTransaction, key: string) => tx.execute(sql`select pg_advisory_xact_lock(hashtext(${key}))`);
+/** Serializes writers of the same key (released at commit/rollback). */
+export const lockKey = (tx: DbTransaction, key: string) => tx.execute(sql`select pg_advisory_xact_lock(hashtext(${key}))`);
 
 async function currentQuantity(conn: Db | DbTransaction, itemId: number): Promise<number> {
   const [row] = await conn.select({ q: s.stockItems.quantity }).from(s.stockItems).where(eq(s.stockItems.id, itemId));
@@ -257,96 +261,33 @@ export async function registerIngreso(
   }
 }
 
-// ---------------------------------------------------------------- consumo
+// ---------------------------------------------------------------- consumo (written by the rendición)
+
+export type ConsumoLine = { itemId: number; milli: number };
 
 /**
- * "Guardar consumo": one `consumo` movement per line with a quantity (zero lines are ignored),
- * all or nothing. A balance that would go below zero needs `confirmNegative: true`; otherwise
- * NEEDS_CONFIRMATION lists the affected items and nothing is written.
+ * Checks consumo lines (amount > 0, one per item) against their LOCKED items: each exists, is
+ * active, is of an allowed kind, the amount fits its unit and the balance stays in range. Returns
+ * the failure to show, or the items that would end below zero (the caller asks to confirm those).
  */
-export async function registerConsumo(
-  db: Db,
-  rawInput: {
-    userId: number;
-    businessDate: string;
-    lines: { itemId: number; milli: number }[];
-    idempotencyKey: string;
-    confirmNegative?: boolean;
-  },
-): Promise<Result<void>> {
-  const parsed = consumoSchema.safeParse(rawInput);
-  if (!parsed.success) return validationFailure(parsed.error);
-  const input = parsed.data;
-  const lines = input.lines.filter((l) => l.milli > 0);
-  if (lines.length === 0) return stockFailure("VALIDATION", STOCK_MESSAGES.NOTHING_TO_SAVE);
-  if (new Set(lines.map((l) => l.itemId)).size !== lines.length) return stockFailure("VALIDATION", STOCK_MESSAGES.REPEATED_ITEM);
-
-  const submitKey = `consumo:${input.idempotencyKey}`;
-  const lineKey = (itemId: number) => `${submitKey}:${itemId}`;
-  // "none": nothing saved under this key. "same": the same lines were saved (a resubmit). "different": the key is reused.
-  const savedState = async (conn: Db | DbTransaction): Promise<"none" | "same" | "different"> => {
-    const rows = await conn
-      .select({
-        itemId: s.stockMovements.itemId,
-        qtyDelta: s.stockMovements.qtyDelta,
-        businessDate: s.stockMovements.businessDate,
-        editedAt: s.stockMovements.editedAt,
-      })
-      .from(s.stockMovements)
-      .where(like(s.stockMovements.idempotencyKey, `${submitKey}:%`));
-    if (rows.length === 0) return "none";
-    const same =
-      rows.length === lines.length &&
-      lines.every((l) => {
-        const r = rows.find((x) => x.itemId === l.itemId);
-        // A movement corrected afterwards no longer has its original amount.
-        return r !== undefined && r.businessDate === input.businessDate && (r.editedAt !== null || r.qtyDelta === -l.milli);
-      });
-    return same ? "same" : "different";
-  };
-  const replay = (state: "none" | "same" | "different"): Result<void> | null =>
-    state === "same" ? { ok: true, data: undefined } : state === "different" ? stockFailure("CONFLICT", STOCK_MESSAGES.KEY_REUSED) : null;
-
-  try {
-    return await db.transaction(async (tx): Promise<Result<void>> => {
-      await lockKey(tx, submitKey);
-      const previous = replay(await savedState(tx));
-      if (previous) return previous;
-
-      const items = await lockStockItems(tx, lines.map((l) => l.itemId));
-      const negatives: StockNegative[] = [];
-      for (const line of lines) {
-        const item = items.get(line.itemId);
-        if (!item) return stockFailure("NOT_FOUND", STOCK_MESSAGES.ITEM_NOT_FOUND);
-        if (!item.active) return stockFailure("VALIDATION", `${STOCK_MESSAGES.ITEM_INACTIVE}: ${item.name}`);
-        if (!fitsUnit(line.milli, item.unit)) return stockFailure("VALIDATION", `${STOCK_MESSAGES.WHOLE_UNITS}: ${item.name}`);
-        const resultingQuantity = item.quantity - line.milli;
-        if (!balanceFits(resultingQuantity)) return stockFailure("VALIDATION", `${STOCK_MESSAGES.BALANCE_RANGE}: ${item.name}`);
-        if (resultingQuantity < 0) negatives.push({ itemId: item.id, name: item.name, resultingQuantity });
-      }
-      if (negatives.length > 0 && !input.confirmNegative) {
-        return stockFailure("NEEDS_CONFIRMATION", STOCK_MESSAGES.NEGATIVE, { negatives });
-      }
-
-      for (const line of [...lines].sort((a, b) => a.itemId - b.itemId)) {
-        await recordMovement(tx, {
-          item: items.get(line.itemId)!,
-          kind: "consumo",
-          qtyDelta: -line.milli,
-          businessDate: input.businessDate,
-          userId: input.userId,
-          idempotencyKey: lineKey(line.itemId),
-        });
-      }
-      return { ok: true, data: undefined };
-    });
-  } catch (err) {
-    if (isKeyRace(err)) {
-      const previous = replay(await savedState(db));
-      if (previous) return previous;
-    }
-    throw err;
+export function checkConsumoLines(
+  items: Map<number, LockedStockItem>,
+  lines: ConsumoLine[],
+  kinds: readonly Kind[],
+): { ok: false; failure: StockFailure } | { ok: true; negatives: StockNegative[] } {
+  const negatives: StockNegative[] = [];
+  const fail = (code: StockFailure["code"], message: string) => ({ ok: false as const, failure: stockFailure(code, message) });
+  for (const line of lines) {
+    const item = items.get(line.itemId);
+    if (!item) return fail("NOT_FOUND", STOCK_MESSAGES.ITEM_NOT_FOUND);
+    if (!item.active) return fail("VALIDATION", `${STOCK_MESSAGES.ITEM_INACTIVE}: ${item.name}`);
+    if (!kinds.includes(item.kind)) return fail("VALIDATION", `${STOCK_MESSAGES.NOT_RAW_MATERIAL}: ${item.name}`);
+    if (!fitsUnit(line.milli, item.unit)) return fail("VALIDATION", `${STOCK_MESSAGES.WHOLE_UNITS}: ${item.name}`);
+    const resultingQuantity = item.quantity - line.milli;
+    if (!balanceFits(resultingQuantity)) return fail("VALIDATION", `${STOCK_MESSAGES.BALANCE_RANGE}: ${item.name}`);
+    if (resultingQuantity < 0) negatives.push({ itemId: item.id, name: item.name, resultingQuantity });
   }
+  return { ok: true, negatives };
 }
 
 // ---------------------------------------------------------------- edit

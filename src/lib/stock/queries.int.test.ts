@@ -3,10 +3,10 @@ import { eq } from "drizzle-orm";
 import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
-import { editMovement, registerConsumo, registerIngreso, setInitialStock } from "./movements";
+import { editMovement, registerIngreso, setInitialStock } from "./movements";
 import { saveProduct } from "@/lib/menu/admin";
 import { listLinkableDrinks, listMovements, listShortages, listStockItems } from "./queries";
-import { key, movementsOf, seedStock, type StockFx } from "./test-fixtures";
+import { consume, key, movementsOf, seedStock, type StockFx } from "./test-fixtures";
 
 const db = () => testDb();
 let fx: StockFx;
@@ -74,13 +74,13 @@ describe("listMovements", () => {
 describe("listShortages", () => {
   it("lists active items that are out (agotado) or below the minimum (bajo_minimo), with since", async () => {
     await setInitialStock(db(), { itemId: fx.coca, userId: fx.userId, milli: 2000 });
-    await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.coca, milli: 2000 }], idempotencyKey: key(2) });
+    await consume(fx.coca, 2000);
     await backdate(fx.coca, ["2026-10-18T10:00:00Z", "2026-10-19T12:00:00Z"]);
 
     await setInitialStock(db(), { itemId: fx.carne, userId: fx.userId, milli: 30000 });
-    await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.carne, milli: 15000 }], idempotencyKey: key(3) });
-    await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.carne, milli: 10000 }], idempotencyKey: key(4) });
-    await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.carne, milli: 1000 }], idempotencyKey: key(5) });
+    await consume(fx.carne, 15000);
+    await consume(fx.carne, 10000);
+    await consume(fx.carne, 1000);
     await backdate(fx.carne, ["2026-10-17T10:00:00Z", "2026-10-18T10:00:00Z", "2026-10-19T09:00:00Z", "2026-10-19T11:00:00Z"]);
 
     const list = await listShortages(db());

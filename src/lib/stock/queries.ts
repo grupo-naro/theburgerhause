@@ -1,4 +1,4 @@
-import { asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db, DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
@@ -58,6 +58,8 @@ export type MovementRow = {
   supersededValue: number | null;
   editedByName: string | null;
   editedAt: Date | null;
+  /** The rendición that wrote it (its business_date is the rendición's date), null otherwise. */
+  closingId: number | null;
   createdAt: Date;
   /** Every edit of this movement, oldest first (empty if never edited). */
   edits: MovementEdit[];
@@ -68,8 +70,11 @@ export type MovementEdit = { previousDelta: number; newDelta: number; editedByNa
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-/** History, newest first; optionally of one item. */
-export async function listMovements(db: Conn, opts: { itemId?: number; limit?: number } = {}): Promise<MovementRow[]> {
+/**
+ * History by business date (the day a movement belongs to: a rendición loaded the next morning sits
+ * on the day it closes), newest first; optionally of one item and/or one day.
+ */
+export async function listMovements(db: Conn, opts: { itemId?: number; businessDate?: string; limit?: number } = {}): Promise<MovementRow[]> {
   const limit = Math.min(Math.max(Math.trunc(opts.limit ?? DEFAULT_LIMIT), 1), MAX_LIMIT);
   const author = alias(s.users, "author");
   const editor = alias(s.users, "editor");
@@ -88,14 +93,21 @@ export async function listMovements(db: Conn, opts: { itemId?: number; limit?: n
       supersededValue: s.stockMovements.supersededValue,
       editedByName: editor.name,
       editedAt: s.stockMovements.editedAt,
+      closingId: s.stockMovements.closingId,
       createdAt: s.stockMovements.createdAt,
     })
     .from(s.stockMovements)
     .innerJoin(s.stockItems, eq(s.stockItems.id, s.stockMovements.itemId))
     .leftJoin(author, eq(author.id, s.stockMovements.userId))
     .leftJoin(editor, eq(editor.id, s.stockMovements.editedBy));
-  const filtered = opts.itemId !== undefined ? base.where(eq(s.stockMovements.itemId, opts.itemId)) : base;
-  const rows = await filtered.orderBy(desc(s.stockMovements.id)).limit(limit);
+  const filters = [
+    opts.itemId !== undefined ? eq(s.stockMovements.itemId, opts.itemId) : undefined,
+    opts.businessDate !== undefined ? eq(s.stockMovements.businessDate, opts.businessDate) : undefined,
+  ];
+  const rows = await base
+    .where(and(...filters))
+    .orderBy(desc(s.stockMovements.businessDate), desc(s.stockMovements.id))
+    .limit(limit);
 
   const edited = rows.filter((r) => r.editedAt !== null).map((r) => r.id);
   const byMovement = new Map<number, MovementEdit[]>();

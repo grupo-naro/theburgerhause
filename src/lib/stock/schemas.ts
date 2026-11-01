@@ -15,7 +15,7 @@ export type StockFailure = {
   code: StockFailureCode;
   message: string;
   fieldErrors?: Record<string, string>;
-  /** Only with NEEDS_CONFIRMATION (registerConsumo): the items that would end below zero. */
+  /** Only with NEEDS_CONFIRMATION (closeStockDay): the items that would end below zero. */
   negatives?: StockNegative[];
 };
 export type Result<T> = { ok: true; data: T } | StockFailure;
@@ -37,6 +37,7 @@ export const STOCK_MESSAGES = {
   WHOLE_UNITS: "Para unidades usá números enteros",
   NOTHING_TO_SAVE: "Cargá al menos una cantidad",
   REPEATED_ITEM: "Hay un artículo repetido",
+  NOT_RAW_MATERIAL: "Solo se rinde materia prima",
   NOT_EDITABLE: "Las ventas y devoluciones se registran solas y no se pueden editar",
   NEGATIVE: "Esto deja el stock en negativo. Confirmá para guardar igual.",
   BALANCE_RANGE: "El saldo superaría el máximo permitido. Revisá la cantidad.",
@@ -95,7 +96,8 @@ export const businessDateSchema = z
     return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d;
   }, "Fecha inválida");
 
-export const consumoSchema = z.object({
+/** "Cerrar el día" of the rendición de materia prima (lines with 0 are ignored; at least one must be > 0). */
+export const closingSchema = z.object({
   userId: idSchema,
   businessDate: businessDateSchema,
   lines: z

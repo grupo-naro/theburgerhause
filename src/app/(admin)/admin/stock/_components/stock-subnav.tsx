@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/admin/stock", label: "Resumen", exact: true },
-  { href: "/admin/stock/consumo", label: "Consumo del día" },
+  { href: "/admin/stock/rendicion", label: "Rendición de materia prima" },
   { href: "/admin/stock/reponer", label: "Reponer stock" },
   { href: "/admin/stock/articulos", label: "Artículos" },
   { href: "/admin/stock/historial", label: "Historial" },

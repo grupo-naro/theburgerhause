@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { LiveRefresh } from "@/components/live/live-refresh";
 import { LogoutButton } from "@/components/logout-button";
+import { ClosingReminder } from "@/components/staff/closing-reminder";
+import { loadClosingReminder } from "@/components/staff/closing-reminder-data";
 import { StockAlert } from "@/components/staff/stock-alert";
 import { loadShortages } from "@/components/staff/stock-alert-data";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
@@ -13,7 +15,8 @@ const OPERATION_HOME = "/mostrador";
 /** Reads the session (request-time data): render it inside <Suspense>. */
 export async function AdminShell({ children }: { children: ReactNode }) {
   const session = await requireSessionOrRedirect(["admin", "encargado"], "/admin");
-  const shortages = await loadShortages();
+  // Only admin and encargado reach this shell: they are the ones reminded of the rendición de materia prima.
+  const [shortages, reminder] = await Promise.all([loadShortages(), loadClosingReminder()]);
   return (
     <div data-admin-touch className="flex min-h-dvh flex-col">
       {/* The admin area's ONE live connection: only a stock event refreshes the shortage strip (orders and delay do not re-render admin pages). */}
@@ -30,6 +33,7 @@ export async function AdminShell({ children }: { children: ReactNode }) {
         <AdminNav role={session.user.role} />
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
           <StockAlert initial={shortages} />
+          <ClosingReminder text={reminder} />
           {children}
         </main>
       </div>

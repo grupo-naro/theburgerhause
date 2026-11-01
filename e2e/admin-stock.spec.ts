@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { noHorizontalOverflow } from "./helpers/checkout";
-import { deleteStockItem, findStockItem, stockMovementsOf } from "./helpers/db";
+import { buenosAiresToday } from "../src/lib/stock/closing-dates";
+import { deleteStockClosings, deleteStockItem, findStockItem, stockMovementsOf } from "./helpers/db";
 import { authFile } from "./helpers/users";
 
 const CARNE = "Carne picada";
@@ -10,8 +11,9 @@ const VIEWPORTS = [
   { width: 360, height: 800 },
 ] as const;
 
-// These specs create CARNE/COCA; left behind they would show up in the shortage strip of every later spec.
+// These specs create CARNE/COCA (and close today's rendición); left behind they would show up in the shortage strip of every later spec.
 test.afterEach(async () => {
+  await deleteStockClosings([buenosAiresToday(new Date())]);
   await deleteStockItem(CARNE);
   await deleteStockItem(COCA);
 });
@@ -91,23 +93,21 @@ for (const role of ["encargado", "admin"] as const) {
         await page.goto("/admin/stock");
         await expect(card(page, COCA).getByText("58 u")).toBeVisible();
 
-        // Consumo with a decimal comma.
-        await page.goto("/admin/stock/consumo");
-        await expectTouchFriendly(page);
-        await page.getByLabel(`${CARNE} (kg)`).fill("12,5");
-        await page.getByRole("button", { name: "Guardar consumo" }).click();
-        await expect(page.getByRole("status")).toContainText("Consumo guardado");
-        await page.goto("/admin/stock");
-        await expect(card(page, CARNE).getByText("47,5 kg")).toBeVisible();
-
-        // A double tap on "Guardar consumo" is ONE movement.
+        // Rendición de materia prima with a decimal comma (drinks are not listed). A double tap on "Confirmar cierre" closes the day ONCE.
         const carne = await findStockItem(CARNE);
         const before = (await stockMovementsOf(carne.id)).length;
-        await page.goto("/admin/stock/consumo");
-        await page.getByLabel(`${CARNE} (kg)`).fill("1");
-        await page.getByRole("button", { name: "Guardar consumo" }).dblclick();
-        await expect(page.getByRole("status")).toContainText("Consumo guardado");
+        await page.goto("/admin/stock/rendicion");
+        await expectTouchFriendly(page);
+        await expect(page.getByLabel(`${COCA} (u)`)).toHaveCount(0);
+        await page.getByLabel(`${CARNE} (kg)`).fill("12,5");
+        await page.getByRole("button", { name: "Cerrar el día" }).click();
+        await expect(page.getByRole("heading", { name: /^Vas a cerrar el / })).toBeVisible();
+        await expectTouchFriendly(page);
+        await page.getByRole("button", { name: "Confirmar cierre" }).dblclick();
+        await expect(page.getByRole("status")).toContainText("cerrada");
         expect((await stockMovementsOf(carne.id)).length).toBe(before + 1);
+        await page.goto("/admin/stock");
+        await expect(card(page, CARNE).getByText("47,5 kg")).toBeVisible();
 
         // Edit the 12,5 consumo: the history keeps the previous value.
         await page.goto(`/admin/stock/historial?item=${carne.id}`);
@@ -121,21 +121,22 @@ for (const role of ["encargado", "admin"] as const) {
         await expect(edited).toContainText("Valor anterior: 12,5 kg");
         await expectTouchFriendly(page);
         await page.goto("/admin/stock");
-        await expect(card(page, CARNE).getByText("49 kg")).toBeVisible();
+        await expect(card(page, CARNE).getByText("50 kg")).toBeVisible();
       });
     }
 
-    test("@mobile a consumo that leaves a negative balance asks for confirmation", async ({ page }) => {
+    test("@mobile a rendición that leaves a negative balance asks for confirmation", async ({ page }) => {
       await page.setViewportSize(VIEWPORTS[0]);
       await deleteStockItem(CARNE);
       await createItem(page, CARNE, "Materia prima", "kg (kilos)");
       await setInitial(page, "2");
-      await page.goto("/admin/stock/consumo");
+      await page.goto("/admin/stock/rendicion");
       await page.getByLabel(`${CARNE} (kg)`).fill("5");
-      await page.getByRole("button", { name: "Guardar consumo" }).click();
+      await page.getByRole("button", { name: "Cerrar el día" }).click();
+      await page.getByRole("button", { name: "Confirmar cierre" }).click();
       await expect(page.getByRole("alert").filter({ hasText: "en negativo" })).toBeVisible();
       await page.getByRole("button", { name: "Guardar igual" }).click();
-      await expect(page.getByRole("status")).toContainText("Consumo guardado");
+      await expect(page.getByRole("status")).toContainText("cerrada");
       await page.goto("/admin/stock");
       await expect(card(page, CARNE).getByText("-3 kg")).toBeVisible();
       await expect(card(page, CARNE).getByText("Agotado", { exact: true })).toBeVisible();
@@ -147,10 +148,10 @@ test.describe("stock screens as cajera", () => {
   test.use({ storageState: authFile("cajera") });
 
   test("@mobile cannot open any /admin/stock page by URL", async ({ page }) => {
-    for (const url of ["/admin/stock", "/admin/stock/reponer", "/admin/stock/consumo", "/admin/stock/articulos", "/admin/stock/articulos/nuevo", "/admin/stock/historial"]) {
+    for (const url of ["/admin/stock", "/admin/stock/reponer", "/admin/stock/rendicion", "/admin/stock/articulos", "/admin/stock/articulos/nuevo", "/admin/stock/historial"]) {
       await page.goto(url);
       await expect(page, url).not.toHaveURL(/\/admin\/stock/);
-      await expect(page.getByRole("heading", { name: /^(Stock|Reponer stock|Consumo del día|Artículos|Historial)$/, level: 1 })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: /^(Stock|Reponer stock|Rendición de materia prima|Artículos|Historial)$/, level: 1 })).toHaveCount(0);
     }
   });
 });

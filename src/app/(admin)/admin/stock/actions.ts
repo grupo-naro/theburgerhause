@@ -8,10 +8,12 @@ import { GENERIC_ACTION_ERROR } from "@/lib/admin/action-helpers";
 import { authorizeManager } from "@/lib/menu/action-state";
 import { invalidateMenu } from "@/lib/menu/cache";
 import { parseId, rawValues } from "@/lib/menu/form-data";
-import { revalidateStockPages } from "@/lib/stock/cache";
+import { revalidateAdminShell, revalidateStockPages } from "@/lib/stock/cache";
+import { longDay } from "@/lib/stock/closing-dates";
+import { closeStockDay } from "@/lib/stock/closings";
 import { formFieldErrors, isUnit, parseOptionalQuantity, type StockActionState } from "@/lib/stock/form";
 import { createStockItem, updateStockItem } from "@/lib/stock/items";
-import { editMovement, registerConsumo, registerIngreso, setInitialStock } from "@/lib/stock/movements";
+import { editMovement, registerIngreso, setInitialStock } from "@/lib/stock/movements";
 import { formatQuantity, parseQuantity, type Unit } from "@/lib/stock/quantity";
 import { STOCK_MESSAGES, type StockFailure } from "@/lib/stock/schemas";
 
@@ -138,16 +140,21 @@ export async function registerIngresoAction(_prev: StockActionState, fd: FormDat
   });
 }
 
-const CONSUMO_PREFIX = "q_";
+const LINE_PREFIX = "q_";
 const MAX_LINES = 500;
 
-export async function registerConsumoAction(_prev: StockActionState, fd: FormData): Promise<StockActionState> {
+/**
+ * "Cerrar el día" of the rendición de materia prima: one `q_<itemId>` field per article (blank =
+ * not used), parsed with the unit stored in the database. A balance left below zero asks to confirm
+ * ("Guardar igual"); a date closes once (the core refuses the second closing).
+ */
+export async function closeStockDayAction(_prev: StockActionState, fd: FormData): Promise<StockActionState> {
   const auth = await authorizeManager();
   if ("state" in auth) return auth.state;
   return guarded(async () => {
-    const raw = [...fd.entries()].filter(([k, v]) => k.startsWith(CONSUMO_PREFIX) && typeof v === "string" && v.trim() !== "") as [string, string][];
+    const raw = [...fd.entries()].filter(([k, v]) => k.startsWith(LINE_PREFIX) && typeof v === "string" && v.trim() !== "") as [string, string][];
     if (raw.length > MAX_LINES) return invalid(fd);
-    const ids = raw.map(([k]) => Number(k.slice(CONSUMO_PREFIX.length)));
+    const ids = raw.map(([k]) => Number(k.slice(LINE_PREFIX.length)));
     if (ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) return invalid(fd);
     const items = ids.length > 0 ? await getDb().select({ id: s.stockItems.id, unit: s.stockItems.unit }).from(s.stockItems).where(inArray(s.stockItems.id, ids)) : [];
     const unitById = new Map(items.map((i) => [i.id, i.unit]));
@@ -165,7 +172,7 @@ export async function registerConsumoAction(_prev: StockActionState, fd: FormDat
     });
     if (Object.keys(fieldErrors).length > 0) return { error: "Revisá las cantidades marcadas.", fieldErrors, values: rawValues(fd) };
 
-    const result = await registerConsumo(getDb(), {
+    const result = await closeStockDay(getDb(), {
       userId: auth.session.user.id,
       businessDate: text(fd, "businessDate"),
       lines,
@@ -180,7 +187,9 @@ export async function registerConsumoAction(_prev: StockActionState, fd: FormDat
       return failureState(result, fd);
     }
     await refreshAfterWrite(lines.filter((l) => l.milli > 0).map((l) => l.itemId));
-    return { message: "Consumo guardado." };
+    // The admin shell's "rendición pendiente" reminder disappears once today is closed.
+    revalidateAdminShell();
+    return { message: `Rendición del ${longDay(result.data.businessDate)} cerrada.` };
   });
 }
 

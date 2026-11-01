@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import * as s from "@/db/schema";
 import { testDb } from "@/db/test-utils";
+import { lockStockItems, recordMovement } from "./movements";
 
 /** Shared seed for the stock *.int.test.ts files (test database only). */
 export type StockFx = { userId: number; coca: number; carne: number; cocaProduct: number; burger: number };
@@ -44,6 +45,14 @@ export async function productFlags(productId: number): Promise<{ active: boolean
 
 export async function movementsOf(itemId: number) {
   return testDb().select().from(s.stockMovements).where(eq(s.stockMovements.itemId, itemId)).orderBy(s.stockMovements.id);
+}
+
+/** One consumo movement written the way the app writes it (item lock + recordMovement), for tests that need one. */
+export async function consume(itemId: number, milli: number, businessDate = "2026-10-19"): Promise<void> {
+  await testDb().transaction(async (tx) => {
+    const item = (await lockStockItems(tx, [itemId])).get(itemId)!;
+    await recordMovement(tx, { item, kind: "consumo", qtyDelta: -milli, businessDate, userId: null });
+  });
 }
 
 /** Deterministic v4 UUIDs for idempotency keys. */

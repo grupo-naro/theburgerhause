@@ -6,8 +6,8 @@ import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { getEnv } from "@/lib/env";
 import { STOCK_CHANNEL } from "@/lib/events/channels";
-import { editMovement, registerConsumo, registerIngreso, setInitialStock } from "./movements";
-import { itemQty, key, movementsOf, productFlags, seedStock, type StockFx } from "./test-fixtures";
+import { editMovement, registerIngreso, setInitialStock } from "./movements";
+import { consume, itemQty, key, movementsOf, productFlags, seedStock, type StockFx } from "./test-fixtures";
 
 const db = () => testDb();
 const NOW = new Date("2026-10-19T15:00:00Z");
@@ -125,105 +125,9 @@ describe("registerIngreso", () => {
   });
 });
 
-describe("registerConsumo", () => {
-  beforeEach(async () => {
-    ok(await setInitialStock(db(), { itemId: fx.carne, userId: fx.userId, milli: 60000 }));
-    ok(await setInitialStock(db(), { itemId: fx.coca, userId: fx.userId, milli: 10000 }));
-  });
-
-  it("subtracts each non-empty line and ignores empty ones", async () => {
-    ok(
-      await registerConsumo(db(), {
-        userId: fx.userId,
-        businessDate: "2026-10-18",
-        lines: [
-          { itemId: fx.carne, milli: 12500 },
-          { itemId: fx.coca, milli: 0 },
-        ],
-        idempotencyKey: key(10),
-      }),
-    );
-    expect(await itemQty(fx.carne)).toBe(47500);
-    expect(await itemQty(fx.coca)).toBe(10000);
-    const ms = await movementsOf(fx.carne);
-    expect(ms[1]).toMatchObject({ kind: "consumo", qtyDelta: -12500, businessDate: "2026-10-18", userId: fx.userId });
-    expect(await movementsOf(fx.coca)).toHaveLength(1);
-  });
-
-  it("the same idempotency key twice is ONE consumption", async () => {
-    const input = {
-      userId: fx.userId,
-      businessDate: "2026-10-19",
-      lines: [
-        { itemId: fx.carne, milli: 1000 },
-        { itemId: fx.coca, milli: 2000 },
-      ],
-      idempotencyKey: key(11),
-    };
-    const rs = await Promise.all([registerConsumo(db(), input), registerConsumo(db(), input)]);
-    for (const r of rs) expect(r.ok).toBe(true);
-    ok(await registerConsumo(db(), input));
-    expect(await itemQty(fx.carne)).toBe(59000);
-    expect(await itemQty(fx.coca)).toBe(8000);
-    expect(await movementsOf(fx.carne)).toHaveLength(2);
-  });
-
-  it("one invalid line writes nothing at all", async () => {
-    const bad = [
-      [{ itemId: fx.carne, milli: 1000 }, { itemId: 9999, milli: 1000 }],
-      [{ itemId: fx.carne, milli: 1000 }, { itemId: fx.coca, milli: 1500 }],
-      [{ itemId: fx.carne, milli: 1000 }, { itemId: fx.coca, milli: -1000 }],
-      [{ itemId: fx.carne, milli: 1000 }, { itemId: fx.carne, milli: 1000 }],
-      [{ itemId: fx.carne, milli: 0 }],
-    ];
-    for (const [i, lines] of bad.entries()) {
-      const r = await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines, idempotencyKey: key(20 + i) });
-      expect(r.ok, JSON.stringify(lines)).toBe(false);
-    }
-    expect(await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-13-01", lines: [{ itemId: fx.carne, milli: 1000 }], idempotencyKey: key(30) })).toMatchObject({ ok: false, code: "VALIDATION" });
-    expect(await itemQty(fx.carne)).toBe(60000);
-    expect(await itemQty(fx.coca)).toBe(10000);
-    expect(await db().select().from(s.stockMovements)).toHaveLength(2);
-  });
-
-  it("asks for confirmation before leaving stock negative", async () => {
-    const input = { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.carne, milli: 70000 }], idempotencyKey: key(40) };
-    const r = await registerConsumo(db(), input);
-    expect(r).toMatchObject({ ok: false, code: "NEEDS_CONFIRMATION", negatives: [{ itemId: fx.carne, resultingQuantity: -10000 }] });
-    expect(await itemQty(fx.carne)).toBe(60000);
-    ok(await registerConsumo(db(), { ...input, confirmNegative: true }));
-    expect(await itemQty(fx.carne)).toBe(-10000);
-  });
-
-  it("concurrent consumptions listing overlapping items in opposite order do not deadlock and sum exactly", async () => {
-    const rounds = 10;
-    const rs = await Promise.all(
-      Array.from({ length: rounds }, (_, i) =>
-        registerConsumo(db(), {
-          userId: fx.userId,
-          businessDate: "2026-10-19",
-          lines:
-            i % 2 === 0
-              ? [
-                  { itemId: fx.carne, milli: 1000 },
-                  { itemId: fx.coca, milli: 1000 },
-                ]
-              : [
-                  { itemId: fx.coca, milli: 1000 },
-                  { itemId: fx.carne, milli: 1000 },
-                ],
-          idempotencyKey: key(70 + i),
-        }),
-      ),
-    );
-    for (const r of rs) expect(r.ok).toBe(true);
-    expect(await itemQty(fx.carne)).toBe(60000 - rounds * 1000);
-    expect(await itemQty(fx.coca)).toBe(10000 - rounds * 1000);
-    expect(await movementsOf(fx.carne)).toHaveLength(1 + rounds);
-  });
-
+describe("consumo movements", () => {
   it("a drink consumed down to zero gets stock_paused", async () => {
-    ok(await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.coca, milli: 10000 }], idempotencyKey: key(41) }));
+    await consume(fx.coca, 10000);
     expect(await productFlags(fx.cocaProduct)).toEqual({ active: true, stockPaused: true });
     expect(await productFlags(fx.burger)).toEqual({ active: true, stockPaused: false });
   });
@@ -232,7 +136,7 @@ describe("registerConsumo", () => {
 describe("editMovement", () => {
   it("stores the previous value, records who edited and recalculates the balance", async () => {
     ok(await setInitialStock(db(), { itemId: fx.carne, userId: fx.userId, milli: 60000 }));
-    ok(await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.carne, milli: 50000 }], idempotencyKey: key(50) }));
+    await consume(fx.carne, 50000);
     const [, consumo] = await movementsOf(fx.carne);
     const r = ok(await editMovement(db(), { movementId: consumo.id, userId: fx.userId, newMilli: 5000, confirmNegative: false }));
     expect(r).toEqual({ quantity: 55000 });
@@ -268,7 +172,7 @@ describe("editMovement", () => {
 
   it("an edit that needs confirmation records no edit row", async () => {
     ok(await registerIngreso(db(), { itemId: fx.coca, userId: fx.userId, milli: 3000, idempotencyKey: key(61) }));
-    ok(await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.coca, milli: 3000 }], idempotencyKey: key(62) }));
+    await consume(fx.coca, 3000);
     const [ing] = await movementsOf(fx.coca);
     const r = ok(await editMovement(db(), { movementId: ing.id, userId: fx.userId, newMilli: 1000, confirmNegative: false }));
     expect(r.needsConfirmation).toEqual({ resultingQuantity: -2000 });
@@ -286,7 +190,7 @@ describe("editMovement", () => {
   it("would-be negative balance without confirmation returns needsConfirmation and changes nothing", async () => {
     ok(await setInitialStock(db(), { itemId: fx.coca, userId: fx.userId, milli: 2000 }));
     ok(await registerIngreso(db(), { itemId: fx.coca, userId: fx.userId, milli: 24000, idempotencyKey: key(52) }));
-    ok(await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.coca, milli: 20000 }], idempotencyKey: key(53) }));
+    await consume(fx.coca, 20000);
     const ingreso = (await movementsOf(fx.coca))[1];
     const r = ok(await editMovement(db(), { movementId: ingreso.id, userId: fx.userId, newMilli: 12000, confirmNegative: false }));
     expect(r).toEqual({ quantity: 6000, needsConfirmation: { resultingQuantity: -6000 } });
@@ -363,18 +267,9 @@ describe("balance range (int4) and idempotency payload", () => {
     expect(await movementsOf(fx.carne)).toHaveLength(2);
   });
 
-  it("rejects a consumo that would push the balance below int4", async () => {
-    const consumo = (n: number) =>
-      registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.carne, milli: MAX }], idempotencyKey: key(n), confirmNegative: true });
-    ok(await consumo(93));
-    ok(await consumo(94));
-    expect(await consumo(95)).toMatchObject({ ok: false, code: "VALIDATION" });
-    expect(await itemQty(fx.carne)).toBe(-2 * MAX);
-  });
-
   it("rejects an edit that would push the balance past int4", async () => {
     ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: MAX, idempotencyKey: key(96) }));
-    ok(await registerConsumo(db(), { userId: fx.userId, businessDate: "2026-10-19", lines: [{ itemId: fx.carne, milli: MAX }], idempotencyKey: key(97) }));
+    await consume(fx.carne, MAX);
     ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: MAX, idempotencyKey: key(98) }));
     ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: MAX, idempotencyKey: key(99) }));
     ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 100_000_000, idempotencyKey: key(100) }));
@@ -400,16 +295,4 @@ describe("balance range (int4) and idempotency payload", () => {
     expect(await itemQty(fx.coca)).toBe(5000);
   });
 
-  it("a consumo key reused with different lines or date is rejected; the same lines return ok without writing", async () => {
-    const base = { userId: fx.userId, businessDate: "2026-10-19", idempotencyKey: key(99), confirmNegative: true };
-    ok(await registerConsumo(db(), { ...base, lines: [{ itemId: fx.carne, milli: 2000 }] }));
-    expect(await registerConsumo(db(), { ...base, lines: [{ itemId: fx.carne, milli: 2000 }] })).toEqual({ ok: true, data: undefined });
-    expect(await registerConsumo(db(), { ...base, lines: [{ itemId: fx.carne, milli: 3000 }] })).toMatchObject({ ok: false, code: "CONFLICT" });
-    expect(await registerConsumo(db(), { ...base, businessDate: "2026-10-18", lines: [{ itemId: fx.carne, milli: 2000 }] })).toMatchObject({ ok: false, code: "CONFLICT" });
-    expect(
-      await registerConsumo(db(), { ...base, lines: [{ itemId: fx.carne, milli: 2000 }, { itemId: fx.coca, milli: 1000 }] }),
-    ).toMatchObject({ ok: false, code: "CONFLICT" });
-    expect(await movementsOf(fx.carne)).toHaveLength(1);
-    expect(await itemQty(fx.carne)).toBe(-2000);
-  });
 });
