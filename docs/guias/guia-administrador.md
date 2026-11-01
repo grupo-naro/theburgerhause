@@ -61,7 +61,9 @@ encargada solo de Delivery. El rol **Cocina** es el login del **televisor del mo
 
 ### Stock (`/admin/stock`)
 
-Vos y el encargado cargan consumo, ingresos y artículos (**Resumen · Consumo del día · Reponer stock · Artículos · Historial**). Las bebidas se descuentan solas y se pausan en cero; ver [guia-encargado.md](guia-encargado.md). Todo el personal ve la franja **Productos faltantes de stock**.
+Vos y el encargado cargan la rendición de materia prima, los ingresos y los artículos (**Resumen · Rendición de materia prima · Reponer stock · Artículos · Historial**). Las bebidas se descuentan solas y se pausan en cero; ver [guia-encargado.md](guia-encargado.md). Todo el personal ve la franja **Productos faltantes de stock**.
+
+**Rendición de materia prima** (reemplaza al "Consumo del día"): al terminar cada día se carga **una sola vez** lo que se usó de cada materia prima y se toca **Cerrar el día** → **Confirmar cierre** (se puede cargar a la mañana siguiente eligiendo la fecha de ayer). Para ver qué se usó un día, en la misma pantalla, **Rendiciones cerradas**: aparecen los dos últimos días cerrados y con **Ver un día** abrís cualquier otro (fecha, quién la cerró y a qué hora, y artículo / cantidad / unidad). Si hubo un error se corrige desde el **Historial** de ese día (**Corregir en el Historial**): la rendición muestra la cantidad corregida y la edición queda registrada con quién, cuándo y el valor anterior. Un día cerrado no se reabre. Mientras la de **hoy** no esté cerrada, vos y el encargado ven arriba de Administración el aviso "Todavía no se cerró la de hoy" con el enlace **Cargar la rendición**. Los consumos cargados antes con el viejo "Consumo del día" siguen en el Historial, pero no figuran como rendiciones.
 
 ### Cadetes (`/admin/cadetes`)
 

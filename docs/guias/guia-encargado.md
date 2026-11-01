@@ -12,9 +12,23 @@ El stock reemplaza el papel donde anotabas lo gastado ("19/10: 50 kg de queso ch
 
 Si un producto no tiene artículo ligado, no pasa nada: se vende como siempre, sin control de stock.
 
-## Consumo del día (materia prima)
+## Rendición de materia prima (cierre del día)
 
-**Stock → Consumo del día**: escribí al lado de cada artículo lo que se gastó (podés usar coma: 12,5 kg) y tocá **Guardar consumo**. Los casilleros vacíos se ignoran. Podés cargar varias veces en el día; un doble toque no duplica. Si la carga deja el stock en negativo, el sistema avisa y pide confirmar con **Guardar igual**.
+Reemplaza al viejo "Consumo del día": **una sola carga por día**, al cerrar, con todo lo que se usó.
+
+1. **Stock → Rendición de materia prima**. Aparecen todos los artículos de **materia prima** activos, cada uno con su unidad (las bebidas no: se descuentan solas con las ventas).
+2. **Fecha a rendir**: viene con la fecha de **hoy**. Si la cargás **a la mañana siguiente**, cambiala por la de **ayer** (sirve cualquier día anterior que no esté cerrado; nunca un día futuro). Debajo ves los últimos días **ya cerrados**; si elegís uno, aparece **Ya cerrada** y no se puede cerrar de nuevo.
+3. Escribí al lado de cada artículo lo que se usó (podés usar coma: 12,5 kg). Lo que no se usó, dejalo **vacío**. Tiene que haber al menos una cantidad.
+4. Tocá **Cerrar el día**: aparece el **resumen** (la fecha y solo los artículos con cantidad). Si está bien, **Confirmar cierre**; si no, **Volver a editar**. Un doble toque no duplica.
+5. Si la rendición deja algún artículo en negativo, el sistema avisa cuál y pide confirmar con **Guardar igual**.
+
+Cada día se cierra **una sola vez**, aunque lo intenten desde dos celulares. Lo cargado queda en el **Historial en el día rendido** (el consumo del viernes cargado el sábado figura en el viernes), con la hora real en que se cargó.
+
+Más abajo, en **Rendiciones cerradas**, ves los dos últimos días cerrados: la fecha, quién la cerró y a qué hora, y la tabla artículo / cantidad / unidad. Para ver otro día (por ejemplo "el viernes pasado"), elegilo en **Ver un día** y tocá **Ver**; si ese día no se cerró, dice **No hay rendición cerrada ese día**.
+
+**Corregir una rendición ya cerrada**: en la rendición tocá **Corregir en el Historial** (abre el Historial de ese día), **Editar** la carga, **Nueva cantidad**, **Guardar cambio**. La rendición muestra siempre la cantidad corregida y la corrección queda registrada (quién, cuándo y el valor anterior). Un día cerrado no se reabre ni se borra.
+
+**El aviso**: mientras la rendición de **hoy** no esté cerrada, arriba de las pantallas de Administración aparece "La última rendición de materia prima cerrada es del jueves 30. Todavía no se cerró la de hoy." con el enlace **Cargar la rendición** (si nunca se cerró ninguna: "Todavía no se cerró ninguna rendición de materia prima."). Desaparece al cerrar el día de hoy. Solo lo ven el encargado y el administrador, en Administración.
 
 ## Reponer (cuando llega mercadería)
 
@@ -22,7 +36,7 @@ Si un producto no tiene artículo ligado, no pasa nada: se vende como siempre, s
 
 ## Corregir una carga equivocada
 
-**Stock → Historial** (podés filtrar por artículo): en la carga tocá **Editar**, escribí la **Nueva cantidad** y **Guardar cambio**. La edición **queda registrada** (quién, cuándo y el valor anterior). Nada se borra.
+**Stock → Historial** (va ordenado por día; podés filtrar por artículo o elegir un día en **Ver un día**): en la carga tocá **Editar**, escribí la **Nueva cantidad** y **Guardar cambio**. La edición **queda registrada** (quién, cuándo y el valor anterior). Nada se borra.
 
 ## La alerta "Productos faltantes de stock"
 
@@ -30,7 +44,7 @@ Todo el personal ve arriba una franja **Productos faltantes de stock (N)** cuand
 
 ## Cómo se pausa y vuelve una bebida
 
-- Cada venta (web o mostrador) **descuenta sola** la bebida. La materia prima **no**: esa la cargás vos en el consumo del día.
+- Cada venta (web o mostrador) **descuenta sola** la bebida. La materia prima **no**: esa la cargás vos en la rendición de materia prima.
 - Cuando una bebida llega a **cero**, se **pausa sola** en la tienda y en la Venta ("sin stock"). No se puede vender más de lo que hay.
 - Cuando **repones**, vuelve a estar disponible sola.
 - Si el pedido se **cancela o rechaza**, la bebida vuelve al stock (una sola vez).

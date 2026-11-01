@@ -21,7 +21,7 @@
 
 1. Administración → **Stock** → **Artículos** → **Nuevo artículo** (bebidas y materia prima) y **Guardar stock inicial** de cada uno.
 2. Ligar cada bebida a su producto (Menú → producto → **Artículo de stock**).
-3. Todos los días: **Consumo del día** → **Guardar consumo**; cuando llega mercadería, **Reponer stock**. Si aparece **Productos faltantes de stock (N)**, tocala para ver qué falta.
+3. Todos los días, al cerrar (o a la mañana siguiente, con la fecha de ayer): **Rendición de materia prima** → **Cerrar el día** → **Confirmar cierre**; cuando llega mercadería, **Reponer stock**. Si aparece **Productos faltantes de stock (N)**, tocala para ver qué falta.
 
 ## Reglas de oro
 
