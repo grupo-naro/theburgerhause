@@ -106,6 +106,13 @@
       "when": 1793496876848,
       "tag": "0014_product_suggest",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793503776542,
+      "tag": "0015_store_promo",
+      "breakpoints": true
     }
   ]
 }

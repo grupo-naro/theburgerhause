@@ -55,6 +55,7 @@ export const SURFACE: Record<string, Entry> = {
   //      also admit the encargado (authorizeManager). `quick` authorizes before running ----
   [`action:${ADMIN_DIR}/ajustes/actions.ts#saveSettingsAction`]: adminAction("Store settings (fee, hours, closed switch)."),
   [`action:${ADMIN_DIR}/ajustes/actions.ts#toggleAcceptingOrdersAction`]: adminAction("Open/closed switch."),
+  [`action:${ADMIN_DIR}/promocion/actions.ts#savePromoAction`]: adminAction("Store promotion modal: image, title, on/off and schedule."),
   [`action:${ADMIN_DIR}/cadetes/actions.ts#saveCadetAction`]: managerAction("Create/edit a cadet."),
   [`action:${ADMIN_DIR}/cadetes/actions.ts#toggleCadetActiveAction`]: managerAction("Deactivate/reactivate a cadet."),
   [`action:${ADMIN_DIR}/estaciones/actions.ts#createStationAction`]: adminAction("Creates a station and returns its token once."),

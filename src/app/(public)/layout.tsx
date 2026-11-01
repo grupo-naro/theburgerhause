@@ -11,6 +11,7 @@ import { StoreFooter } from "@/components/menu/store-footer";
 import { StoreHeader } from "@/components/menu/store-header";
 import { StoreHeaderFallback } from "@/components/menu/store-header-fallback";
 import { StoreStatusProvider } from "@/components/menu/store-status";
+import { PromoGate } from "@/components/promo/promo-gate";
 import { ToastProvider } from "@/components/ui/toast";
 import { ProductSheetProvider } from "@/components/product/sheet-context";
 import { getMenu } from "@/lib/menu/queries";
@@ -51,6 +52,9 @@ async function MenuShell({ children }: { children: ReactNode }) {
             </Suspense>
             <OrderBar />
             <PreviousPathTracker />
+            <Suspense fallback={null}>
+              <PromoGate />
+            </Suspense>
           </ProductSheetProvider>
           </ToastProvider>
         </StoreStatusProvider>

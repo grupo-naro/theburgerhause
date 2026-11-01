@@ -6,7 +6,7 @@ generales: **Vista general** (`/caja`) y **Tablero general** (`/despacho`). El a
 
 ## Menú de Administración
 
-**Menú · Modificadores · Cadetes · Stock · Usuarios · Estaciones · Ajustes**. (El **encargado** ve Menú, Modificadores, Cadetes y Stock; no ve Usuarios, Estaciones ni Ajustes.)
+**Menú · Modificadores · Cadetes · Stock · Usuarios · Estaciones · Promoción · Ajustes**. (El **encargado** ve Menú, Modificadores, Cadetes y Stock; no ve Usuarios, Estaciones, Promoción ni Ajustes.)
 
 ### Ajustes (`/admin/ajustes`)
 
@@ -22,6 +22,17 @@ generales: **Vista general** (`/caja`) y **Tablero general** (`/despacho`). El a
   Cambiarlo no renumera pedidos ya hechos.
 
 - Terminá con **Guardar ajustes**.
+
+### Promoción (`/admin/promocion`)
+
+Una imagen publicitaria (ej. "EDICIÓN ESPECIAL HALLOWEEN") que se abre como ventana cuando un cliente entra a la tienda. Hay **una sola** promoción.
+
+- **Imagen**: JPG, PNG o WebP, hasta 5 MB (igual que las fotos de productos). Se muestra **entera**, sin recortar. **Quitar imagen** y subir otra la reemplaza.
+- **Título** (opcional, hasta 120 caracteres): aparece arriba de la imagen.
+- **Activa**: el interruptor manual. Destildada, no se muestra aunque tenga fechas.
+- **Desde / Hasta** (opcionales, hora de Buenos Aires): la promoción aparece desde el inicio y deja de aparecer al llegar el fin. El fin tiene que ser posterior al inicio. Sin fechas, se muestra mientras esté **Activa**.
+- Terminá con **Guardar promoción**. Los cambios se ven en la tienda de inmediato para quien entre; el inicio y el fin se cumplen al minuto.
+- A cada cliente se le muestra **una vez por visita** (al abrir la tienda en una pestaña) y solo en la pantalla principal de la tienda: no aparece en el carrito, el checkout ni el seguimiento del pedido. Si cambiás la promoción, la vuelve a ver aunque ya haya visto la anterior.
 
 ### Estaciones (`/admin/estaciones`)
 

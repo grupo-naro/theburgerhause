@@ -127,6 +127,18 @@ Para los casos con bebida, usar la bebida de prueba del stock (G2). Los pedidos 
 | M12 | Producto sin stock | Con una bebida en cero, intentar agregarla a un pedido. | No se puede elegir ("Sin stock"); si se agotó justo antes de guardar, avisa con un mensaje y no se cambia nada. | [ ] OK  [ ] FALLÓ |
 | M13 | Cancelar un pedido con adicionales | Pedido con un adicional confirmado y uno sin pagar: **Cancelar pedido**. | El stock de todo vuelve una sola vez y el adicional sin pagar queda cancelado. | [ ] OK  [ ] FALLÓ |
 
+## Parte 4e: Promoción de la tienda (P)
+
+Al terminar, dejar la promoción **desactivada** (o con la imagen real del local) para no mostrarle una prueba a los clientes.
+
+| N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |
+| --- | --- | --- | --- | --- |
+| P1 | Cargar y activar | A entra a **Administración → Promoción**: sube una imagen (JPG, PNG o WebP), escribe un **Título**, tilda **Activa** y toca **Guardar promoción**. | Aparece "Promoción guardada" y la vista previa de la imagen. Un usuario que no es administrador (ej. Encargado) no ve **Promoción** en el menú. | [ ] OK  [ ] FALLÓ |
+| P2 | Se ve al entrar a la tienda | Con un celular (datos móviles), abrir la tienda en una pestaña nueva. | Se abre la ventana con el título y la imagen **entera** (sin recortar), con una **X**. Cierra con la **X**, tocando fuera de la imagen o con Esc. | [ ] OK  [ ] FALLÓ |
+| P3 | Una sola vez por visita | Seguir P2: cerrarla, recargar la tienda y navegar (Carrito, volver al menú). Después abrir la tienda en otra pestaña nueva. | En la misma pestaña no vuelve a aparecer; en la pestaña nueva sí. Si se entra directo a **Carrito**, **Checkout** o el seguimiento de un pedido, no aparece. | [ ] OK  [ ] FALLÓ |
+| P4 | Horario | A pone **Desde** dentro de unos minutos y **Hasta** una hora después; guardar. Abrir la tienda antes y después de la hora de inicio (pestaña nueva cada vez). | Antes del inicio no aparece; desde el inicio aparece (con un minuto de margen); pasado el fin ya no. Las horas son de Buenos Aires. | [ ] OK  [ ] FALLÓ |
+| P5 | Apagarla o cambiarla | A destilda **Activa** y guarda; abrir la tienda en pestaña nueva. Después activarla de nuevo con otra imagen y volver a abrir la tienda en una pestaña donde ya se había cerrado la anterior. | Apagada no aparece. La promoción nueva sí aparece aunque en esa pestaña ya hubiera visto la anterior. | [ ] OK  [ ] FALLÓ |
+
 ## Parte 5: Fallas (S con el local)
 
 | N.º | Escenario | Pasos | Resultado esperado | Pasó / Falló |

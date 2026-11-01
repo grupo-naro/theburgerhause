@@ -546,3 +546,26 @@ export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
   value: jsonb("value").notNull(),
 });
+
+// ---------------------------------------------------------------- store promotion
+/**
+ * The store's advertising modal. ONE row, id fixed at 1 (CHECK); the admin screen upserts it. It shows
+ * to customers while `active`, an image is set and now is inside [starts_at, ends_at) (null = open).
+ * `updated_at` doubles as the promotion's version: the customer's "already seen" flag is keyed on it.
+ */
+export const storePromo = pgTable(
+  "store_promo",
+  {
+    id: smallint("id").primaryKey().default(1),
+    imagePath: text("image_path"),
+    title: text("title"),
+    active: boolean("active").notNull().default(false),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("store_promo_single_row", sql`${t.id} = 1`),
+    check("store_promo_window_order", sql`${t.startsAt} IS NULL OR ${t.endsAt} IS NULL OR ${t.endsAt} > ${t.startsAt}`),
+  ],
+);

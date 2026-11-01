@@ -13,6 +13,7 @@ const ADMIN_LINKS: readonly AdminLink[] = [
   { href: "/admin/stock", label: "Stock" },
   { href: "/admin/usuarios", label: "Usuarios", adminOnly: true },
   { href: "/admin/estaciones", label: "Estaciones", adminOnly: true },
+  { href: "/admin/promocion", label: "Promoción", adminOnly: true },
   { href: "/admin/ajustes", label: "Ajustes", adminOnly: true },
 ];
 

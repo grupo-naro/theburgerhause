@@ -41,7 +41,7 @@ export function renderSurfaceDoc(): string {
     "",
     "## Pages",
     "",
-    'Every page under `src/app/(admin)/admin/**` is guarded: the page (or, for the index redirect, the admin shell) calls `requireSessionOrRedirect(...)`; `usuarios`, `ajustes` and `estaciones` admit only `admin`, `menu`, `modificadores` and `cadetes` admit `admin` and `encargado`. The scanner enforces a guard marker on each of them.',
+    'Every page under `src/app/(admin)/admin/**` is guarded: the page (or, for the index redirect, the admin shell) calls `requireSessionOrRedirect(...)`; `usuarios`, `ajustes`, `promocion` and `estaciones` admit only `admin`, `menu`, `modificadores` and `cadetes` admit `admin` and `encargado`. The scanner enforces a guard marker on each of them.',
     "",
     ...table("page:"),
     "",
