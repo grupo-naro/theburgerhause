@@ -1,28 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useMenuIndex } from "@/components/menu/menu-provider";
+import { useState, type MouseEvent } from "react";
+import { useMenu, useMenuIndex } from "@/components/menu/menu-provider";
 import { StatePanel } from "@/components/menu/state-panel";
 import { useOrdersOpen } from "@/components/menu/store-status";
 import { useProductSheet } from "@/components/product/sheet-context";
 import { useToast } from "@/components/ui/toast";
+import { pickSuggestions } from "@/lib/cart/suggestions";
+import { hasSeenSuggestions } from "@/lib/cart/suggest-seen";
+import type { PublicProduct } from "@/lib/menu/public";
 import type { CartGroup } from "@/lib/cart/types";
 import { UNDO_TTL_MS } from "@/lib/cart/undo";
 import { CartLine } from "./cart-line";
 import { useCart } from "./cart-provider";
 import { CartSkeleton } from "./cart-skeleton";
 import { CartSummary } from "./cart-summary";
+import { SuggestSheet } from "./suggest-sheet";
 import { IssuesBanner } from "./issues-banner";
 
 /** The `/carrito` content: groups with steppers, issues banner, subtotal and the way to checkout. */
 export function CartView() {
   const index = useMenuIndex();
+  const menu = useMenu();
   const cart = useCart();
   const ordersOpen = useOrdersOpen();
   const sheet = useProductSheet();
   const toast = useToast();
 
   const groups = cart.groups.filter((g) => index.products.has(g.productId));
+  // Frozen when the sheet opens: cards added meanwhile stay (as steppers) although now in the cart.
+  const [suggestions, setSuggestions] = useState<PublicProduct[] | null>(null);
+
+  /** Continuar offers the suggestions once per visit; with none (or already seen) the link just navigates. */
+  function onContinue(e: MouseEvent<HTMLAnchorElement>) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (hasSeenSuggestions()) return;
+    const picked = pickSuggestions(menu, groups);
+    if (picked.length === 0) return;
+    e.preventDefault();
+    setSuggestions(picked);
+  }
 
   function remove(group: CartGroup) {
     cart.removeGroup(group.signature);
@@ -70,10 +88,11 @@ export function CartView() {
                 />
               ))}
             </ul>
-            <CartSummary subtotal={cart.subtotal} count={cart.count} canContinue={ordersOpen} closed={!ordersOpen} />
+            <CartSummary subtotal={cart.subtotal} count={cart.count} canContinue={ordersOpen} closed={!ordersOpen} onContinue={onContinue} />
           </div>
         )}
       </div>
+      {suggestions && <SuggestSheet products={suggestions} onClose={() => setSuggestions(null)} />}
     </div>
   );
 }

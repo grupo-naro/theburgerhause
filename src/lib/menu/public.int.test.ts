@@ -87,6 +87,18 @@ describe("loadMenu", () => {
     expect(menu.categories[0].products.map((p) => p.name)).toEqual(["P1", "P2"]);
   });
 
+  it("exposes the suggest flag and never lists paused products", async () => {
+    const a = await cat("A", 0);
+    await prod(a.id, "Sugerido", { suggest: true });
+    await prod(a.id, "Comun", { sort: 1 });
+    await prod(a.id, "Sugerido-off", { suggest: true, active: false, sort: 2 });
+    const menu = await loadMenu(testDb());
+    expect(menu.categories[0].products.map((p) => [p.name, p.suggest])).toEqual([
+      ["Sugerido", true],
+      ["Comun", false],
+    ]);
+  });
+
   it("lists featured active products in menu order", async () => {
     const a = await cat("A", 0);
     const b = await cat("B", 1);
@@ -162,7 +174,7 @@ describe("loadMenu", () => {
     const keys = (o: object) => Object.keys(o).sort();
     expect(keys(menu.categories[0])).toEqual(["id", "imageUrl", "name", "products", "slug"]);
     expect(keys(menu.categories[0].products[0])).toEqual(
-      ["categoryId", "description", "featured", "id", "imagePath", "imageUrl", "modifierGroups", "name", "price", "thumbUrl"].sort(),
+      ["categoryId", "description", "featured", "id", "imagePath", "imageUrl", "modifierGroups", "name", "price", "suggest", "thumbUrl"].sort(),
     );
     expect(keys(menu.categories[0].products[0].modifierGroups[0].modifiers[0])).toEqual([
       "id",

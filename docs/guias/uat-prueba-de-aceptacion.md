@@ -70,6 +70,7 @@ Roles: **G** encargado, **C** cajera (PC Mostrador), **E** encargada (PC Deliver
 | A5 | Usuario nuevo y baja | Crear un usuario cajera de prueba, entrar con él, luego **Desactivar**. | Entra; después de desactivarlo no puede entrar ("Usuario o contraseña incorrectos"). | [ ] OK  [ ] FALLÓ |
 | A6 | Token rotado | **Estaciones → Rotar token** de una estación de prueba (sin agente en producción) y reinstalar con el nuevo. | El agente anterior deja de imprimir; el nuevo vuelve a **Impresora lista**. | [ ] OK  [ ] FALLÓ |
 | A7 | Vistas generales | Entrar a **Vista general** y **Tablero general**. | Se ven los pedidos de todos los sectores. | [ ] OK  [ ] FALLÓ |
+| A8 | Sugerir antes de confirmar | En **Menú → Editar** de una bebida tildar **Sugerir antes de confirmar** y guardar. Desde el celular agregar una hamburguesa, ir al carrito y tocar **Continuar con el pedido**. Sumar la bebida con **+** y tocar **Seguir con mi pedido**. Volver al carrito y tocar Continuar otra vez. Destildar la opción al terminar. | Aparece "Antes de seguir…" con la bebida; al sumarla pasa a ± y el subtotal sube; **Seguir con mi pedido** lleva a confirmar; la segunda vez va directo a confirmar. Cerrar con la X o fuera de la ventana deja al cliente en el carrito. | [ ] OK  [ ] FALLÓ |
 
 ## Parte 4b: Ticket de cocina y televisor del mostrador (O)
 

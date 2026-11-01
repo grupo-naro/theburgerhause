@@ -99,6 +99,13 @@
       "when": 1793294092482,
       "tag": "0013_order_addons",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793496876848,
+      "tag": "0014_product_suggest",
+      "breakpoints": true
     }
   ]
 }

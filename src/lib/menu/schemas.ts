@@ -40,6 +40,8 @@ export const productInputSchema = z.object({
   imagePath,
   active: z.boolean(),
   featured: z.boolean(),
+  /** undefined = leave as is (callers that do not manage suggestions). */
+  suggest: z.boolean().optional(),
   /** Optional link to a `bebida` stock item. undefined = leave as is, null = unlink. */
   stockItemId: id.nullish(),
 });

@@ -48,6 +48,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/menu
           priceArs: centsToPesos(product.price),
           active: product.active,
           featured: product.featured,
+          suggest: product.suggest,
           imagePath: product.imagePath,
           stockItemId: product.stockItemId,
         }}

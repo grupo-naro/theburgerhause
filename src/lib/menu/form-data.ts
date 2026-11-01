@@ -44,6 +44,7 @@ export function productFromForm(fd: FormData) {
     imagePath: text(fd, "imagePath") || null,
     active: checkbox(fd, "active"),
     featured: checkbox(fd, "featured"),
+    suggest: checkbox(fd, "suggest"),
     stockItemId: stockLink(fd),
   };
 }

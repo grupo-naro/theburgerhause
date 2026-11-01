@@ -12,6 +12,7 @@ const product = (id: number, name: string, description: string | null = null): P
   imageUrl: null,
   thumbUrl: null,
   featured: id === 1,
+  suggest: false,
   modifierGroups: [],
 });
 const category = (id: number, name: string, products: PublicProduct[]): PublicCategory => ({

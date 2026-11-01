@@ -238,6 +238,19 @@ describe("moveProduct / moveCategory", () => {
   });
 });
 
+describe("suggest flag", () => {
+  it("is saved on create and update, and left alone when the caller does not send it", async () => {
+    const c = await cat("C");
+    const p = await prod(c, "P", { suggest: true });
+    expect(await productRow(p)).toMatchObject({ suggest: true });
+    const base = { id: p, categoryId: c, name: "P", priceArs: 10, active: true, featured: false };
+    await saveProduct(db(), base);
+    expect(await productRow(p)).toMatchObject({ suggest: true });
+    await saveProduct(db(), { ...base, suggest: false });
+    expect(await productRow(p)).toMatchObject({ suggest: false });
+  });
+});
+
 describe("toggles", () => {
   it("flips active and featured without hard deleting", async () => {
     const c = await cat("C");

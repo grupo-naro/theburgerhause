@@ -1,16 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import type { MouseEventHandler } from "react";
 import { formatARS } from "@/domain/money";
 import { ContinueShopping } from "./continue-shopping";
 
-type Props = { subtotal: number; count: number; canContinue: boolean; closed: boolean };
+type Props = {
+  subtotal: number;
+  count: number;
+  canContinue: boolean;
+  closed: boolean;
+  /** May intercept the click (the suggestion sheet) before the link navigates to checkout. */
+  onContinue?: MouseEventHandler<HTMLAnchorElement>;
+};
 
 const cta =
   "flex min-h-14 w-full items-center justify-center rounded-full bg-cheddar-400 px-6 text-center font-display text-lg font-extrabold text-ink shadow-sm transition-colors hover:bg-cheddar-600";
 
 /** Subtotal, the shipping note and the way forward. The total is announced politely as it changes. */
-export function CartSummary({ subtotal, count, canContinue, closed }: Props) {
+export function CartSummary({ subtotal, count, canContinue, closed, onContinue }: Props) {
   return (
     <aside
       aria-label="Resumen del pedido"
@@ -34,7 +42,7 @@ export function CartSummary({ subtotal, count, canContinue, closed }: Props) {
       <p className="mt-1 text-sm text-ink-muted">El envío se calcula en el siguiente paso.</p>
       <div className="mt-4">
         {canContinue ? (
-          <Link href="/checkout" data-testid="cart-continue" className={cta}>
+          <Link href="/checkout" data-testid="cart-continue" onClick={onContinue} className={cta}>
             Continuar con el pedido
           </Link>
         ) : (

@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "suggest" boolean DEFAULT false NOT NULL;

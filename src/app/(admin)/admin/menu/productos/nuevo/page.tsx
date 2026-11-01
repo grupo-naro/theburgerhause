@@ -32,6 +32,7 @@ export default async function NewProductPage({ searchParams }: PageProps<"/admin
           priceArs: null,
           active: true,
           featured: false,
+          suggest: false,
           imagePath: null,
           stockItemId: null,
         }}

@@ -130,6 +130,7 @@ export async function saveProduct(db: Conn, input: unknown, deps: MenuDeps = {})
     imagePath: v.imagePath,
     active: v.active,
     featured: v.featured,
+    ...(v.suggest === undefined ? {} : { suggest: v.suggest }),
   };
   const nextSort = async (tx: DbTransaction, categoryId: number) => {
     const [{ next }] = await tx

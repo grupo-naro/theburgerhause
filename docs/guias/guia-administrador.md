@@ -60,6 +60,8 @@ Vos y el encargado cargan consumo, ingresos y artículos (**Resumen · Consumo d
 
 Ver `docs/guias/carga-del-menu.md` (paso a paso, con capturas).
 
+**Sugerir antes de confirmar**: en el formulario del producto, tildá esta opción para que aparezca como sugerencia cuando el cliente toca **Continuar con el pedido** en el carrito (ideal para bebidas, papas o merchandising que la gente no suele ver). Se muestran hasta 6, en el orden de la carta, sin los que el cliente ya tiene en el pedido; solo una vez por visita y sin interrumpir si no hay ninguno. Un producto pausado o agotado nunca se sugiere.
+
 ## Avisar una demora
 
 Si la cocina se atrasa o pasa algo (se pinchó el delivery, falta un ingrediente), podés avisar una demora desde el botón **Demora** de la

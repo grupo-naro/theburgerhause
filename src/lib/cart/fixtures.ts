@@ -31,6 +31,7 @@ const product = (id: number, name: string, price: number, modifierGroups: Public
   imageUrl: null,
   thumbUrl: null,
   featured: false,
+  suggest: false,
   modifierGroups,
 });
 

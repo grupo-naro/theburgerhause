@@ -16,6 +16,7 @@ const product = (over: Partial<PublicProduct>): PublicProduct => ({
   imageUrl: null,
   thumbUrl: null,
   featured: false,
+  suggest: false,
   modifierGroups: [],
   ...over,
 });

@@ -163,3 +163,28 @@ test("admin menu is usable on a phone @mobile", async ({ page }) => {
   await ajustes.click();
   await expect(page).toHaveURL(/\/admin\/ajustes$/);
 });
+
+test("product: Sugerir antes de confirmar is saved and shown again on edit", async ({ page }) => {
+  const cat = `Cat ${uid()}`;
+  const name = `Burger S ${uid()}`;
+  await createCategory(page, cat);
+  await page.goto("/admin/menu/productos/nuevo");
+  await page.getByLabel("Categoría").selectOption({ label: cat });
+  await page.getByLabel("Nombre").fill(name);
+  await page.getByLabel("Precio (pesos)").fill("1000");
+  // Next keeps the previous page mounted (hidden) across client navigations: target the visible form.
+  const box = page.getByLabel("Sugerir antes de confirmar").locator("visible=true");
+  await expect(box).not.toBeChecked();
+  await box.check();
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(page).toHaveURL(/\/admin\/menu$/);
+  expect((await findProduct(name)).suggest).toBe(true);
+
+  await productRow(page, name).getByRole("link", { name: "Editar" }).click();
+  await expect(page).toHaveURL(/productos\/\d+/);
+  await expect(box).toBeChecked();
+  await box.uncheck();
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(page).toHaveURL(/\/admin\/menu$/);
+  expect((await findProduct(name)).suggest).toBe(false);
+});

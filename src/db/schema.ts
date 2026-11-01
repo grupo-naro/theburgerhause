@@ -78,6 +78,8 @@ export const products = pgTable(
     active: boolean("active").notNull().default(true),
     /** Shown in the storefront carousel (UX spec §6). */
     featured: boolean("featured").notNull().default(false),
+    /** Offered as a suggestion when the customer taps "Continuar" in the cart. */
+    suggest: boolean("suggest").notNull().default(false),
     sort: integer("sort").notNull().default(0),
     /** Optional link to a `bebida` stock item: each unit sold takes one unit (1000 milli) of stock. */
     stockItemId: integer("stock_item_id").references(() => stockItems.id, { onDelete: "set null" }),

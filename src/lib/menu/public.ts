@@ -30,6 +30,8 @@ export type PublicProduct = {
   imageUrl: string | null;
   thumbUrl: string | null;
   featured: boolean;
+  /** Offered as an add-on suggestion when the customer taps Continuar in the cart. */
+  suggest: boolean;
   modifierGroups: PublicModifierGroup[];
 };
 
@@ -103,6 +105,7 @@ export async function loadMenu(db: Db): Promise<PublicMenu> {
     imageUrl: p.imagePath ? uploadUrl(p.imagePath) : null,
     thumbUrl: p.imagePath ? thumbUrl(p.imagePath) : null,
     featured: p.featured,
+    suggest: p.suggest,
     modifierGroups: (groupsByProduct.get(p.id) ?? []).slice().sort((a, b) => a.id - b.id),
   });
 

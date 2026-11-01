@@ -145,12 +145,12 @@ describe("saveProductAction", () => {
     const url = await redirectOf(
       saveProductAction(
         prev,
-        form({ categoryId: String(c.data.id), name: "Doble", description: "Rica", priceArs: "14400", active: "on", featured: "on" }),
+        form({ categoryId: String(c.data.id), name: "Doble", description: "Rica", priceArs: "14400", active: "on", featured: "on", suggest: "on" }),
       ),
     );
     expect(url).toBe("/admin/menu");
     expect(invalidateMenu).toHaveBeenCalledTimes(1);
-    expect((await testDb().select().from(s.products))[0]).toMatchObject({ price: 1_440_000, featured: true, active: true });
+    expect((await testDb().select().from(s.products))[0]).toMatchObject({ price: 1_440_000, featured: true, suggest: true, active: true });
   });
 
   it.each([["-5"], ["10.5"], ["abc"], [""]])("rejects price %j without invalidating", async (priceArs) => {

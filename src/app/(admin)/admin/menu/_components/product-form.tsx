@@ -17,6 +17,7 @@ export type ProductFormValues = {
   priceArs: number | null;
   active: boolean;
   featured: boolean;
+  suggest: boolean;
   imagePath: string | null;
   stockItemId: number | null;
 };
@@ -36,7 +37,7 @@ export function ProductForm({
   const [state, action, pending] = useActionState<ActionState, FormData>(saveProductAction, {});
   const v = state.values;
   const fe = state.fieldErrors ?? {};
-  const checked = (key: "active" | "featured") => (v ? key in v : initial[key]);
+  const checked = (key: "active" | "featured" | "suggest") => (v ? key in v : initial[key]);
   return (
     <form action={action} className="flex max-w-xl flex-col gap-4">
       {initial.id !== undefined ? <input type="hidden" name="id" value={initial.id} /> : null}
@@ -115,6 +116,15 @@ export function ProductForm({
       <label className="flex items-center gap-2 text-sm font-medium">
         <input type="checkbox" name="featured" defaultChecked={checked("featured")} className="size-4 accent-brand-600" />
         Destacado en la portada
+      </label>
+      <label className="flex items-start gap-2 text-sm font-medium">
+        <input type="checkbox" name="suggest" defaultChecked={checked("suggest")} className="mt-0.5 size-4 accent-brand-600" />
+        <span>
+          Sugerir antes de confirmar
+          <span className="block text-xs font-normal text-ink-muted">
+            Aparece como sugerencia cuando el cliente toca Continuar en el carrito.
+          </span>
+        </span>
       </label>
       <div className="flex gap-3">
         <Button type="submit" disabled={pending}>
