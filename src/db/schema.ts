@@ -167,6 +167,8 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     stationId: integer("station_id").references(() => stations.id, { onDelete: "set null" }),
+    /** Analytics PIN unlock of THIS session (admin only); numbers are shown while it is in the future. */
+    analyticsUnlockedUntil: timestamp("analytics_unlocked_until", { withTimezone: true }),
   },
   (t) => [index("sessions_user_idx").on(t.userId), index("sessions_station_idx").on(t.stationId)],
 );
@@ -569,6 +571,7 @@ export const stockMovementEdits = pgTable(
  *  - (removed) kds_warn_minutes / kds_late_minutes: the old kitchen screen is gone; rows may remain in old databases but are unused
  *  - business_day_cutoff string "HH:MM" (Buenos Aires; numbering and business_date roll here, default 06:00)
  *  - base_prep_minutes integer 5-180 (default 25); delivery_travel_minutes integer 0-120 (default 15)
+ *  - analytics_pin_hash string (scrypt hash of the analytics PIN; never parsed into Settings, never sent to a client)
  */
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),

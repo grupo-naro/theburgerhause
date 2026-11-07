@@ -1,0 +1,1 @@
+ALTER TABLE "sessions" ADD COLUMN "analytics_unlocked_until" timestamp with time zone;

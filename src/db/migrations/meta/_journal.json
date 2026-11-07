@@ -120,6 +120,13 @@
       "when": 1793547451365,
       "tag": "0016_stock_closings",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794070983355,
+      "tag": "0017_analytics_unlock",
+      "breakpoints": true
     }
   ]
 }
