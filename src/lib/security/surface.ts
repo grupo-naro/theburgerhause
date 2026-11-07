@@ -56,6 +56,8 @@ export const SURFACE: Record<string, Entry> = {
   [`action:${ADMIN_DIR}/ajustes/actions.ts#saveSettingsAction`]: adminAction("Store settings (fee, hours, closed switch)."),
   [`action:${ADMIN_DIR}/ajustes/actions.ts#toggleAcceptingOrdersAction`]: adminAction("Open/closed switch."),
   [`action:${ADMIN_DIR}/ajustes/actions.ts#setAnalyticsPinAction`]: adminAction("Set the analytics PIN (requires the admin's password; 5 failures / 15 min)."),
+  [`action:${ADMIN_DIR}/analiticas/actions.ts#unlockAnalyticsAction`]: adminAction("Unlock analytics for 15 min with the store PIN (5 failures / 15 min)."),
+  [`action:${ADMIN_DIR}/analiticas/actions.ts#lockAnalyticsAction`]: adminAction("Lock analytics now."),
   [`action:${ADMIN_DIR}/promocion/actions.ts#savePromoAction`]: adminAction("Store promotion modal: image, title, on/off and schedule."),
   [`action:${ADMIN_DIR}/cadetes/actions.ts#saveCadetAction`]: managerAction("Create/edit a cadet."),
   [`action:${ADMIN_DIR}/cadetes/actions.ts#toggleCadetActiveAction`]: managerAction("Deactivate/reactivate a cadet."),

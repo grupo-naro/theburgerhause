@@ -7,6 +7,7 @@ import type { Role } from "@/lib/auth/roles";
 type AdminLink = { href: string; label: string; adminOnly?: true };
 
 const ADMIN_LINKS: readonly AdminLink[] = [
+  { href: "/admin/analiticas", label: "Analíticas", adminOnly: true },
   { href: "/admin/menu", label: "Menú" },
   { href: "/admin/modificadores", label: "Modificadores" },
   { href: "/admin/cadetes", label: "Cadetes" },
