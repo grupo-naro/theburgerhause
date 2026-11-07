@@ -3,7 +3,7 @@ import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { UNEXPECTED, zodFieldErrors, type Result } from "@/lib/menu/admin";
-import { isPinBlocked, recordPinFailure } from "./pin-rate-limit";
+import { beginPinAttempt, endPinAttempt, isPinBlocked, recordPinFailure } from "./pin-rate-limit";
 import { pinInputSchema } from "./schemas";
 
 /** Analytics PIN (one per store, hashed in `settings`) and its per-session unlock. No next/* imports. */
@@ -11,6 +11,7 @@ import { pinInputSchema } from "./schemas";
 export const UNLOCK_MS = 15 * 60 * 1000;
 const PIN_KEY = "analytics_pin_hash";
 export const NO_PIN_MESSAGE = "Configurá el PIN en Ajustes";
+export const PIN_BUSY_MESSAGE = "Esperá un momento y probá de nuevo";
 
 const blockedMessage = (retryAfterMs: number) => `Demasiados intentos, probá en ${Math.max(1, Math.ceil(retryAfterMs / 60_000))} min`;
 
@@ -31,6 +32,7 @@ export async function setAnalyticsPin(db: Db, userId: number, input: unknown): P
   if (!parsed.success) return { ok: false, fieldErrors: zodFieldErrors(parsed.error.issues) };
   const blocked = isPinBlocked(userId);
   if (blocked.blocked) return { ok: false, fieldErrors: { password: blockedMessage(blocked.retryAfterMs) } };
+  if (!beginPinAttempt(userId)) return { ok: false, fieldErrors: { password: PIN_BUSY_MESSAGE } };
   try {
     const [user] = await db.select({ hash: s.users.passwordHash }).from(s.users).where(eq(s.users.id, userId));
     if (!user || !(await verifyPassword(parsed.data.password, user.hash))) {
@@ -46,6 +48,8 @@ export async function setAnalyticsPin(db: Db, userId: number, input: unknown): P
   } catch {
     console.error("[analytics] setAnalyticsPin failed");
     return { ok: false, error: UNEXPECTED };
+  } finally {
+    endPinAttempt(userId);
   }
 }
 
@@ -55,18 +59,23 @@ export async function unlockAnalytics(
 ): Promise<Result<{ until: Date }>> {
   const blocked = isPinBlocked(userId);
   if (blocked.blocked) return { ok: false, error: blockedMessage(blocked.retryAfterMs) };
-  const hash = await getPinHash(db);
-  if (!hash) return { ok: false, error: NO_PIN_MESSAGE };
-  if (!(await verifyPassword(pin, hash))) {
-    recordPinFailure(userId);
-    return { ok: false, error: "PIN incorrecto" };
+  if (!beginPinAttempt(userId)) return { ok: false, error: PIN_BUSY_MESSAGE };
+  try {
+    const hash = await getPinHash(db);
+    if (!hash) return { ok: false, error: NO_PIN_MESSAGE };
+    if (!(await verifyPassword(pin, hash))) {
+      recordPinFailure(userId);
+      return { ok: false, error: "PIN incorrecto" };
+    }
+    const until = new Date(now.getTime() + UNLOCK_MS);
+    await db
+      .update(s.sessions)
+      .set({ analyticsUnlockedUntil: until })
+      .where(and(eq(s.sessions.id, sessionId), eq(s.sessions.userId, userId)));
+    return { ok: true, data: { until } };
+  } finally {
+    endPinAttempt(userId);
   }
-  const until = new Date(now.getTime() + UNLOCK_MS);
-  await db
-    .update(s.sessions)
-    .set({ analyticsUnlockedUntil: until })
-    .where(and(eq(s.sessions.id, sessionId), eq(s.sessions.userId, userId)));
-  return { ok: true, data: { until } };
 }
 
 export async function lockAnalytics(db: Db, sessionId: string): Promise<void> {
