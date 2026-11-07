@@ -17,7 +17,10 @@ import { getAcceptingOrders, getSettings } from "@/lib/settings";
 import * as core from "@/lib/settings/admin";
 import { invalidateSettings } from "@/lib/settings/cache";
 import { form, redirectOf } from "@/test-support/next-mocks";
-import { saveSettingsAction, toggleAcceptingOrdersAction } from "./actions";
+import { hasAnalyticsPin } from "@/lib/analytics/pin";
+import { resetPinRateLimit } from "@/lib/analytics/pin-rate-limit";
+import { hashPassword } from "@/lib/auth/password";
+import { saveSettingsAction, setAnalyticsPinAction, toggleAcceptingOrdersAction } from "./actions";
 
 const session = (role: "admin" | "cajera"): AuthSession => ({
   user: { id: 1, name: "U", username: "u", role },
@@ -138,5 +141,39 @@ describe("toggleAcceptingOrdersAction", () => {
     expect((await toggleAcceptingOrdersAction(prev, form({ value: "maybe" }))).error).toBeTruthy();
     expect(core.setAcceptingOrders).not.toHaveBeenCalled();
     expect(invalidateSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe("setAnalyticsPinAction", () => {
+  const pinForm = (password: string) => form({ pin: "2468", pinConfirm: "2468", password });
+  const seedAdmin = async () =>
+    testDb()
+      .insert(s.users)
+      .values({ name: "U", username: "u", passwordHash: await hashPassword("secreta"), role: "admin" });
+  beforeEach(resetPinRateLimit);
+
+  it("encargado is refused and no settings row is written", async () => {
+    vi.mocked(requireRole).mockImplementation(async (...roles) =>
+      assertRole({ user: { id: 1, name: "E", username: "e", role: "encargado" }, stationId: null, stationKind: null, sessionId: "x" }, roles),
+    );
+    await seedAdmin();
+    expect((await setAnalyticsPinAction(prev, pinForm("secreta"))).error).toBeTruthy();
+    expect(await testDb().select().from(s.settings)).toHaveLength(0);
+  });
+  it("wrong password returns a field error and never echoes the secrets", async () => {
+    asAdmin();
+    await seedAdmin();
+    const r = await setAnalyticsPinAction(prev, pinForm("otra"));
+    expect(r.fieldErrors?.password).toBe("Contraseña incorrecta");
+    expect(r.values?.pin).toBeUndefined();
+    expect(r.values?.pinConfirm).toBeUndefined();
+    expect(r.values?.password).toBeUndefined();
+    expect(await hasAnalyticsPin(testDb())).toBe(false);
+  });
+  it("saves the pin with the right password", async () => {
+    asAdmin();
+    await seedAdmin();
+    expect(await setAnalyticsPinAction(prev, pinForm("secreta"))).toEqual({ message: "PIN de analíticas guardado" });
+    expect(await hasAnalyticsPin(testDb())).toBe(true);
   });
 });

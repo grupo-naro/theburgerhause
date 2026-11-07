@@ -18,6 +18,7 @@ Staff actions on orders additionally apply the sector rule server side (a cashie
 | --- | --- | --- | --- | --- |
 | `src/app/(admin)/admin/ajustes/actions.ts#saveSettingsAction` | admin | admin | Store settings (fee, hours, closed switch). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/ajustes/actions.ts#toggleAcceptingOrdersAction` | admin | admin | Open/closed switch. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/ajustes/actions.ts#setAnalyticsPinAction` | admin | admin | Set the analytics PIN (requires the admin's password; 5 failures / 15 min). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/promocion/actions.ts#savePromoAction` | admin | admin | Store promotion modal: image, title, on/off and schedule. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/cadetes/actions.ts#saveCadetAction` | staff | admin, encargado | Create/edit a cadet. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/cadetes/actions.ts#toggleCadetActiveAction` | staff | admin, encargado | Deactivate/reactivate a cadet. | `src/lib/security/authz.test.ts` |

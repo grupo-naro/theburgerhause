@@ -3,16 +3,18 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { getDb } from "@/db/client";
 import { centsToPesos } from "@/domain/money";
+import { hasAnalyticsPin } from "@/lib/analytics/pin";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
 import { getSettings } from "@/lib/settings";
 import { toggleAcceptingOrdersAction } from "./actions";
+import { AnalyticsPinForm } from "./_components/analytics-pin-form";
 import { SettingsForm } from "./_components/settings-form";
 
 export const metadata = { title: "Ajustes · Administración" };
 
 export default async function AdminSettingsPage() {
   await requireSessionOrRedirect(["admin"], "/admin/ajustes");
-  const settings = await getSettings(getDb());
+  const [settings, hasPin] = await Promise.all([getSettings(getDb()), hasAnalyticsPin(getDb())]);
   return (
     <section className="flex flex-col gap-5">
       <h1 className="font-display text-3xl font-extrabold text-brand-600">Ajustes</h1>
@@ -54,6 +56,7 @@ export default async function AdminSettingsPage() {
           deliveryTravelMinutes: settings.deliveryTravelMinutes,
         }}
       />
+      <AnalyticsPinForm hasPin={hasPin} />
     </section>
   );
 }
