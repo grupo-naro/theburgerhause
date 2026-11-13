@@ -29,11 +29,11 @@ test.describe("cashier", () => {
 
   test("shell: nav by role, station, printer indicator from the heartbeat, one event stream", async ({ page, context }) => {
     const streams = countEventSources(context);
-    await page.goto("/retiro");
+    await page.goto("/mostrador/pedidos");
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
     const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local", "Pantalla", "Stock"]);
-    await expect(nav.getByRole("link", { name: "Retiro en local" })).toHaveAttribute("aria-current", "page");
+    await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Pantalla", "Stock"]);
+    await expect(nav.getByRole("link", { name: "Mostrador", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("station-name")).toHaveText("Estación: Mostrador 1");
 
     // Truthful before the agent exists: never seen -> offline.
@@ -69,7 +69,7 @@ test.describe("cashier", () => {
     await setStationSeen("Mostrador 1", new Date());
     try {
       await page.clock.install({ time: new Date() });
-      await page.goto("/retiro");
+      await page.goto("/mostrador/pedidos");
       const printer = page.getByTestId("printer-indicator");
       await expect(printer).toHaveText("Impresora lista");
 
@@ -87,7 +87,7 @@ test.describe("cashier", () => {
   });
 
   test("every staff page opens exactly one /api/events connection", async ({ context }) => {
-    for (const path of ["/retiro", "/mostrador", "/mostrador/pedidos"]) {
+    for (const path of ["/mostrador", "/mostrador/pedidos"]) {
       const fresh = await context.newPage();
       const streams = countEventSources(context);
       await fresh.goto(path);
@@ -106,11 +106,11 @@ test.describe("cashier", () => {
     await expect(page.getByTestId("lane-ready-delivery")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Administración" })).toHaveCount(0);
     await page.goto("/caja");
-    await expect(page).toHaveURL(/\/retiro$/);
+    await expect(page).toHaveURL(/\/mostrador\/pedidos$/);
   });
 
   for (const [label, viewport] of VIEWPORTS) {
-    test(`Retiro en local at ${label}: no horizontal overflow and screenshots of every state`, async ({ page }) => {
+    test(`Mostrador at ${label}: no horizontal overflow and screenshots of every state`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await parkPendingOrders();
       const urgent = await placeRetiroOrder({ paymentMethod: "cash", unitNote: "Sin sal, por favor" });
@@ -314,7 +314,7 @@ test.describe("admin", () => {
   test("sees every workspace, both general views and Administración", async ({ page }) => {
     await page.goto("/caja");
     const nav = page.getByRole("navigation", { name: "Secciones" });
-    await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local", "Gestión Delivery", "Rendición", "Pantalla", "Stock", "Vista general", "Tablero general", "Administración"]);
+    await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Gestión Delivery", "Rendición", "Pantalla", "Stock", "Vista general", "Tablero general", "Administración"]);
     await expect(nav.getByRole("link", { name: "Vista general" })).toHaveAttribute("aria-current", "page");
   });
 });

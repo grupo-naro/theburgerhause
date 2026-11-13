@@ -42,7 +42,7 @@ test("J2 counter sale: POS, pager 7, real printing, dispatch pickup lane, pager 
   const total = cuarto + melt;
   const customer = `Mostrador ${Date.now().toString(36)}`;
 
-  // The same cashier works three screens: the POS (Venta), the counter orders (Mostrador) and Retiro en local (Recientes).
+  // The same cashier works three screens: the POS (Venta), the counter orders (Mostrador) (app takeaway and Recientes included).
   const dispatch = await page.context().newPage();
   const caja = await page.context().newPage();
   try {

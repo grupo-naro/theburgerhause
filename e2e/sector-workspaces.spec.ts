@@ -123,7 +123,7 @@ test.describe("distribution by order type", () => {
       await expect(lane(mostrador, "ready-delivery")).toHaveCount(0);
       await expect(lane(mostrador, "enroute")).toHaveCount(0);
 
-      // Retiro en local: the web takeaway orders (and the POS ones appear only in Mostrador / Recientes).
+      // Mostrador (unified): the web takeaway orders show up here too; never delivery.
       await openRetiro(mostrador);
       for (const n of [data.readyCounter[0], data.pickup[0]]) await expect(dcard(mostrador, n)).toBeVisible();
       for (const n of [data.prep[0], ...data.readyDelivery.map((o) => o.number)]) await expect(dcard(mostrador, n)).toHaveCount(0);
@@ -153,7 +153,7 @@ test.describe("old URLs, guards and stations", () => {
     const cadet = await ensureCadet(`Link ${tag()}`);
     try {
       await cashier.goto("/caja");
-      await expect(cashier).toHaveURL(/\/retiro$/);
+      await expect(cashier).toHaveURL(/\/mostrador\/pedidos$/);
       await cashier.goto("/despacho");
       await expect(cashier).toHaveURL(/\/mostrador\/pedidos$/);
       await cashier.goto("/delivery");
@@ -177,7 +177,7 @@ test.describe("old URLs, guards and stations", () => {
       await expect(admin).toHaveURL(/\/despacho$/);
       await admin.goto("/despacho/rendicion");
       await expect(admin).toHaveURL(/\/delivery\/rendicion$/);
-      for (const path of ["/retiro", "/mostrador/pedidos", "/delivery"]) {
+      for (const path of ["/mostrador/pedidos", "/delivery"]) {
         await admin.goto(path);
         await expect(admin, path).toHaveURL(new RegExp(`${path}$`));
         await expect(admin.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
@@ -222,12 +222,12 @@ test.describe("old URLs, guards and stations", () => {
     const sessionId = await sessionIdOf(ctx);
     try {
       await db().update(s.sessions).set({ stationId: delivery.id }).where(eq(s.sessions.id, sessionId));
-      await page.goto("/retiro");
-      await expect(page).toHaveURL(/\/estacion\?next=%2Fretiro&motivo=sector$/);
+      await page.goto("/mostrador/pedidos");
+      await expect(page).toHaveURL(/\/estacion\?next=%2Fmostrador%2Fpedidos&motivo=sector$/);
       await expect(page.getByTestId("wrong-station")).toContainText("otro sector");
       await expect(page.getByRole("button", { name: /Delivery 1/ })).toHaveCount(0);
       await page.getByRole("button", { name: /Mostrador 1/ }).click();
-      await expect(page).toHaveURL(/\/retiro$/);
+      await expect(page).toHaveURL(/\/mostrador\/pedidos$/);
     } finally {
       await db().update(s.sessions).set({ stationId: mostrador.id }).where(eq(s.sessions.id, sessionId));
       await ctx.close();
@@ -236,7 +236,7 @@ test.describe("old URLs, guards and stations", () => {
 
   test("every workspace page opens exactly one /api/events connection", async ({ browser, baseURL }) => {
     for (const [who, paths] of [
-      ["cajera", ["/retiro", "/mostrador/pedidos", "/mostrador"]],
+      ["cajera", ["/mostrador/pedidos", "/mostrador"]],
       ["encargada", ["/delivery", "/delivery?tab=enroute", "/delivery/rendicion"]],
     ] as const) {
       const ctx = await staffContext(browser, baseURL, who);
@@ -258,7 +258,7 @@ test.describe("old URLs, guards and stations", () => {
 });
 
 test.describe("layout of each workspace", () => {
-  test("Mostrador PC: Retiro en local and Mostrador at 1280 / 1024 / 768 — no overflow, big targets, screenshots", async ({ browser, baseURL }) => {
+  test("Mostrador PC: unified Mostrador and Venta at 1280 / 1024 / 768 — no overflow, big targets, screenshots", async ({ browser, baseURL }) => {
     const data = await populateBoard(tag());
     await placeApproved({ fulfillment: "takeaway", paymentMethod: "cash" }); // a web takeaway order in the kitchen
     await placeRetiroOrder({ paymentMethod: "cash", unitNote: "Sin sal" });
@@ -277,7 +277,7 @@ test.describe("layout of each workspace", () => {
         await expect(page.getByTestId("lane-ready-delivery")).toHaveCount(0);
         await expect(page.getByTestId("lane-enroute")).toHaveCount(0);
         const nav = page.getByRole("navigation", { name: "Secciones" });
-        await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Retiro en local", "Pantalla", "Stock"]);
+        await expect(nav.getByRole("link")).toHaveText(["Venta", "Mostrador", "Pantalla", "Stock"]);
         for (const link of await nav.getByRole("link").all()) await expectTarget(link, "nav link");
         await expectTarget(page.getByTestId("approve"), "Aprobar");
         await expectTarget(page.getByTestId("reject"), "Rechazar");
@@ -355,7 +355,7 @@ test.describe("layout of each workspace", () => {
 });
 
 test.describe("new web orders outside the workspace page", () => {
-  test("cashier on Venta: the Retiro badge, announcement and beep arrive live; on /retiro there is exactly one alert", async ({ page }) => {
+  test("cashier on Venta: the Mostrador badge, banner, announcement and beep arrive live; on Mostrador there is exactly one alert", async ({ page }) => {
     await stubAudio(page);
     await page.addInitScript(() => {
       window.localStorage.setItem("caja:sound", "on");
@@ -365,23 +365,25 @@ test.describe("new web orders outside the workspace page", () => {
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
     await page.mouse.click(5, 5); // a gesture unlocks the audio
     await expect.poll(() => audioContexts(page)).toBe(1);
-    await expect(page.getByTestId("sound-toggle")).toHaveAttribute("aria-pressed", "true"); // same stored preference as Retiro
-    const retiro = page.getByRole("navigation", { name: "Secciones" }).getByRole("link", { name: "Retiro en local" });
-    await expect(retiro.getByTestId("nav-badge")).toHaveCount(0);
+    await expect(page.getByTestId("sound-toggle")).toHaveAttribute("aria-pressed", "true"); // same stored preference as Mostrador
+    // By href: the badge becomes part of the link's accessible name ("Mostrador 1").
+    const mostrador = page.getByRole("navigation", { name: "Secciones" }).locator('a[href="/mostrador/pedidos"]');
+    await expect(mostrador.getByTestId("nav-badge")).toHaveCount(0);
+    await expect(page.getByTestId("pending-app-banner")).toHaveCount(0);
     const before = await beeps(page);
 
     const t = await placeRetiroOrder({ paymentMethod: "cash" });
     await placeDeliveryOrder({ paymentMethod: "cash" }); // another sector: no badge, no beep
-    await expect(retiro.getByTestId("nav-badge")).toHaveAttribute("data-count", "1"); // live, no reload
+    await expect(mostrador.getByTestId("nav-badge")).toHaveAttribute("data-count", "1"); // live, no reload
+    await expect(page.getByTestId("pending-app-banner")).toContainText("1 pedido de la app por aprobar"); // the delivery one is not counted
     await expect(page.getByTestId("shell-announcer")).toHaveText(`Nuevo pedido #${t.number}`);
     await expect(page).toHaveTitle(/^\(1\) /);
     await expect.poll(() => beeps(page)).toBe(before + 1);
 
-    // The counter orders page has the same alert; the workspace page owns its own (never two).
+    // Mostrador is the workspace page: it owns its own alert (never two) and shows no banner.
     await page.goto("/mostrador/pedidos");
-    await expect(page.getByTestId("shell-announcer")).toHaveCount(1);
-    await page.goto("/retiro");
     await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
+    await expect(page.getByTestId("pending-app-banner")).toHaveCount(0);
     await expect(page.getByTestId("shell-announcer")).toHaveCount(0);
     await expect(page.getByTestId("sound-toggle")).toHaveCount(1); // the board's own, not a second one
     await expect(page.getByTestId("caja-announcer")).toHaveCount(1);

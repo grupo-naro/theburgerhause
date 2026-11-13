@@ -24,7 +24,7 @@ test.describe("arrival and alerts", () => {
     await parkPendingOrders();
     await openRetiro(page);
     await expect(page.getByTestId("pending-empty")).toBeVisible();
-    await expect(page).toHaveTitle("Retiro en local");
+    await expect(page).toHaveTitle("Mostrador");
 
     const first = await placeRetiroOrder({ paymentMethod: "cash", unitNote: "bien cocida" });
     const card = orderCard(page, first.number);
@@ -38,7 +38,7 @@ test.describe("arrival and alerts", () => {
     await expect(card.getByTestId("order-total")).toHaveText(formatARS(first.total));
     await expect(card).toHaveAttribute("data-fresh", "true");
     await expect(pendingCount(page)).toHaveText("1");
-    await expect(page).toHaveTitle(/^\(1\) (Retiro en local|¡Nuevo pedido!)$/);
+    await expect(page).toHaveTitle(/^\(1\) (Mostrador|¡Nuevo pedido!)$/);
     await expect(page.getByTestId("caja-announcer")).toHaveText(`Nuevo pedido #${first.number}`);
     // Sound is off by default: nothing played, and the page says how to turn it on.
     expect(await beeps(page)).toBe(0);
@@ -103,9 +103,9 @@ test.describe("arrival and alerts", () => {
     await openRetiro(page);
     const o = await placeRetiroOrder();
     await expect(orderCard(page, o.number)).toBeVisible();
-    await expect(page).toHaveTitle(/¡Nuevo pedido!/); // alternates with "(1) Retiro en local"
+    await expect(page).toHaveTitle(/¡Nuevo pedido!/); // alternates with "(1) Mostrador"
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await expect(page).toHaveTitle("(1) Retiro en local");
+    await expect(page).toHaveTitle("(1) Mostrador");
   });
 
   test("the highlight on a new card expires by itself", async ({ page }) => {

@@ -47,7 +47,7 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
 
   const dispatchCtx = await staffContext(browser, baseURL, "encargada");
   const dispatch = await dispatchCtx.newPage();
-  // The cashier's screen (Retiro en local) must never show this delivery order.
+  // The cashier's screen (Mostrador) must never show this delivery order.
   const cashierCtx = await staffContext(browser, baseURL, "cajera");
   const cashier = await cashierCtx.newPage();
   const cadet = await ensureCadet(`Cadete ${tag()}`);
@@ -62,7 +62,7 @@ test("J1 web delivery order end to end: customer, delivery manager, print agent,
     await agent.log.waitFor("Agente conectado");
     await openDelivery(dispatch);
     await expect(dispatch.getByTestId("printer-indicator")).toHaveAttribute("data-online", "true");
-    await cashier.goto("/retiro");
+    await cashier.goto("/mostrador/pedidos");
 
     await test.step("the customer builds a per-unit order on a phone and confirms (delivery + transfer)", async () => {
       await gotoStore(page);

@@ -17,7 +17,7 @@ export async function addInEditor(page: Page, name = ADDED): Promise<void> {
   await editor(page).getByRole("button", { name: new RegExp(`^Agregar ${escaped}, `) }).click();
 }
 
-/** /retiro has no tabs: orders in preparation are on the same screen (live). */
+/** /mostrador/pedidos has no tabs: orders in preparation are on the same screen (live). */
 export async function openRetiroPreparing(page: Page): Promise<void> {
   await openRetiro(page);
   await expect(page.getByTestId("dispatch-board")).toBeVisible();

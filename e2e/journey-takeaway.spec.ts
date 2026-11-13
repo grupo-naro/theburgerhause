@@ -24,7 +24,7 @@ test.afterEach(async () => {
 test.afterAll(() => resetStationAgentState(STATION));
 
 /**
- * J3: web takeaway paid in cash at the counter (cashier, Retiro en local), a delivery order rejected by the
+ * J3: web takeaway paid in cash at the counter (cashier, Mostrador), a delivery order rejected by the
  * delivery manager (it never shows on the cashier's screen), and a cadet settlement with a shortage.
  */
 test("J3 takeaway with cash collected at pickup, a rejection with a reason, and a settlement with a shortage", async ({ page, browser, baseURL }) => {

@@ -331,7 +331,7 @@ test.describe("cocina (the TV login)", () => {
 
   test("has no way to edit or add: the order screens send it to the TV, which has no controls", async ({ page }) => {
     const o = await placeApproved({ fulfillment: "takeaway", paymentMethod: "cash" });
-    await page.goto("/retiro");
+    await page.goto("/mostrador/pedidos");
     await expect(page).toHaveURL(/\/pantalla$/);
     await expect(page.getByTestId("counter-board")).toBeVisible();
     await expect(page.getByTestId("edit-order")).toHaveCount(0);

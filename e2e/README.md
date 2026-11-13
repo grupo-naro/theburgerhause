@@ -81,7 +81,7 @@ The saved logins land on `/mostrador` (cajera, station Mostrador 1) and `/delive
 | --- | --- |
 | `sector-workspaces.spec.ts` | Distribution by order type (live and after reload), print jobs on the approving station, old URLs and redirects, station picker per role, role/kind mismatch message, one EventSource per page, layout (no overflow, >= 48 px targets, screenshots `sector-*`) at 1280/1024/768. |
 | `delivery-workspace.spec.ts` | Gestión Delivery tabs: tablist semantics and arrow keys, `?tab=` deep links (survives live refresh), badges, selection kept across tabs, new-order alert while on another tab. |
-| `caja.spec.ts`, `caja-chrome.spec.ts` | The cashier approval flow runs on `/retiro` with takeaway orders (`placeRetiroOrder`); the delivery manager's visual checks on `/delivery` (`placeDeliveryOrder`). |
+| `caja.spec.ts`, `caja-chrome.spec.ts` | The cashier approval flow runs on `/mostrador/pedidos` (unified Mostrador; `/retiro` only redirects) with takeaway orders (`placeRetiroOrder`); the delivery manager's visual checks on `/delivery` (`placeDeliveryOrder`). |
 | `despacho-flow/layout/safety.spec.ts` | The full dispatch board (every lane + counters) as **admin** on `/despacho`; `despacho-roles.spec.ts` covers cashier (`/mostrador/pedidos`), encargada (`/delivery`) and admin. |
 
 Staff screens that are not the workspace itself (Venta, Mostrador, Rendición) carry a shell-level alert for new web orders of the user's sector: nav badge on Retiro / Gestión Delivery, tab title, announcer (`shell-announcer`), beep and the shared sound toggle. The workspace pages keep CajaBoard's own alert, so there is never a double beep (covered in `sector-workspaces.spec.ts`).

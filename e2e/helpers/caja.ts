@@ -112,7 +112,7 @@ export const orderCard = (page: Page, number: number): Locator =>
 export const recentRow = (page: Page, number: number): Locator =>
   page.locator(`[data-testid="recent-row"][data-order-number="${number}"]`);
 
-/** A web TAKEAWAY order: what the counter sector (cashier, Retiro en local) handles. */
+/** A web TAKEAWAY order: what the counter sector (cashier, Mostrador) handles. */
 export const placeRetiroOrder = (o: Parameters<typeof placeCajaOrder>[0] = {}): Promise<CajaOrderFixture> =>
   placeCajaOrder({ fulfillment: "takeaway", ...o });
 
@@ -124,9 +124,9 @@ async function waitLive(page: Page): Promise<void> {
   await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
 }
 
-/** Cashier workspace: opens /retiro (Retiro en local) and waits for the live connection, so events created afterwards are not missed. */
+/** Cashier workspace: opens /mostrador/pedidos (unified Mostrador: app takeaway + counter) and waits for the live connection, so events created afterwards are not missed. */
 export async function openRetiro(page: Page): Promise<void> {
-  await page.goto("/retiro");
+  await page.goto("/mostrador/pedidos");
   await waitLive(page);
 }
 
