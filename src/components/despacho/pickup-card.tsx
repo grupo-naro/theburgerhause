@@ -4,7 +4,7 @@ import { useState } from "react";
 import { markDeliveredAction } from "@/app/(staff)/despacho/actions";
 import { needsCollection } from "@/lib/despacho/cash";
 import type { DispatchOrder } from "@/lib/orders/dispatch-queries";
-import { AgeBadge, BigButton, CardError, OrderNumber, PaymentBadge, Total, urgencyAccent } from "./card-parts";
+import { AgeBadge, BigButton, CardError, OrderNumber, OriginChip, PaymentBadge, Total, urgencyAccent } from "./card-parts";
 import { CancelOrderControl } from "./cancel-dialog";
 import { CollectDialog } from "./collect-dialog";
 import { CallSign } from "./counter-ready-card";
@@ -35,6 +35,7 @@ export function PickupCard({ order, now, canControl }: Props) {
         <CallSign order={order} tone="text-state-route" />
         <div className="flex flex-col items-end gap-2">
           <OrderNumber number={order.number} className="text-3xl" />
+          <OriginChip order={order} />
           <AgeBadge order={order} lane="pickup" now={now} />
         </div>
       </header>

@@ -3,6 +3,7 @@ import { TAG, TONE } from "@/components/caja/elapsed-badge";
 import { Chip } from "@/components/caja/chips";
 import { formatARS } from "@/domain/money";
 import { elapsedMs, formatElapsed } from "@/lib/caja/elapsed";
+import { originLabel } from "@/lib/despacho/origin";
 import { orderUrgency, type UrgencyLane } from "@/lib/despacho/urgency";
 import type { DispatchOrder } from "@/lib/orders/dispatch-queries";
 
@@ -144,3 +145,14 @@ export function CardError({ children }: { children: ReactNode }) {
   );
 }
 
+
+/** "MOSTRADOR" / "APP · RETIRA EN LOCAL" on counter-sector cards (none for delivery). */
+export function OriginChip({ order }: { order: Pick<DispatchOrder, "channel" | "fulfillment"> }) {
+  const label = originLabel(order);
+  if (!label) return null;
+  return (
+    <Chip data-testid="origin-chip" className={order.channel === "counter" ? "bg-ink text-white" : "bg-violet-600 text-white"}>
+      {label}
+    </Chip>
+  );
+}

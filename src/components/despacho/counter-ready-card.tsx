@@ -2,7 +2,7 @@
 
 import { markPickupAction } from "@/app/(staff)/despacho/actions";
 import type { DispatchOrder } from "@/lib/orders/dispatch-queries";
-import { AgeBadge, BigButton, CardError, ItemsSummary, OrderNumber, PaymentBadge, Total, urgencyAccent } from "./card-parts";
+import { AgeBadge, BigButton, CardError, ItemsSummary, OrderNumber, OriginChip, PaymentBadge, Total, urgencyAccent } from "./card-parts";
 import { CancelOrderControl } from "./cancel-dialog";
 import { useCardAction } from "./use-card-action";
 
@@ -44,6 +44,7 @@ export function CounterReadyCard({ order, now, fresh, canControl }: Props) {
         <CallSign order={order} />
         <div className="flex flex-col items-end gap-2">
           <OrderNumber number={order.number} className="text-3xl" />
+          <OriginChip order={order} />
           <AgeBadge order={order} lane="ready" now={now} />
         </div>
       </header>

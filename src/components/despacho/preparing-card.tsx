@@ -11,7 +11,7 @@ import { editorItemsFromGroups } from "@/lib/orders/editor-math";
 import { Chip } from "@/components/caja/chips";
 import { FULFILLMENT_LABEL } from "@/lib/caja/labels";
 import type { DispatchOrder } from "@/lib/orders/dispatch-queries";
-import { AgeBadge, BigButton, CardError, ItemsSummary, OrderNumber, urgencyAccent } from "./card-parts";
+import { AgeBadge, BigButton, CardError, ItemsSummary, OrderNumber, OriginChip, urgencyAccent } from "./card-parts";
 import { CancelOrderControl } from "./cancel-dialog";
 import { TandaField } from "./tanda-field";
 import { useCardAction } from "./use-card-action";
@@ -59,7 +59,8 @@ export function PreparingCard({ order, now, canMark, canEditTanda = false }: Pro
         <OrderNumber number={order.number} className="text-3xl" />
         <AgeBadge order={order} lane="preparing" now={now} />
       </header>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <OriginChip order={order} />
         <DestinationChip order={order} />
         <WhereLine order={order} />
       </div>
