@@ -211,8 +211,8 @@ export const SURFACE: Record<string, Entry> = {
   ["page:src/app/(staff)/caja/page.tsx"]: { access: "staff", roles: STAFF3, note: "General view; staff are redirected to their workspace.", tests: ["e2e/caja.spec.ts"] },
   ["page:src/app/(staff)/despacho/page.tsx"]: { access: "staff", roles: STAFF3, note: "General dispatch view; staff are redirected.", tests: ["e2e/despacho-roles.spec.ts"] },
   ["page:src/app/(staff)/mostrador/page.tsx"]: { access: "staff", roles: COUNTER, note: "POS (mostrador sector).", tests: ["e2e/mostrador-guards.spec.ts"] },
-  ["page:src/app/(staff)/mostrador/pedidos/page.tsx"]: { access: "staff", roles: COUNTER, note: "Counter orders board.", tests: ["e2e/despacho-roles.spec.ts"] },
-  ["page:src/app/(staff)/retiro/page.tsx"]: { access: "staff", roles: COUNTER, note: "Takeaway approval workspace.", tests: ["e2e/caja.spec.ts"] },
+  ["page:src/app/(staff)/mostrador/pedidos/page.tsx"]: { access: "staff", roles: COUNTER, note: "Unified counter workspace: app takeaway approval + counter and app orders in flight + recent.", tests: ["e2e/despacho-roles.spec.ts"] },
+  ["page:src/app/(staff)/retiro/page.tsx"]: { access: "staff", roles: COUNTER, note: "Legacy URL: redirects to /mostrador/pedidos.", tests: ["e2e/sector-workspaces.spec.ts"] },
   ["page:src/app/(staff)/cocina/page.tsx"]: { access: "staff", roles: KITCHEN, note: "Temporary redirect to /pantalla (no data, no actions).", tests: ["e2e/pantalla.spec.ts"] },
   ["page:src/app/(staff)/pantalla/page.tsx"]: {
     access: "staff",

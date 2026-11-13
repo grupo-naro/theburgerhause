@@ -12,13 +12,14 @@ import { getDispatchBoard } from "@/lib/orders/dispatch-queries";
 import type { Sector } from "@/lib/orders/sector";
 
 type Config = { sector: Sector; path: string; title: string };
-const CONFIG: Record<"retiro" | "delivery", Config> = {
-  retiro: { sector: "mostrador", path: "/retiro", title: "Retiro en local" },
+const CONFIG: Record<"mostrador" | "delivery", Config> = {
+  // Unified counter screen: app takeaway orders (approval + in flight) together with the counter sales.
+  mostrador: { sector: "mostrador", path: "/mostrador/pedidos", title: "Mostrador" },
   delivery: { sector: "delivery", path: "/delivery", title: "Gestión Delivery" },
 };
 
 /**
- * Server half of the order workspaces (/retiro and /delivery): guards by station kind, reads ONLY the
+ * Server half of the order workspaces (/mostrador/pedidos and /delivery): guards by station kind, reads ONLY the
  * sector's web orders (sector filter in the queries), and hands them to the tabbed workspace.
  */
 export async function SectorWorkspacePage({
@@ -42,7 +43,8 @@ export async function SectorWorkspacePage({
     listPendingApproval(db, { now, ...scope }),
     // Recientes keeps the whole sector (the counter sector also holds the counter sales: reprint lives here).
     listRecentProcessed(db, { limit: 30, now, sector }),
-    getDispatchBoard(db, { now, ...scope }),
+    // Mostrador shows counter sales AND app takeaway orders (both channels of the sector); delivery only its web orders.
+    getDispatchBoard(db, sector === "mostrador" ? { now, sector } : { now, ...scope }),
     session.stationId === null ? Promise.resolve([]) : listFailedPrintJobs(db, session.stationId, { sector: isManager(session.user.role) ? null : sector }),
   ]);
 

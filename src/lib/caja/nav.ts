@@ -5,7 +5,6 @@ export type NavLink = { href: string; label: string; /** Opens in a new tab (the
 
 const VENTA: NavLink = { href: "/mostrador", label: "Venta" };
 const MOSTRADOR: NavLink = { href: "/mostrador/pedidos", label: "Mostrador" };
-const RETIRO: NavLink = { href: "/retiro", label: "Retiro en local" };
 const DELIVERY: NavLink = { href: "/delivery", label: "Gestión Delivery" };
 const RENDICION: NavLink = { href: "/delivery/rendicion", label: "Rendición" };
 /** The counter TV (orders in preparation / ready), fullscreen in its own tab. Replaced the old "Cocina" link. */
@@ -17,7 +16,7 @@ const GENERAL_DESPACHO: NavLink = { href: "/despacho", label: "Tablero general" 
 const ADMIN: NavLink = { href: "/admin", label: "Administración" };
 const CHANGE_STATION: NavLink = { href: "/estacion", label: "Cambiar estación" };
 
-const MOSTRADOR_WORKSPACE: readonly NavLink[] = [VENTA, MOSTRADOR, RETIRO];
+const MOSTRADOR_WORKSPACE: readonly NavLink[] = [VENTA, MOSTRADOR];
 const DELIVERY_WORKSPACE: readonly NavLink[] = [DELIVERY, RENDICION];
 
 /** The link of the section being viewed: the most specific prefix match ("/delivery/rendicion" is not "/delivery"). */

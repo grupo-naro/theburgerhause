@@ -106,8 +106,8 @@ Every page under `src/app/(admin)/admin/**` is guarded: the page (or, for the in
 | `src/app/(staff)/caja/page.tsx` | staff | cajera, encargada_delivery, admin, encargado | General view; staff are redirected to their workspace. | `e2e/caja.spec.ts` |
 | `src/app/(staff)/despacho/page.tsx` | staff | cajera, encargada_delivery, admin, encargado | General dispatch view; staff are redirected. | `e2e/despacho-roles.spec.ts` |
 | `src/app/(staff)/mostrador/page.tsx` | staff | cajera, admin, encargado | POS (mostrador sector). | `e2e/mostrador-guards.spec.ts` |
-| `src/app/(staff)/mostrador/pedidos/page.tsx` | staff | cajera, admin, encargado | Counter orders board. | `e2e/despacho-roles.spec.ts` |
-| `src/app/(staff)/retiro/page.tsx` | staff | cajera, admin, encargado | Takeaway approval workspace. | `e2e/caja.spec.ts` |
+| `src/app/(staff)/mostrador/pedidos/page.tsx` | staff | cajera, admin, encargado | Unified counter workspace: app takeaway approval + counter and app orders in flight + recent. | `e2e/despacho-roles.spec.ts` |
+| `src/app/(staff)/retiro/page.tsx` | staff | cajera, admin, encargado | Legacy URL: redirects to /mostrador/pedidos. | `e2e/sector-workspaces.spec.ts` |
 | `src/app/(staff)/cocina/page.tsx` | staff | cocina, cajera, encargada_delivery, admin, encargado | Temporary redirect to /pantalla (no data, no actions). | `e2e/pantalla.spec.ts` |
 | `src/app/(staff)/pantalla/page.tsx` | staff | cocina, cajera, encargada_delivery, encargado, admin | Counter TV, read only: order numbers in preparation / ready (counter + web takeaway, never delivery); no customer data, no actions. | `e2e/pantalla.spec.ts`<br>`src/lib/orders/counter-board.int.test.ts` |
 | `src/app/(staff)/stock/page.tsx` | staff | cocina, cajera, encargada_delivery, encargado, admin | Read-only stock balances (no loading controls); the loading actions stay admin/encargado. | `e2e/stock-alert.spec.ts` |

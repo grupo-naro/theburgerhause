@@ -2,8 +2,8 @@ import { isManager, type Role } from "@/lib/auth/roles";
 import type { Sector } from "@/lib/orders/sector";
 
 /**
- * One workspace per sector (Task 10.1). Gestión Delivery (/delivery) is organised in tabs; Retiro en local
- * (/retiro) shows everything at once (few orders, the cashier wants to see them all), so it has no tabs.
+ * One workspace per sector (Task 10.1). Gestión Delivery (/delivery) is organised in tabs; Mostrador
+ * (/mostrador/pedidos) shows everything at once (few orders, the cashier wants to see them all), so it has no tabs.
  * Also the old-URL redirects.
  */
 
@@ -49,5 +49,5 @@ export function legacyRedirectTarget(legacy: "caja" | "despacho", role: Role): s
   if (isManager(role)) return null;
   if (role === "cocina") return "/pantalla";
   if (role === "encargada_delivery") return "/delivery";
-  return legacy === "caja" ? "/retiro" : "/mostrador/pedidos";
+  return "/mostrador/pedidos";
 }

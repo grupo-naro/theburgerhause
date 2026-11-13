@@ -11,7 +11,7 @@ describe("tabsFor", () => {
       ["recent", "Recientes"],
     ]);
   });
-  it("Retiro en local shows everything at once: no tabs", () => {
+  it("Mostrador shows everything at once: no tabs", () => {
     expect(tabsFor("mostrador")).toEqual([]);
   });
 });
@@ -38,7 +38,7 @@ describe("tabLanes", () => {
 
 describe("legacyRedirectTarget (old URLs)", () => {
   it("/caja and /despacho send staff to their sector workspace, admin keeps the general views", () => {
-    expect(legacyRedirectTarget("caja", "cajera")).toBe("/retiro");
+    expect(legacyRedirectTarget("caja", "cajera")).toBe("/mostrador/pedidos");
     expect(legacyRedirectTarget("caja", "encargada_delivery")).toBe("/delivery");
     expect(legacyRedirectTarget("despacho", "cajera")).toBe("/mostrador/pedidos");
     expect(legacyRedirectTarget("despacho", "encargada_delivery")).toBe("/delivery");

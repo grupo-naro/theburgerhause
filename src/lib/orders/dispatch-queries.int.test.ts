@@ -278,3 +278,15 @@ describe("getDispatchBoard add-ons", () => {
     expect(b.preparing.find((x) => x.id === plain.id)!.addons).toEqual([]);
   });
 });
+
+describe("unified Mostrador board (sector scope, both channels)", () => {
+  it("mostrador board excludes delivery", async () => {
+    const counter = await preparingCounterOrder(fx, { pagerNumber: 7 });
+    const appTakeaway = await preparingWebOrder(fx, { fulfillment: "takeaway" });
+    const delivery = await preparingWebOrder(fx, { fulfillment: "delivery" });
+    const b = await getDispatchBoard(db(), { now: NOW, sector: "mostrador" });
+    const ids = b.preparing.map((o) => o.id);
+    expect(ids).toEqual(expect.arrayContaining([counter.id, appTakeaway.id]));
+    expect(ids).not.toContain(delivery.id);
+  });
+});

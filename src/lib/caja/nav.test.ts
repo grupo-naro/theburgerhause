@@ -4,11 +4,10 @@ import { activeNavHref, navLinksFor } from "./nav";
 const links = (...args: Parameters<typeof navLinksFor>) => navLinksFor(...args).map((l) => [l.href, l.label]);
 
 describe("navLinksFor (role x station kind)", () => {
-  it("cajera on a Mostrador station: Venta, Mostrador, Retiro en local (nothing of delivery)", () => {
+  it("cajera on a Mostrador station: Venta and Mostrador (app takeaway lives in Mostrador; nothing of delivery)", () => {
     expect(links("cajera", "mostrador")).toEqual([
       ["/mostrador", "Venta"],
       ["/mostrador/pedidos", "Mostrador"],
-      ["/retiro", "Retiro en local"],
       ["/pantalla", "Pantalla"],
       ["/stock", "Stock"],
     ]);
@@ -25,7 +24,6 @@ describe("navLinksFor (role x station kind)", () => {
     const expected = [
       ["/mostrador", "Venta"],
       ["/mostrador/pedidos", "Mostrador"],
-      ["/retiro", "Retiro en local"],
       ["/delivery", "Gestión Delivery"],
       ["/delivery/rendicion", "Rendición"],
       ["/pantalla", "Pantalla"],
@@ -46,7 +44,7 @@ describe("navLinksFor (role x station kind)", () => {
     expect(expected.map((l) => l[1])).toEqual(expect.arrayContaining(["Venta", "Gestión Delivery", "Pantalla", "Administración"]));
   });
   it("staff without a station get the workspaces of their role (the pages send them to pick a station)", () => {
-    expect(links("cajera", null).map((l) => l[0])).toEqual(["/mostrador", "/mostrador/pedidos", "/retiro", "/pantalla", "/stock"]);
+    expect(links("cajera", null).map((l) => l[0])).toEqual(["/mostrador", "/mostrador/pedidos", "/pantalla", "/stock"]);
     expect(links("encargada_delivery", null).map((l) => l[0])).toEqual(["/delivery", "/delivery/rendicion", "/pantalla", "/stock"]);
   });
   it("the counter screen link opens in a new tab and no link points at the old kitchen screen", () => {
@@ -81,5 +79,13 @@ describe("activeNavHref", () => {
     expect(activeNavHref("/cajas", all)).toBeNull();
     expect(activeNavHref("/estacion", all)).toBeNull();
     expect(activeNavHref("/deliveryx", all)).toBeNull();
+  });
+});
+
+describe("Retiro en local is gone", () => {
+  it("no role gets a /retiro link", () => {
+    for (const [role, kind] of [["cajera", "mostrador"], ["cajera", null], ["admin", null], ["encargado", null]] as const) {
+      expect(navLinksFor(role, kind).some((l) => l.href === "/retiro"), role).toBe(false);
+    }
   });
 });

@@ -1,14 +1,20 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { StaffShellFallback } from "@/components/staff/staff-shell";
-import { SectorWorkspacePage } from "@/components/staff/sector-workspace-page";
+import { requireSessionOrRedirect } from "@/lib/auth/guards";
 
-export const metadata = { title: "Retiro en local · The Burger House 828" };
+const TARGET = "/mostrador/pedidos";
 
-/** Dynamic (cookies + DB): everything runs inside Suspense; the guards run in the page itself. */
-export default function Page({ searchParams }: PageProps<"/retiro">) {
+/** Legacy URL: app takeaway orders are handled on the unified Mostrador screen now (guarded there too). */
+async function LegacyRetiro(): Promise<never> {
+  await requireSessionOrRedirect(["cajera", "admin", "encargado"], TARGET);
+  redirect(TARGET);
+}
+
+export default function Page() {
   return (
     <Suspense fallback={<StaffShellFallback />}>
-      <SectorWorkspacePage which="retiro" searchParams={searchParams} />
+      <LegacyRetiro />
     </Suspense>
   );
 }

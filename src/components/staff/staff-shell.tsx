@@ -49,7 +49,7 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
     session.user.role === "cocina" ? Promise.resolve(null) : loadDelayChip(),
     loadShortages(),
   ]);
-  const badges = sector === null || waiting.length === 0 ? {} : { [sector === "mostrador" ? "/retiro" : "/delivery"]: waiting.length };
+  const badges = sector === null || waiting.length === 0 ? {} : { [sector === "mostrador" ? "/mostrador/pedidos" : "/delivery"]: waiting.length };
 
   return (
     <div className="group/shell min-h-dvh lg:grid lg:grid-cols-[14rem_1fr] lg:grid-rows-[auto_1fr]">
