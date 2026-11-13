@@ -2,7 +2,7 @@ import { expect, test, type Locator } from "@playwright/test";
 import { sql } from "drizzle-orm";
 import * as s from "../src/db/schema";
 import { db, deleteStockItem } from "./helpers/db";
-import { failPrintJob, markJobsDone } from "./helpers/caja";
+import { failPrintJob, markJobsDone, parkPendingOrders, placeRetiroOrder } from "./helpers/caja";
 import { noHorizontalOverflow } from "./helpers/checkout";
 import { modifierRow, settled } from "./helpers/store";
 import {
@@ -275,6 +275,41 @@ test.describe("with the stock shortage strip shown", () => {
         await openPos(page);
         await expect(page.getByTestId("stock-alert")).toBeVisible();
         expect(await noHorizontalOverflow(page)).toBe(true);
+        expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBe(true);
+      });
+    });
+  }
+});
+
+// The "pedidos de la app por aprobar" strip: with it shown (alone or with the stock strip) the POS must still fit,
+// so the charge button never drops below the fold while an app order waits.
+test.describe("with the pending app orders strip shown", () => {
+  const SHORT = "E2E Layout faltante banner";
+  test.beforeEach(parkPendingOrders);
+  test.afterEach(async () => {
+    await deleteStockItem(SHORT);
+    await parkPendingOrders();
+  });
+
+  for (const size of SIZES.filter((z) => z.w >= 1024)) {
+    test.describe(`${size.name}`, () => {
+      test.use({ viewport: { width: size.w, height: size.h } });
+
+      test(`the POS still fits with the pending strip at ${size.w}px`, async ({ page }) => {
+        await placeRetiroOrder({ paymentMethod: "cash" });
+        await openPos(page);
+        await expect(page.getByTestId("pending-app-banner")).toBeVisible();
+        expect(await noHorizontalOverflow(page)).toBe(true);
+        expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBe(true);
+      });
+
+      test(`the POS still fits with both strips at ${size.w}px`, async ({ page }) => {
+        await placeRetiroOrder({ paymentMethod: "cash" });
+        const [short] = await db().insert(s.stockItems).values({ name: SHORT, kind: "materia_prima", unit: "kg", minQty: 10000, quantity: 1000 }).returning();
+        await db().insert(s.stockMovements).values({ itemId: short.id, kind: "ajuste_inicial", qtyDelta: 1000, businessDate: sql`current_date` });
+        await openPos(page);
+        await expect(page.getByTestId("pending-app-banner")).toBeVisible();
+        await expect(page.getByTestId("stock-alert")).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBe(true);
       });
     });

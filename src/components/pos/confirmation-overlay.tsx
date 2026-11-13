@@ -126,7 +126,7 @@ export function ConfirmationOverlay({ sale, onNewSale }: Props) {
         </div>
         {addonOnlyFailure && (
           <p data-testid="addon-print-failed" className="mt-2 text-base font-semibold text-ink">
-            Falló el ticket de un adicional: reimprimilo desde la alerta de impresión de Caja o Retiro en local.
+            Falló el ticket de un adicional: reimprimilo desde la alerta de impresión de Mostrador.
           </p>
         )}
         {(status === "waiting" || (status === "failed" && !addonOnlyFailure)) && (
