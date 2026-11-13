@@ -15,6 +15,7 @@ import { PrinterHeartbeatRefresh } from "./printer-heartbeat-refresh";
 import { PrinterIndicator } from "./printer-indicator";
 import { ShellOrderAlert } from "./shell-order-alert";
 import { StaffNav } from "./staff-nav";
+import { PendingAppOrdersBanner } from "./pending-app-orders-banner";
 import { StockAlert } from "./stock-alert";
 import { loadShortages } from "./stock-alert-data";
 
@@ -77,6 +78,7 @@ export async function StaffShell({ session, ownsOrderAlert = false, children }: 
       </header>
       <StaffNav links={navLinksFor(session.user.role, session.stationKind)} badges={badges} />
       <main className="min-w-0 px-4 py-6 sm:px-6 lg:col-start-2 lg:row-start-2">
+        {sector === "mostrador" && !ownsOrderAlert && waiting.length > 0 && <PendingAppOrdersBanner count={waiting.length} />}
         <StockAlert initial={shortages} />
         {children}
       </main>
