@@ -29,14 +29,16 @@ const avg = (revenue: number, orders: number) => (orders ? Math.round(revenue / 
 async function kpisFor(db: Db, range: SQL): Promise<Kpis> {
   const { rows } = await db.execute<{ revenue: number; orders: number; cancelled_count: number; cancelled_amount: number }>(sql`
     SELECT
-      COALESCE(SUM(o.total) FILTER (WHERE ${VALID}), 0)::int AS revenue,
+      COALESCE(SUM(o.total) FILTER (WHERE ${VALID}), 0)::bigint AS revenue,
       COUNT(*) FILTER (WHERE ${VALID})::int AS orders,
       COUNT(*) FILTER (WHERE o.status = 'cancelado')::int AS cancelled_count,
-      COALESCE(SUM(o.total) FILTER (WHERE o.status = 'cancelado'), 0)::int AS cancelled_amount
+      COALESCE(SUM(o.total) FILTER (WHERE o.status = 'cancelado'), 0)::bigint AS cancelled_amount
     FROM orders o
     WHERE ${range}`);
   const r = rows[0];
-  return { revenue: r.revenue, orders: r.orders, avgTicket: avg(r.revenue, r.orders), cancelledCount: r.cancelled_count, cancelledAmount: r.cancelled_amount };
+  // Money sums come back as bigint (strings from pg): a period can exceed the int range ($21.4M in centavos).
+  const revenue = Number(r.revenue);
+  return { revenue, orders: r.orders, avgTicket: avg(revenue, r.orders), cancelledCount: r.cancelled_count, cancelledAmount: Number(r.cancelled_amount) };
 }
 
 export async function getKpis(db: Db, period: Period): Promise<{ cur: Kpis; prev: Kpis }> {
@@ -70,14 +72,14 @@ export async function getTopProducts(db: Db, period: Period, opts: { categoryId?
       LEFT JOIN products p ON p.id = oi.product_id
       WHERE ${VALID} AND ${curRange(period)} AND ${category}
     )
-    SELECT key, MIN(name) AS name, COUNT(*)::int AS units, SUM(amount)::int AS revenue,
-      CASE WHEN COUNT(*) FILTER (WHERE costed) = 0 THEN NULL ELSE SUM(amount - cost) FILTER (WHERE costed)::int END AS profit,
+    SELECT key, MIN(name) AS name, COUNT(*)::int AS units, SUM(amount)::bigint AS revenue,
+      CASE WHEN COUNT(*) FILTER (WHERE costed) = 0 THEN NULL ELSE SUM(amount - cost) FILTER (WHERE costed)::bigint END AS profit,
       COUNT(*) FILTER (WHERE NOT costed)::int AS "uncostedUnits"
     FROM units
     GROUP BY key
     ORDER BY units DESC, revenue DESC, name ASC
     LIMIT ${limit}`);
-  return rows.map((r) => ({ key: r.key, name: r.name, units: r.units, revenue: r.revenue, profit: r.profit, uncostedUnits: r.uncostedUnits }));
+  return rows.map((r) => ({ key: r.key, name: r.name, units: r.units, revenue: Number(r.revenue), profit: r.profit === null ? null : Number(r.profit), uncostedUnits: r.uncostedUnits }));
 }
 
 async function profitFor(db: Db, range: SQL): Promise<Profit> {
@@ -89,15 +91,17 @@ async function profitFor(db: Db, range: SQL): Promise<Profit> {
       WHERE ${VALID} AND ${range}
     )
     SELECT
-      COALESCE(SUM(amount - cost) FILTER (WHERE costed), 0)::int AS profit,
-      COALESCE(SUM(amount) FILTER (WHERE costed), 0)::int AS costed_revenue,
+      COALESCE(SUM(amount - cost) FILTER (WHERE costed), 0)::bigint AS profit,
+      COALESCE(SUM(amount) FILTER (WHERE costed), 0)::bigint AS costed_revenue,
       COUNT(*) FILTER (WHERE NOT costed)::int AS uncosted
     FROM units`);
   const r = rows[0];
+  const profit = Number(r.profit);
+  const costedRevenue = Number(r.costed_revenue);
   return {
-    profit: r.profit,
-    costedRevenue: r.costed_revenue,
-    margin: r.costed_revenue === 0 ? null : Math.round((r.profit / r.costed_revenue) * 100),
+    profit,
+    costedRevenue,
+    margin: costedRevenue === 0 ? null : Math.round((profit / costedRevenue) * 100),
     uncostedUnits: r.uncosted,
   };
 }
@@ -128,7 +132,7 @@ export async function getHeatmap(db: Db, period: Period, cutoff: string = DEFAUL
 export async function getSellers(db: Db, period: Period): Promise<SellerRow[]> {
   const { rows } = await db.execute<{ user_id: number | null; name: string | null; orders: number; revenue: number; addons: number }>(sql`
     WITH sales AS (
-      SELECT o.approved_by AS user_id, COUNT(*)::int AS orders, SUM(o.total)::int AS revenue
+      SELECT o.approved_by AS user_id, COUNT(*)::int AS orders, SUM(o.total)::bigint AS revenue
       FROM orders o
       WHERE ${VALID} AND ${curRange(period)}
       GROUP BY o.approved_by
@@ -145,7 +149,7 @@ export async function getSellers(db: Db, period: Period): Promise<SellerRow[]> {
       UNION
       SELECT user_id FROM addons
     )
-    SELECT pe.user_id, u.name, COALESCE(s.orders, 0)::int AS orders, COALESCE(s.revenue, 0)::int AS revenue, COALESCE(a.addons, 0)::int AS addons
+    SELECT pe.user_id, u.name, COALESCE(s.orders, 0)::int AS orders, COALESCE(s.revenue, 0)::bigint AS revenue, COALESCE(a.addons, 0)::int AS addons
     FROM people pe
     LEFT JOIN sales s ON s.user_id IS NOT DISTINCT FROM pe.user_id
     LEFT JOIN addons a ON a.user_id = pe.user_id
@@ -155,8 +159,8 @@ export async function getSellers(db: Db, period: Period): Promise<SellerRow[]> {
     userId: r.user_id,
     name: r.user_id === null ? "Sin asignar" : (r.name ?? "Sin asignar"),
     orders: r.orders,
-    revenue: r.revenue,
-    avgTicket: avg(r.revenue, r.orders),
+    revenue: Number(r.revenue),
+    avgTicket: avg(Number(r.revenue), r.orders),
     addons: r.addons,
   }));
 }

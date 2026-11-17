@@ -258,3 +258,19 @@ describe("getProfit", () => {
     expect(top.find((r) => r.name === "Bacon")).toMatchObject({ units: 1, profit: null, uncostedUnits: 1 });
   });
 });
+
+describe("large amounts (centavos above the int range)", () => {
+  // $30.000.000 in one period = 3_000_000_000 centavos > 2^31-1: sums must not overflow.
+  it("kpis, top products, profit and sellers handle a period above $21.4M", async () => {
+    for (let i = 0; i < 3; i++) {
+      const o = await insertOrder({ total: 1_000_000_000, approvedBy: fx.sofia });
+      await insertItem(o.id, { productId: fx.doble, name: "Doble", price: 1_000_000_000, cost: 400_000_000 });
+    }
+    const { cur } = await getKpis(db(), WEEK);
+    expect(cur.revenue).toBe(3_000_000_000);
+    expect(cur.avgTicket).toBe(1_000_000_000);
+    expect((await getTopProducts(db(), WEEK, {}))[0]).toMatchObject({ revenue: 3_000_000_000, profit: 1_800_000_000 });
+    expect((await getProfit(db(), WEEK)).cur).toMatchObject({ profit: 1_800_000_000, costedRevenue: 3_000_000_000, margin: 60 });
+    expect((await getSellers(db(), WEEK))[0]).toMatchObject({ revenue: 3_000_000_000 });
+  });
+});
