@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/client";
+import { withCostFor } from "@/lib/menu/cost-schema";
 import { authorizeManager, type ActionState } from "@/lib/menu/action-state";
 import { invalidateMenu } from "@/lib/menu/cache";
 import { parseBoolValue, parseDirection, parseId, rawValues } from "@/lib/menu/form-data";
@@ -31,7 +32,7 @@ export async function saveModifierGroupAction(_prev: ActionState, fd: FormData):
 export async function saveModifierAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const auth = await authorizeManager();
   if ("state" in auth) return auth.state;
-  const result = await saveModifier(getDb(), modifierFromForm(fd));
+  const result = await saveModifier(getDb(), withCostFor(auth.session.user.role, modifierFromForm(fd)));
   if (!result.ok) return toState(result, fd);
   invalidateMenu();
   redirect("/admin/modificadores");

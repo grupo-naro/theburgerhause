@@ -8,7 +8,7 @@ export const metadata = { title: "Nuevo modificador · Administración" };
 
 export default async function NewModifierPage({ searchParams }: PageProps<"/admin/modificadores/nuevo">) {
   const sp = await searchParams;
-  await requireSessionOrRedirect(["admin", "encargado"], "/admin/modificadores/nuevo");
+  const session = await requireSessionOrRedirect(["admin", "encargado"], "/admin/modificadores/nuevo");
   const groups = await getDb()
     .select({ id: s.modifierGroups.id, name: s.modifierGroups.name })
     .from(s.modifierGroups)
@@ -20,6 +20,7 @@ export default async function NewModifierPage({ searchParams }: PageProps<"/admi
     <section className="flex flex-col gap-5">
       <h1 className="font-display text-3xl font-extrabold text-brand-600">Nuevo modificador</h1>
       <ModifierForm
+        showCost={session.user.role === "admin"}
         groups={groups}
         initial={{ groupId, name: "", kind: "add", priceArs: 0, kitchenLabel: "", active: true }}
       />

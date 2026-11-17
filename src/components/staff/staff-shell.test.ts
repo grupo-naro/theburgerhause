@@ -8,7 +8,7 @@ vi.mock("@/db/client", () => ({ getDb: () => ({}) }));
 vi.mock("@/components/live/live-refresh", () => ({ LiveRefresh: () => null }));
 vi.mock("@/components/logout-button", () => ({ LogoutButton: () => null }));
 vi.mock("@/lib/caja/nav", () => ({ navLinksFor: () => [] }));
-const pending = vi.fn(async (..._a: unknown[]) => [] as { id: number; number: number; createdAt: string }[]);
+const pending = vi.fn<(...args: unknown[]) => Promise<{ id: number; number: number; createdAt: string }[]>>(async () => []);
 vi.mock("@/lib/orders/caja-queries", () => ({ listPendingApproval: (...a: unknown[]) => pending(...a) }));
 vi.mock("@/lib/caja/printer-status", () => ({ derivePrinterStatus: () => null }));
 vi.mock("@/lib/stations/header", () => ({ getStationHeader: async () => null }));

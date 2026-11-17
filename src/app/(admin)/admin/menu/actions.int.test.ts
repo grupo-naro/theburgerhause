@@ -215,3 +215,31 @@ describe("quick actions", () => {
     expect(invalidateMenu).not.toHaveBeenCalled();
   });
 });
+
+describe("product cost is admin only", () => {
+  const asEncargado = () =>
+    vi.mocked(requireRole).mockResolvedValue({ user: { id: 2, name: "E", username: "e", role: "encargado" }, stationId: null, stationKind: null, sessionId: "x" });
+  async function seed() {
+    const [c] = await testDb().insert(s.categories).values({ name: "Burgers", slug: "burgers" }).returning();
+    const [p] = await testDb().insert(s.products).values({ categoryId: c.id, name: "Doble", price: 700000, cost: 280000 }).returning();
+    return { c: c.id, p: p.id };
+  }
+  const costOf = async (id: number) => (await testDb().select({ cost: s.products.cost }).from(s.products).where(eq(s.products.id, id)))[0].cost;
+  const fields = (c: number, p: number, extra: Record<string, string> = {}) =>
+    form({ id: String(p), categoryId: String(c), name: "Doble", priceArs: "7500", active: "on", ...extra });
+
+  it("encargado save keeps the cost, even when the request carries one", async () => {
+    asEncargado();
+    const { c, p } = await seed();
+    expect(await redirectOf(saveProductAction(prev, fields(c, p, { costArs: "1" })))).toBe("/admin/menu");
+    expect(await costOf(p)).toBe(280000);
+    expect(await redirectOf(saveProductAction(prev, fields(c, p, { costArs: "" })))).toBe("/admin/menu");
+    expect(await costOf(p)).toBe(280000);
+  });
+  it("admin sets the cost", async () => {
+    asAdmin();
+    const { c, p } = await seed();
+    expect(await redirectOf(saveProductAction(prev, fields(c, p, { costArs: "3000" })))).toBe("/admin/menu");
+    expect(await costOf(p)).toBe(300000);
+  });
+});

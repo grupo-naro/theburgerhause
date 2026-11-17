@@ -19,6 +19,8 @@ export type ModifierFormValues = {
   /** Explicit label as stored; the preview shows what the kitchen will print. */
   kitchenLabel: string;
   active: boolean;
+  /** Admin only (absent for other roles: the page never sends it). */
+  costArs?: number | null;
 };
 
 const isKind = (v: string | undefined): v is ModifierKind => v === "remove" || v === "add" || v === "swap";
@@ -26,7 +28,10 @@ const isKind = (v: string | undefined): v is ModifierKind => v === "remove" || v
 export function ModifierForm({
   initial,
   groups,
+  showCost = false,
 }: {
+  /** Only the admin sees (and therefore submits) the cost field. */
+  showCost?: boolean;
   initial: ModifierFormValues;
   groups: { id: number; name: string }[];
 }) {
@@ -37,7 +42,9 @@ export function ModifierForm({
   const [kind, setKind] = useState<ModifierKind>(isKind(v?.kind) ? v.kind : initial.kind);
   const [label, setLabel] = useState(v?.kitchenLabel ?? initial.kitchenLabel);
   const [price, setPrice] = useState(v?.priceArs ?? String(initial.priceArs));
+  const [cost, setCost] = useState(v?.costArs ?? (initial.costArs == null ? "" : String(initial.costArs)));
   const free = kind === "remove";
+  const costAbovePrice = !free && cost !== "" && price !== "" && Number(cost) > Number(price);
   const preview = normalizeKitchenLabel(name, kind, label);
   return (
     <form action={action} className="flex max-w-xl flex-col gap-4">
@@ -112,6 +119,27 @@ export function ModifierForm({
           error={fe.priceArs}
         />
       </Field>
+      {/* A removal never has a cost: with no field the core clears it. */}
+      {showCost && !free ? (
+        <Field label="Costo ($)" htmlFor="costArs" hint="Lo ve solo el administrador. Vacío = sin costo cargado." error={fe.costArs}>
+          <Input
+            id="costArs"
+            name="costArs"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+            hasHint
+            error={fe.costArs}
+          />
+          {costAbovePrice ? (
+            <p role="status" data-testid="cost-above-price" className="text-sm font-semibold text-state-error">
+              El costo es mayor que el precio de venta
+            </p>
+          ) : null}
+        </Field>
+      ) : null}
       <Field
         label="Texto para cocina (opcional)"
         htmlFor="kitchenLabel"

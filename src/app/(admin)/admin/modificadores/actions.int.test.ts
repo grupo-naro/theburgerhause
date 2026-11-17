@@ -16,6 +16,7 @@ vi.mock("@/lib/modifiers/admin", async (importOriginal) => {
 });
 
 import { asc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
@@ -204,5 +205,29 @@ describe("saveProductModifierGroupsAction", () => {
     expect((await saveProductModifierGroupsAction(prev, withGroups(String(productId), ["9999"]))).error).toBeTruthy();
     expect(invalidateMenu).not.toHaveBeenCalled();
     expect(await core.listProductGroupIds(testDb(), productId)).toEqual([groupId]);
+  });
+});
+
+describe("extra cost is admin only", () => {
+  async function seed() {
+    const [g] = await testDb().insert(s.modifierGroups).values({ name: "Agregados" }).returning();
+    const [m] = await testDb().insert(s.modifiers).values({ groupId: g.id, name: "+ Dips", kind: "add", priceDelta: 120000, kitchenLabel: "+ DIPS", cost: 40000 }).returning();
+    return { g: g.id, m: m.id };
+  }
+  const costOf = async (id: number) => (await testDb().select({ cost: s.modifiers.cost }).from(s.modifiers).where(eq(s.modifiers.id, id)))[0].cost;
+  const fields = (g: number, m: number, extra: Record<string, string> = {}) =>
+    form({ id: String(m), groupId: String(g), name: "+ Dips", kind: "add", priceArs: "1300", kitchenLabel: "+ DIPS", active: "on", ...extra });
+
+  it("encargado save keeps the cost", async () => {
+    vi.mocked(requireRole).mockResolvedValue({ user: { id: 2, name: "E", username: "e", role: "encargado" }, stationId: null, stationKind: null, sessionId: "x" });
+    const { g, m } = await seed();
+    expect(await redirectOf(saveModifierAction(prev, fields(g, m, { costArs: "1" })))).toBe("/admin/modificadores");
+    expect(await costOf(m)).toBe(40000);
+  });
+  it("admin sets the cost", async () => {
+    vi.mocked(requireRole).mockResolvedValue(session("admin"));
+    const { g, m } = await seed();
+    expect(await redirectOf(saveModifierAction(prev, fields(g, m, { costArs: "500" })))).toBe("/admin/modificadores");
+    expect(await costOf(m)).toBe(50000);
   });
 });

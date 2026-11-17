@@ -9,7 +9,7 @@ export const metadata = { title: "Nuevo producto · Administración" };
 
 export default async function NewProductPage({ searchParams }: PageProps<"/admin/menu/productos/nuevo">) {
   const sp = await searchParams;
-  await requireSessionOrRedirect(["admin", "encargado"], "/admin/menu/productos/nuevo");
+  const session = await requireSessionOrRedirect(["admin", "encargado"], "/admin/menu/productos/nuevo");
   const drinks = await listLinkableDrinks(getDb());
   const categories = await getDb()
     .select({ id: s.categories.id, name: s.categories.name })
@@ -22,6 +22,7 @@ export default async function NewProductPage({ searchParams }: PageProps<"/admin
     <section className="flex flex-col gap-5">
       <h1 className="font-display text-3xl font-extrabold text-brand-600">Nuevo producto</h1>
       <ProductForm
+        showCost={session.user.role === "admin"}
         categories={categories}
         previewUrl={null}
         drinks={drinks}

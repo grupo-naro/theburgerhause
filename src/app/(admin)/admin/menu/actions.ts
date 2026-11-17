@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/client";
+import { withCostFor } from "@/lib/menu/cost-schema";
 import {
   moveCategory,
   moveProduct,
@@ -48,7 +49,7 @@ export async function saveCategoryAction(_prev: ActionState, fd: FormData): Prom
 export async function saveProductAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const auth = await authorizeManager();
   if ("state" in auth) return auth.state;
-  const result = await saveProduct(getDb(), productFromForm(fd));
+  const result = await saveProduct(getDb(), withCostFor(auth.session.user.role, productFromForm(fd)));
   if (!result.ok) return toState(result, fd);
   invalidateMenu();
   redirect("/admin/menu");

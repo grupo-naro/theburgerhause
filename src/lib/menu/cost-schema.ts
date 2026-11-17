@@ -25,3 +25,16 @@ export function costColumn(costArs: number | null | undefined): { cost?: number 
   if (costArs === undefined) return {};
   return { cost: costArs === null ? null : costArs * 100 };
 }
+
+/** Only the admin sees or edits a cost: for any other role the form's cost is dropped, so the stored one is kept. */
+export function withCostFor<T extends { costArs?: number | null }>(role: string, input: T): T {
+  return role === "admin" ? input : { ...input, costArs: undefined };
+}
+
+/** Removes `cost` from a row before it reaches a non-admin page. */
+export function redactCost<T extends { cost: number | null }>(row: T, role: string): T | Omit<T, "cost"> {
+  if (role === "admin") return row;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { cost, ...rest } = row;
+  return rest;
+}

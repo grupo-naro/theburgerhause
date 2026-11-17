@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
@@ -20,6 +20,8 @@ export type ProductFormValues = {
   suggest: boolean;
   imagePath: string | null;
   stockItemId: number | null;
+  /** Admin only (absent for other roles: the page never sends it). */
+  costArs?: number | null;
 };
 
 export function ProductForm({
@@ -27,7 +29,10 @@ export function ProductForm({
   categories,
   previewUrl,
   drinks,
+  showCost = false,
 }: {
+  /** Only the admin sees (and therefore submits) the cost field. */
+  showCost?: boolean;
   initial: ProductFormValues;
   categories: { id: number; name: string }[];
   previewUrl: string | null;
@@ -38,6 +43,9 @@ export function ProductForm({
   const v = state.values;
   const fe = state.fieldErrors ?? {};
   const checked = (key: "active" | "featured" | "suggest") => (v ? key in v : initial[key]);
+  const [price, setPrice] = useState(v?.priceArs ?? (initial.priceArs === null ? "" : String(initial.priceArs)));
+  const [cost, setCost] = useState(v?.costArs ?? (initial.costArs == null ? "" : String(initial.costArs)));
+  const costAbovePrice = cost !== "" && price !== "" && Number(cost) > Number(price);
   return (
     <form action={action} className="flex max-w-xl flex-col gap-4">
       {initial.id !== undefined ? <input type="hidden" name="id" value={initial.id} /> : null}
@@ -82,11 +90,32 @@ export function ProductForm({
           inputMode="numeric"
           pattern="[0-9]*"
           required
-          defaultValue={v?.priceArs ?? (initial.priceArs === null ? "" : String(initial.priceArs))}
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
           hasHint
           error={fe.priceArs}
         />
       </Field>
+      {showCost ? (
+        <Field label="Precio de costo ($)" htmlFor="costArs" hint="Lo ve solo el administrador. Vacío = sin costo cargado." error={fe.costArs}>
+          <Input
+            id="costArs"
+            name="costArs"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+            hasHint
+            error={fe.costArs}
+          />
+          {costAbovePrice ? (
+            <p role="status" data-testid="cost-above-price" className="text-sm font-semibold text-state-error">
+              El costo es mayor que el precio de venta
+            </p>
+          ) : null}
+        </Field>
+      ) : null}
       <Field
         label="Artículo de stock"
         htmlFor="stockItemId"

@@ -16,7 +16,8 @@ export const metadata = { title: "Editar producto · Administración" };
 export default async function EditProductPage({ params }: PageProps<"/admin/menu/productos/[id]">) {
   const { id: rawId } = await params;
   const id = /^\d+$/.test(rawId) ? Number(rawId) : NaN;
-  await requireSessionOrRedirect(["admin", "encargado"], `/admin/menu/productos/${encodeURIComponent(rawId)}`);
+  const session = await requireSessionOrRedirect(["admin", "encargado"], `/admin/menu/productos/${encodeURIComponent(rawId)}`);
+  const isAdmin = session.user.role === "admin";
   const db = getDb();
   const product = Number.isSafeInteger(id) ? await getProductForAdmin(db, id) : null;
   if (!product) notFound();
@@ -40,6 +41,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/menu
         categories={categories}
         previewUrl={product.imagePath ? thumbUrl(product.imagePath) : null}
         drinks={drinks}
+        showCost={isAdmin}
         initial={{
           id: product.id,
           categoryId: product.categoryId,
@@ -51,6 +53,8 @@ export default async function EditProductPage({ params }: PageProps<"/admin/menu
           suggest: product.suggest,
           imagePath: product.imagePath,
           stockItemId: product.stockItemId,
+          // The cost is sent to the admin only.
+          ...(isAdmin ? { costArs: product.cost === null ? null : centsToPesos(product.cost) } : {}),
         }}
       />
       <hr className="max-w-xl border-line" />

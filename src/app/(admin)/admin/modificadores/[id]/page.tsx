@@ -13,7 +13,8 @@ export const metadata = { title: "Editar modificador · Administración" };
 export default async function EditModifierPage({ params }: PageProps<"/admin/modificadores/[id]">) {
   const { id: rawId } = await params;
   const id = /^\d+$/.test(rawId) ? Number(rawId) : NaN;
-  await requireSessionOrRedirect(["admin", "encargado"], `/admin/modificadores/${encodeURIComponent(rawId)}`);
+  const session = await requireSessionOrRedirect(["admin", "encargado"], `/admin/modificadores/${encodeURIComponent(rawId)}`);
+  const isAdmin = session.user.role === "admin";
   const db = getDb();
   const modifier = Number.isSafeInteger(id) ? await getModifierForAdmin(db, id) : null;
   if (!modifier) notFound();
@@ -29,6 +30,7 @@ export default async function EditModifierPage({ params }: PageProps<"/admin/mod
       <ModifierForm
         key={modifier.id}
         groups={groups}
+        showCost={isAdmin}
         initial={{
           id: modifier.id,
           groupId: modifier.groupId,
@@ -37,6 +39,8 @@ export default async function EditModifierPage({ params }: PageProps<"/admin/mod
           priceArs: centsToPesos(modifier.priceDelta),
           kitchenLabel: modifier.kitchenLabel === derived ? "" : modifier.kitchenLabel,
           active: modifier.active,
+          // The cost is sent to the admin only.
+          ...(isAdmin ? { costArs: modifier.cost === null ? null : centsToPesos(modifier.cost) } : {}),
         }}
       />
     </section>
