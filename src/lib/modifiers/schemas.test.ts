@@ -37,3 +37,16 @@ describe("modifierInputSchema", () => {
     expect(modifierInputSchema.safeParse({ ...base, kind: "swap", name: "a".repeat(70) }).success).toBe(false);
   });
 });
+
+describe("modifierInputSchema cost", () => {
+  const add = { groupId: 1, name: "+ Dips", kind: "add", priceArs: 1200, active: true } as const;
+  it("an extra accepts a cost, zero, null and undefined", () => {
+    for (const costArs of [400, 0, null, undefined]) expect(modifierInputSchema.safeParse({ ...add, costArs }).success, String(costArs)).toBe(true);
+  });
+  it("a removal cannot have a cost", () => {
+    const r = modifierInputSchema.safeParse({ ...base, costArs: 0 });
+    expect(r.success).toBe(false);
+    expect(!r.success && r.error.issues.find((i) => i.path[0] === "costArs")?.message).toBe("Un quite no puede tener costo");
+    expect(modifierInputSchema.safeParse({ ...base, costArs: null }).success).toBe(true);
+  });
+});

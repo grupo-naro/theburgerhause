@@ -85,6 +85,8 @@ export const products = pgTable(
     stockItemId: integer("stock_item_id").references(() => stockItems.id, { onDelete: "set null" }),
     /** Paused BY STOCK (linked item at <= 0). Distinct from `active` (manual pause), which stock never touches. */
     stockPaused: boolean("stock_paused").notNull().default(false),
+    /** Cost price (centavos), admin only. NULL = not loaded ("sin costo"). Each sale snapshots it. */
+    cost: integer("cost"),
   },
   (t) => [
     unique("products_category_name_unique").on(t.categoryId, t.name),
@@ -92,6 +94,7 @@ export const products = pgTable(
     /** 1 product <-> 1 stock item. */
     uniqueIndex("products_stock_item_unique").on(t.stockItemId).where(sql`${t.stockItemId} IS NOT NULL`),
     check("products_price_nonneg", sql`${t.price} >= 0`),
+    check("products_cost_nonneg", sql`${t.cost} IS NULL OR ${t.cost} >= 0`),
   ],
 );
 
@@ -110,6 +113,8 @@ export const modifiers = pgTable(
     name: text("name").notNull(),
     kind: modifierKind("kind").notNull(),
     priceDelta: integer("price_delta").notNull().default(0),
+    /** Cost of the extra (centavos), admin only. NULL = not loaded. A removal never has one. */
+    cost: integer("cost"),
     /** Uppercase label printed on the kitchen ticket, e.g. "SIN CHEDDAR". */
     kitchenLabel: text("kitchen_label").notNull(),
     active: boolean("active").notNull().default(true),
@@ -119,6 +124,8 @@ export const modifiers = pgTable(
     unique("modifiers_group_name_unique").on(t.groupId, t.name),
     index("modifiers_group_idx").on(t.groupId),
     check("modifiers_remove_free", sql`${t.kind} <> 'remove' OR ${t.priceDelta} = 0`),
+    check("modifiers_cost_nonneg", sql`${t.cost} IS NULL OR ${t.cost} >= 0`),
+    check("modifiers_remove_no_cost", sql`${t.kind} <> 'remove' OR ${t.cost} IS NULL`),
   ],
 );
 
@@ -292,6 +299,8 @@ export const orderItems = pgTable(
     productId: integer("product_id").references(() => products.id, { onDelete: "set null" }),
     nameSnapshot: text("name_snapshot").notNull(),
     unitPriceSnapshot: integer("unit_price_snapshot").notNull(),
+    /** Product cost at sale time (centavos); NULL = no cost was loaded then. */
+    unitCostSnapshot: integer("unit_cost_snapshot"),
     notes: text("notes"),
     /** NULL for the original order; set for units that came in through an add-on. */
     addonId: integer("addon_id").references(() => orderAddons.id, { onDelete: "no action" }),
@@ -315,6 +324,8 @@ export const orderItemModifiers = pgTable(
     kitchenLabel: text("kitchen_label").notNull(),
     kind: modifierKind("kind").notNull(),
     priceDelta: integer("price_delta").notNull(),
+    /** Extra cost at sale time (centavos); NULL = no cost was loaded then. */
+    costSnapshot: integer("cost_snapshot"),
   },
   (t) => [
     index("order_item_modifiers_item_idx").on(t.orderItemId),

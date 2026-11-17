@@ -1,3 +1,5 @@
+import { costFromForm } from "@/lib/menu/cost-schema";
+
 const text = (fd: FormData, key: string): string => {
   const v = fd.get(key);
   return typeof v === "string" ? v : "";
@@ -23,6 +25,7 @@ export function modifierFromForm(fd: FormData) {
     priceArs: price === "" ? (kind === "remove" ? 0 : Number.NaN) : Number(price),
     kitchenLabel: text(fd, "kitchenLabel"),
     active: fd.has("active"),
+    costArs: costFromForm(fd),
   };
 }
 

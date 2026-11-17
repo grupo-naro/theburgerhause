@@ -1,4 +1,5 @@
 import { z } from "@/lib/zod";
+import { costFromForm } from "./cost-schema";
 
 const text = (fd: FormData, key: string): string => {
   const v = fd.get(key);
@@ -46,6 +47,7 @@ export function productFromForm(fd: FormData) {
     featured: checkbox(fd, "featured"),
     suggest: checkbox(fd, "suggest"),
     stockItemId: stockLink(fd),
+    costArs: costFromForm(fd),
   };
 }
 

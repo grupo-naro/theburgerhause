@@ -1,4 +1,5 @@
 import { z } from "@/lib/zod";
+import { costArsSchema } from "./cost-schema";
 import { isValidImagePath } from "@/lib/uploads/storage";
 import { slugify } from "./slug";
 
@@ -44,6 +45,8 @@ export const productInputSchema = z.object({
   suggest: z.boolean().optional(),
   /** Optional link to a `bebida` stock item. undefined = leave as is, null = unlink. */
   stockItemId: id.nullish(),
+  /** Admin-only cost (see cost-schema.ts): undefined = keep, null = clear. */
+  costArs: costArsSchema,
 });
 
 export type CategoryInput = z.input<typeof categoryInputSchema>;

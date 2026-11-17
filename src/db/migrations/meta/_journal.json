@@ -127,6 +127,13 @@
       "when": 1794070983355,
       "tag": "0017_analytics_unlock",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794931841194,
+      "tag": "0018_costs",
+      "breakpoints": true
     }
   ]
 }

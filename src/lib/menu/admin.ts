@@ -1,3 +1,4 @@
+import { costColumn } from "@/lib/menu/cost-schema";
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { Db, DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
@@ -131,6 +132,8 @@ export async function saveProduct(db: Conn, input: unknown, deps: MenuDeps = {})
     active: v.active,
     featured: v.featured,
     ...(v.suggest === undefined ? {} : { suggest: v.suggest }),
+    // undefined = keep the stored cost (the encargado's form never carries it), null = clear.
+    ...costColumn(v.costArs),
   };
   const nextSort = async (tx: DbTransaction, categoryId: number) => {
     const [{ next }] = await tx

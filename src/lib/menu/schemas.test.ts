@@ -51,3 +51,18 @@ describe("productInputSchema", () => {
     expect(productInputSchema.safeParse({ ...prod, imagePath: UUID }).success).toBe(true);
   });
 });
+
+describe("productInputSchema cost", () => {
+  it("accepts a whole non-negative cost, zero, null (clear) and undefined (keep)", () => {
+    for (const costArs of [1500, 0, null, undefined]) expect(productInputSchema.safeParse({ ...prod, costArs }).success, String(costArs)).toBe(true);
+  });
+  it("rejects negative, fractional and too-high costs with the price's messages", () => {
+    const msg = (costArs: number) => {
+      const r = productInputSchema.safeParse({ ...prod, costArs });
+      return r.success ? undefined : r.error.issues.find((i) => i.path[0] === "costArs")?.message;
+    };
+    expect(msg(-1)).toBe("El costo no puede ser negativo");
+    expect(msg(1.5)).toBe("El costo debe ser en pesos enteros");
+    expect(msg(100_000_001)).toBe("Costo demasiado alto");
+  });
+});

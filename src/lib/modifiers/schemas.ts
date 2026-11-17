@@ -1,4 +1,5 @@
 import { z } from "@/lib/zod";
+import { costArsSchema } from "@/lib/menu/cost-schema";
 import { normalizeKitchenLabel } from "./kitchen-label";
 
 const id = z.number().int().positive();
@@ -21,10 +22,14 @@ export const modifierInputSchema = z
       .max(100_000_000, "Precio demasiado alto"),
     kitchenLabel: z.string().max(60, "Máximo 60 caracteres").default(""),
     active: z.boolean(),
+    costArs: costArsSchema,
   })
   .transform((v, ctx) => {
     if (v.kind === "remove" && v.priceArs !== 0) {
       ctx.addIssue({ code: "custom", path: ["priceArs"], message: "Un quite no puede tener precio" });
+    }
+    if (v.kind === "remove" && v.costArs !== undefined && v.costArs !== null) {
+      ctx.addIssue({ code: "custom", path: ["costArs"], message: "Un quite no puede tener costo" });
     }
     const kitchenLabel = normalizeKitchenLabel(v.name, v.kind, v.kitchenLabel);
     if (kitchenLabel.length > 60) {

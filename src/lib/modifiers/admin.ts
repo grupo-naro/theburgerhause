@@ -1,3 +1,4 @@
+import { costColumn } from "@/lib/menu/cost-schema";
 import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { Db, DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
@@ -56,6 +57,8 @@ export async function saveModifier(db: Conn, input: unknown): Promise<Result<{ i
     priceDelta: pesosToCents(v.priceArs),
     kitchenLabel: v.kitchenLabel,
     active: v.active,
+    // undefined = keep the stored cost, null = clear; a removal always ends without cost.
+    ...(v.kind === "remove" ? { cost: null } : costColumn(v.costArs)),
   };
   const nextSort = async (tx: DbTransaction, groupId: number) => {
     const [{ next }] = await tx

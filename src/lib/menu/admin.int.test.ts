@@ -332,3 +332,23 @@ describe("stock link on the product", () => {
     expect((await setProductActive(db(), p, true)).ok).toBe(true);
   });
 });
+
+describe("product cost", () => {
+  it("set cost on create and edit; undefined keeps it; empty cost clears it", async () => {
+    const c = await cat("Burgers");
+    const id = await prod(c, "Doble", { costArs: 2800 });
+    expect((await productRow(id)).cost).toBe(280000);
+    // An edit that does not carry the cost (e.g. the encargado's form) leaves it untouched.
+    const kept = await saveProduct(db(), { id, categoryId: c, name: "Doble", priceArs: 1200, active: true, featured: false });
+    expect(kept.ok).toBe(true);
+    expect((await productRow(id)).cost).toBe(280000);
+    await saveProduct(db(), { id, categoryId: c, name: "Doble", priceArs: 1200, active: true, featured: false, costArs: 3000 });
+    expect((await productRow(id)).cost).toBe(300000);
+    await saveProduct(db(), { id, categoryId: c, name: "Doble", priceArs: 1200, active: true, featured: false, costArs: null });
+    expect((await productRow(id)).cost).toBeNull();
+  });
+  it("a product created without cost has none", async () => {
+    const id = await prod(await cat("Bebidas"), "Agua");
+    expect((await productRow(id)).cost).toBeNull();
+  });
+});

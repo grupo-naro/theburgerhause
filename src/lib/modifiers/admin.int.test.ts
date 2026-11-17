@@ -229,3 +229,18 @@ describe("listGroupsWithModifiers", () => {
     expect(list[1].modifiers).toHaveLength(1);
   });
 });
+
+describe("extra cost", () => {
+  const costOf = async (id: number) => (await db().select({ cost: s.modifiers.cost }).from(s.modifiers).where(eq(s.modifiers.id, id)))[0].cost;
+  it("set cost on create and edit; undefined keeps it; empty cost clears it", async () => {
+    const g = await group("Agregados");
+    const id = await mod(g, "+ Dips", { priceArs: 1200, costArs: 400 });
+    expect(await costOf(id)).toBe(40000);
+    await saveModifier(db(), { id, groupId: g, name: "+ Dips", kind: "add", priceArs: 1300, active: true });
+    expect(await costOf(id)).toBe(40000);
+    await saveModifier(db(), { id, groupId: g, name: "+ Dips", kind: "add", priceArs: 1300, active: true, costArs: 500 });
+    expect(await costOf(id)).toBe(50000);
+    await saveModifier(db(), { id, groupId: g, name: "+ Dips", kind: "add", priceArs: 1300, active: true, costArs: null });
+    expect(await costOf(id)).toBeNull();
+  });
+});
