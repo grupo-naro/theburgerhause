@@ -32,6 +32,7 @@ export async function loadCatalog(tx: DbTransaction, productIds: number[]): Prom
       pid: s.products.id,
       pname: s.products.name,
       price: s.products.price,
+      pcost: s.products.cost,
       pactive: s.products.active,
       cactive: s.categories.active,
       mid: s.modifiers.id,
@@ -39,6 +40,7 @@ export async function loadCatalog(tx: DbTransaction, productIds: number[]): Prom
       mname: s.modifiers.name,
       kind: s.modifiers.kind,
       priceDelta: s.modifiers.priceDelta,
+      mcost: s.modifiers.cost,
       kitchenLabel: s.modifiers.kitchenLabel,
       mactive: s.modifiers.active,
     })
@@ -52,7 +54,7 @@ export async function loadCatalog(tx: DbTransaction, productIds: number[]): Prom
   for (const r of rows) {
     let p = catalog.get(r.pid);
     if (!p) {
-      p = { id: r.pid, name: r.pname, price: r.price, active: r.pactive, categoryActive: r.cactive, modifiers: [] };
+      p = { id: r.pid, name: r.pname, price: r.price, cost: r.pcost, active: r.pactive, categoryActive: r.cactive, modifiers: [] };
       catalog.set(r.pid, p);
     }
     if (r.mid !== null) {
@@ -62,6 +64,7 @@ export async function loadCatalog(tx: DbTransaction, productIds: number[]): Prom
         name: r.mname!,
         kind: r.kind!,
         priceDelta: r.priceDelta!,
+        cost: r.mcost,
         kitchenLabel: r.kitchenLabel!,
         active: r.mactive!,
       };
@@ -88,6 +91,7 @@ export async function insertOrderItems(
           productId: u.product.id,
           nameSnapshot: u.product.name,
           unitPriceSnapshot: u.product.price,
+          unitCostSnapshot: u.product.cost ?? null,
           notes: u.note === "" ? null : u.note,
           ...(opts.addonId !== undefined ? { addonId: opts.addonId } : {}),
         })),
@@ -103,6 +107,7 @@ export async function insertOrderItems(
       kitchenLabel: m.kitchenLabel,
       kind: m.kind,
       priceDelta: m.priceDelta,
+      costSnapshot: m.cost ?? null,
     })),
   );
   if (modifierRows.length > 0) await tx.insert(s.orderItemModifiers).values(modifierRows);

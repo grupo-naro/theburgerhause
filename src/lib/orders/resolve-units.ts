@@ -16,12 +16,16 @@ export type CatalogModifier = {
   priceDelta: number;
   kitchenLabel: string;
   active: boolean;
+  /** Cost at resolve time (centavos), snapshotted on the sale. Server-only: never sent to a client. NULL/absent = none. */
+  cost?: number | null;
 };
 
 export type CatalogProduct = {
   id: number;
   name: string;
   price: number;
+  /** Cost at resolve time (centavos), snapshotted on the sale. Server-only. NULL/absent = none. */
+  cost?: number | null;
   active: boolean;
   categoryActive: boolean;
   /** Modifiers of the groups LINKED to this product (inactive ones may be present). */

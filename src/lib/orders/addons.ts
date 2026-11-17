@@ -41,6 +41,8 @@ const modifierSchema = z.object({
   priceDelta: z.number().int(),
   kitchenLabel: z.string(),
   active: z.boolean(),
+  /** Absent in add-ons stored before costs existed: they confirm with a NULL cost snapshot. */
+  cost: z.number().int().nullable().optional(),
 });
 export const storedUnitsSchema = z.array(
   z.object({
@@ -48,6 +50,7 @@ export const storedUnitsSchema = z.array(
       id: z.number().int(),
       name: z.string(),
       price: z.number().int(),
+      cost: z.number().int().nullable().optional(),
       active: z.boolean(),
       categoryActive: z.boolean(),
       modifiers: z.array(modifierSchema),
