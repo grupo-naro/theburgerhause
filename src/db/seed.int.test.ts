@@ -59,3 +59,30 @@ describe("seed store name", () => {
     expect(await snapshot()).toBe(first);
   });
 });
+
+describe("seed demo costs", () => {
+  it("products and paid extras get 40% of their price as cost; removals none", async () => {
+    await seed(db());
+    const prods = await db().select().from(s.products);
+    expect(prods.length).toBeGreaterThan(0);
+    for (const p of prods) expect(p.cost, p.name).toBe(Math.round((p.price * 0.4) / 100) * 100);
+    const mods = await db().select().from(s.modifiers);
+    for (const m of mods) {
+      if (m.kind === "remove" || m.priceDelta === 0) expect(m.cost, m.name).toBeNull();
+      else expect(m.cost, m.name).toBe(Math.round((m.priceDelta * 0.4) / 100) * 100);
+    }
+  });
+  it("re-seeding never overwrites a cost an admin entered", async () => {
+    await seed(db());
+    const [p] = await db().select().from(s.products).limit(1);
+    await db().update(s.products).set({ cost: 12300 }).where(eq(s.products.id, p.id));
+    await seed(db());
+    expect((await db().select().from(s.products).where(eq(s.products.id, p.id)))[0].cost).toBe(12300);
+  });
+  it("re-seeding an old database without costs fills them in", async () => {
+    await seed(db());
+    await db().update(s.products).set({ cost: null });
+    await seed(db());
+    for (const p of await db().select().from(s.products)) expect(p.cost, p.name).not.toBeNull();
+  });
+});

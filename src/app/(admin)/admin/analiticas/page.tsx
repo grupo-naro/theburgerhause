@@ -4,7 +4,7 @@ import * as s from "@/db/schema";
 import { getLockedNames } from "@/lib/analytics/locked-names";
 import { resolvePeriod } from "@/lib/analytics/period";
 import { getAnalyticsUnlock, hasAnalyticsPin } from "@/lib/analytics/pin";
-import { getHeatmap, getKpis, getSellers, getTopProducts } from "@/lib/analytics/queries";
+import { getHeatmap, getKpis, getProfit, getSellers, getTopProducts } from "@/lib/analytics/queries";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
 import { getBusinessDayCutoff } from "@/lib/settings";
 import {
@@ -16,6 +16,7 @@ import {
   LockedTopProducts,
   SellersTable,
   TopProducts,
+  UncostedWarning,
 } from "./_components/blocks";
 import { CategoryFilter } from "./_components/category-filter";
 import { PeriodBar } from "./_components/period-bar";
@@ -70,8 +71,9 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps<"/a
     );
   }
 
-  const [kpis, top, heatmap, sellers] = await Promise.all([
+  const [kpis, profit, top, heatmap, sellers] = await Promise.all([
     getKpis(db, period),
+    getProfit(db, period),
     getTopProducts(db, period, { categoryId }),
     getHeatmap(db, period, cutoff),
     getSellers(db, period),
@@ -80,7 +82,8 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps<"/a
     <section className="flex flex-col gap-5">
       {header}
       <PeriodBar period={period} cat={cat} right={<UnlockCountdown untilIso={until.toISOString()} />} />
-      <KpiCards data={kpis} />
+      <KpiCards data={kpis} profit={profit} />
+      <UncostedWarning units={profit.cur.uncostedUnits} />
       <div className="grid gap-4 lg:grid-cols-2">
         <TopProducts rows={top} filter={filter} />
         <HeatmapBlock data={heatmap} />

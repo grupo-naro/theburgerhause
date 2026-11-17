@@ -9,7 +9,10 @@ import type { Period } from "./period";
  */
 
 export type Kpis = { revenue: number; orders: number; avgTicket: number; cancelledCount: number; cancelledAmount: number };
-export type TopProduct = { key: string; name: string; units: number; revenue: number };
+/** `profit` is null when no unit of the product had a cost; `uncostedUnits` feeds "· N sin costo". */
+export type TopProduct = { key: string; name: string; units: number; revenue: number; profit: number | null; uncostedUnits: number };
+/** `margin` is a rounded integer % (null when no costed revenue). */
+export type Profit = { profit: number; costedRevenue: number; margin: number | null; uncostedUnits: number };
 export type Heatmap = { hours: number[]; cells: { dow: number; hour: number; orders: number }[]; max: number };
 export type SellerRow = { userId: number | null; name: string; orders: number; revenue: number; avgTicket: number; addons: number };
 
@@ -41,6 +44,18 @@ export async function getKpis(db: Db, period: Period): Promise<{ cur: Kpis; prev
   return { cur, prev };
 }
 
+/**
+ * Per sold unit (one order_items row): its revenue (price + extras), its cost (cost snapshot + extras' cost snapshots,
+ * free extras without a cost count 0) and whether it is COSTED: the unit has a cost snapshot and no PAID extra lacks one.
+ * Uncosted units never add profit (it would be inflated); they are counted for the "sin costo" warning.
+ */
+const UNIT_COLUMNS = sql`
+  oi.unit_price_snapshot + COALESCE((SELECT SUM(m.price_delta) FROM order_item_modifiers m WHERE m.order_item_id = oi.id), 0) AS amount,
+  oi.unit_cost_snapshot + COALESCE((SELECT SUM(COALESCE(m.cost_snapshot, 0)) FROM order_item_modifiers m WHERE m.order_item_id = oi.id), 0) AS cost,
+  (oi.unit_cost_snapshot IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM order_item_modifiers m WHERE m.order_item_id = oi.id AND m.price_delta > 0 AND m.cost_snapshot IS NULL
+  )) AS costed`;
+
 export async function getTopProducts(db: Db, period: Period, opts: { categoryId?: number; limit?: number }): Promise<TopProduct[]> {
   const limit = opts.limit ?? 10;
   const category = opts.categoryId === undefined ? sql`TRUE` : sql`p.category_id = ${opts.categoryId}`;
@@ -49,18 +64,48 @@ export async function getTopProducts(db: Db, period: Period, opts: { categoryId?
       SELECT
         CASE WHEN oi.product_id IS NULL THEN 'n' || oi.name_snapshot ELSE 'p' || oi.product_id END AS key,
         COALESCE(p.name, oi.name_snapshot) AS name,
-        oi.unit_price_snapshot + COALESCE((SELECT SUM(m.price_delta) FROM order_item_modifiers m WHERE m.order_item_id = oi.id), 0) AS amount
+        ${UNIT_COLUMNS}
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
       LEFT JOIN products p ON p.id = oi.product_id
       WHERE ${VALID} AND ${curRange(period)} AND ${category}
     )
-    SELECT key, MIN(name) AS name, COUNT(*)::int AS units, SUM(amount)::int AS revenue
+    SELECT key, MIN(name) AS name, COUNT(*)::int AS units, SUM(amount)::int AS revenue,
+      CASE WHEN COUNT(*) FILTER (WHERE costed) = 0 THEN NULL ELSE SUM(amount - cost) FILTER (WHERE costed)::int END AS profit,
+      COUNT(*) FILTER (WHERE NOT costed)::int AS "uncostedUnits"
     FROM units
     GROUP BY key
     ORDER BY units DESC, revenue DESC, name ASC
     LIMIT ${limit}`);
-  return rows.map((r) => ({ key: r.key, name: r.name, units: r.units, revenue: r.revenue }));
+  return rows.map((r) => ({ key: r.key, name: r.name, units: r.units, revenue: r.revenue, profit: r.profit, uncostedUnits: r.uncostedUnits }));
+}
+
+async function profitFor(db: Db, range: SQL): Promise<Profit> {
+  const { rows } = await db.execute<{ profit: number; costed_revenue: number; uncosted: number }>(sql`
+    WITH units AS (
+      SELECT ${UNIT_COLUMNS}
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE ${VALID} AND ${range}
+    )
+    SELECT
+      COALESCE(SUM(amount - cost) FILTER (WHERE costed), 0)::int AS profit,
+      COALESCE(SUM(amount) FILTER (WHERE costed), 0)::int AS costed_revenue,
+      COUNT(*) FILTER (WHERE NOT costed)::int AS uncosted
+    FROM units`);
+  const r = rows[0];
+  return {
+    profit: r.profit,
+    costedRevenue: r.costed_revenue,
+    margin: r.costed_revenue === 0 ? null : Math.round((r.profit / r.costed_revenue) * 100),
+    uncostedUnits: r.uncosted,
+  };
+}
+
+/** Profit of the period and of the previous one (same orders, range and same-time cut as the KPIs; no delivery fee). */
+export async function getProfit(db: Db, period: Period): Promise<{ cur: Profit; prev: Profit }> {
+  const [cur, prev] = await Promise.all([profitFor(db, curRange(period)), profitFor(db, prevRange(period))]);
+  return { cur, prev };
 }
 
 /** Hours ordered along the business day: the cutoff hour first (cutoff 06:00 -> 6, 7, ..., 23, 0, ..., 5). */

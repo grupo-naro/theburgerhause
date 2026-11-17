@@ -1,7 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { formatARS } from "@/domain/money";
 import { pctChange } from "@/lib/analytics/period";
-import type { Heatmap, Kpis, SellerRow, TopProduct } from "@/lib/analytics/queries";
+import { marginText, productProfitText, uncostedWarning } from "@/lib/analytics/profit-copy";
+import type { Heatmap, Kpis, Profit, SellerRow, TopProduct } from "@/lib/analytics/queries";
 
 /**
  * The four analytics blocks. Each one has a LOCKED variant that takes names only (no number reaches
@@ -39,9 +40,9 @@ function KpiCard({ label, value, foot }: { label: string; value: string; foot: R
   );
 }
 
-const KPI_GRID = "grid grid-cols-2 gap-3 lg:grid-cols-4";
+const KPI_GRID = "grid grid-cols-2 gap-3 lg:grid-cols-5";
 
-export function KpiCards({ data }: { data: { cur: Kpis; prev: Kpis } }) {
+export function KpiCards({ data, profit }: { data: { cur: Kpis; prev: Kpis }; profit: { cur: Profit; prev: Profit } }) {
   const { cur, prev } = data;
   return (
     <div data-testid="kpis" className={KPI_GRID}>
@@ -53,7 +54,28 @@ export function KpiCards({ data }: { data: { cur: Kpis; prev: Kpis } }) {
         value={int(cur.cancelledCount)}
         foot={<span className="text-ink-muted">{formatARS(cur.cancelledAmount)}</span>}
       />
+      <KpiCard
+        label="Ganancia"
+        value={formatARS(profit.cur.profit)}
+        foot={
+          <span className="flex flex-col">
+            <span className="font-semibold text-ink">{marginText(profit.cur.margin)}</span>
+            <Delta cur={profit.cur.profit} prev={profit.prev.profit} />
+          </span>
+        }
+      />
     </div>
+  );
+}
+
+/** "N unidades sin costo cargado…" under the KPIs (unlocked only); nothing when every unit had a cost. */
+export function UncostedWarning({ units }: { units: number }) {
+  const text = uncostedWarning(units);
+  if (!text) return null;
+  return (
+    <p role="status" data-testid="uncosted-warning" className="rounded-xl bg-cheddar-400/30 px-4 py-2 text-sm font-semibold text-ink">
+      {text}
+    </p>
   );
 }
 
@@ -65,6 +87,7 @@ export function LockedKpiCards() {
       <KpiCard label="Pedidos" value={MASK} foot={foot} />
       <KpiCard label="Ticket promedio" value={`$ ${MASK}`} foot={foot} />
       <KpiCard label="Cancelados" value={MASK} foot={<span className="text-ink-muted">$ {MASK}</span>} />
+      <KpiCard label="Ganancia" value={`$ ${MASK}`} foot={<span className="text-ink-muted">margen **%</span>} />
     </div>
   );
 }
@@ -92,7 +115,7 @@ export function TopProducts({ rows, filter }: { rows: TopProduct[]; filter: Reac
         <BlockTitle>Top productos</BlockTitle>
         {filter}
       </div>
-      <ProductList rows={rows.map((r) => ({ name: r.name, value: `${units(r.units)} · ${formatARS(r.revenue)}` }))} />
+      <ProductList rows={rows.map((r) => ({ name: r.name, value: `${units(r.units)} · ${formatARS(r.revenue)} · ${productProfitText(r)}` }))} />
     </Card>
   );
 }

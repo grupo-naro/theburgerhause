@@ -1,5 +1,5 @@
 import path from "node:path";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import { closeDb, getDb, type Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
@@ -49,6 +49,9 @@ const PRODUCTS: [string, string, string, number, boolean][] = [
   [DOUBLE, "Cuarto de libra doble", "Doble cuarto de libra, cheddar y pickles", 1290000, false],
   [DOUBLE, "Holtber extreme doble", "Doble medallón, panceta, cheddar y salsa especial", 1350000, true],
 ];
+
+/** Demo cost: 40% of the price, rounded to the peso (centavos). The real costs are loaded by the admin. */
+const demoCost = (price: number) => Math.round((price * 0.4) / 100) * 100;
 
 // group -> [kind, name, priceDelta, kitchenLabel]
 const MODIFIER_GROUPS: Record<string, ["remove" | "add" | "swap", string, number, string][]> = {
@@ -137,11 +140,17 @@ export async function seed(db: Db): Promise<void> {
           name,
           description,
           price,
+          cost: demoCost(price),
           featured,
           sort: i,
         })),
       )
       .onConflictDoNothing({ target: [s.products.categoryId, s.products.name] });
+    // Older demo databases (before costs existed): fill only the costs still missing, never an admin-entered one.
+    await tx
+      .update(s.products)
+      .set({ cost: sql`(round(${s.products.price} * 0.4 / 100) * 100)::int` })
+      .where(and(isNull(s.products.cost), inArray(s.products.name, PRODUCTS.map((p) => p[1]))));
 
     await tx
       .insert(s.modifierGroups)
@@ -156,6 +165,7 @@ export async function seed(db: Db): Promise<void> {
         kind,
         name,
         priceDelta,
+        cost: kind === "remove" || priceDelta === 0 ? null : demoCost(priceDelta),
         kitchenLabel,
         sort: i,
       })),
@@ -164,6 +174,17 @@ export async function seed(db: Db): Promise<void> {
       .insert(s.modifiers)
       .values(modifierRows)
       .onConflictDoNothing({ target: [s.modifiers.groupId, s.modifiers.name] });
+    await tx
+      .update(s.modifiers)
+      .set({ cost: sql`(round(${s.modifiers.priceDelta} * 0.4 / 100) * 100)::int` })
+      .where(
+        and(
+          isNull(s.modifiers.cost),
+          ne(s.modifiers.kind, "remove"),
+          gt(s.modifiers.priceDelta, 0),
+          inArray(s.modifiers.name, Object.values(MODIFIER_GROUPS).flatMap((mods) => mods.map((m) => m[1]))),
+        ),
+      );
 
     // Burgers (simple + double) can be customised with every group.
     const burgers = await tx

@@ -4,7 +4,7 @@ import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { getLockedNames } from "./locked-names";
 import type { Period } from "./period";
-import { getHeatmap, getKpis, getSellers, getTopProducts } from "./queries";
+import { getHeatmap, getKpis, getProfit, getSellers, getTopProducts } from "./queries";
 
 const db = () => testDb();
 
@@ -36,13 +36,18 @@ async function insertOrder(over: Partial<typeof s.orders.$inferInsert> = {}) {
   return o;
 }
 
-async function insertItem(orderId: number, it: { productId: number | null; name: string; price: number; deltas?: number[]; addonId?: number }) {
+async function insertItem(
+  orderId: number,
+  it: { productId: number | null; name: string; price: number; deltas?: number[]; addonId?: number; cost?: number | null; modifierCosts?: (number | null)[] },
+) {
   const [row] = await db()
     .insert(s.orderItems)
-    .values({ orderId, productId: it.productId, nameSnapshot: it.name, unitPriceSnapshot: it.price, addonId: it.addonId ?? null })
+    .values({ orderId, productId: it.productId, nameSnapshot: it.name, unitPriceSnapshot: it.price, addonId: it.addonId ?? null, unitCostSnapshot: it.cost ?? null })
     .returning();
-  for (const d of it.deltas ?? []) {
-    await db().insert(s.orderItemModifiers).values({ orderItemId: row.id, nameSnapshot: "m", kitchenLabel: "M", kind: "add", priceDelta: d });
+  for (const [i, d] of (it.deltas ?? []).entries()) {
+    await db()
+      .insert(s.orderItemModifiers)
+      .values({ orderItemId: row.id, nameSnapshot: "m", kitchenLabel: "M", kind: "add", priceDelta: d, costSnapshot: it.modifierCosts?.[i] ?? null });
   }
 }
 
@@ -192,5 +197,64 @@ describe("getLockedNames", () => {
     await insertOrder({ approvedBy: fx.sofia, total: 1_000 });
     expect(await getLockedNames(db(), {})).toEqual({ products: ["Bacon", "Coca", "Doble"], sellers: ["Camila", "Sofía"] });
     expect((await getLockedNames(db(), { categoryId: fx.drinks })).products).toEqual(["Coca"]);
+  });
+});
+
+describe("getProfit", () => {
+  it("profit of costed units", async () => {
+    const o = await insertOrder();
+    await insertItem(o.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800 });
+    await insertItem(o.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800, deltas: [1000], modifierCosts: [400] });
+    const { cur } = await getProfit(db(), WEEK);
+    expect(cur).toEqual({ profit: 9000, costedRevenue: 15000, margin: 60, uncostedUnits: 0 });
+  });
+
+  it("paid extra without cost", async () => {
+    const o = await insertOrder();
+    await insertItem(o.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800, deltas: [1000], modifierCosts: [null] });
+    await insertItem(o.id, { productId: fx.bacon, name: "Bacon", price: 9000 }); // no cost at all
+    expect((await getProfit(db(), WEEK)).cur).toEqual({ profit: 0, costedRevenue: 0, margin: null, uncostedUnits: 2 });
+  });
+
+  it("free extra cost is subtracted; a free extra without cost does not block the unit", async () => {
+    const o = await insertOrder();
+    await insertItem(o.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800, deltas: [0], modifierCosts: [300] });
+    await insertItem(o.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800, deltas: [0], modifierCosts: [null] });
+    expect((await getProfit(db(), WEEK)).cur).toMatchObject({ profit: 3900 + 4200, uncostedUnits: 0 });
+  });
+
+  it("profit uses the same orders as revenue", async () => {
+    const valid = await insertOrder();
+    await insertItem(valid.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800 });
+    for (const status of ["cancelado", "pendiente_aprobacion"] as const) {
+      const o = await insertOrder({ status, channel: status === "pendiente_aprobacion" ? "web" : "counter" });
+      await insertItem(o.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800 });
+    }
+    const outside = await insertOrder({ businessDate: "2026-11-09" });
+    await insertItem(outside.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800 });
+    expect((await getProfit(db(), WEEK)).cur.profit).toBe(4200);
+
+    const p: Period = { ...WEEK, prevCutAt: new Date("2026-11-01T21:00:00-03:00") };
+    const early = await insertOrder({ businessDate: "2026-11-01", createdAt: new Date("2026-11-01T20:00:00-03:00") });
+    await insertItem(early.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800 });
+    const late = await insertOrder({ businessDate: "2026-11-01", createdAt: new Date("2026-11-01T23:00:00-03:00") });
+    await insertItem(late.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800 });
+    expect((await getProfit(db(), p)).prev.profit).toBe(4200);
+  });
+
+  it("empty period profit", async () => {
+    const zero = { profit: 0, costedRevenue: 0, margin: null, uncostedUnits: 0 };
+    expect(await getProfit(db(), WEEK)).toEqual({ cur: zero, prev: zero });
+  });
+
+  it("top product partial profit", async () => {
+    const o = await insertOrder();
+    await insertItem(o.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800 });
+    await insertItem(o.id, { productId: fx.doble, name: "Doble", price: 7000, cost: 2800 });
+    await insertItem(o.id, { productId: fx.doble, name: "Doble", price: 7000 });
+    await insertItem(o.id, { productId: fx.bacon, name: "Bacon", price: 9000 });
+    const top = await getTopProducts(db(), WEEK, {});
+    expect(top.find((r) => r.name === "Doble")).toMatchObject({ units: 3, profit: 8400, uncostedUnits: 1 });
+    expect(top.find((r) => r.name === "Bacon")).toMatchObject({ units: 1, profit: null, uncostedUnits: 1 });
   });
 });

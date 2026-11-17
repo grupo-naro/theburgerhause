@@ -41,6 +41,8 @@ test.describe("admin", () => {
     await expect(page.getByRole("button", { name: "Bloquear ya" })).toBeVisible();
     await expect(kpis).toContainText(/\$\s?\d/);
     await expect(kpis).not.toContainText("****");
+    await expect(kpis).toContainText("Ganancia");
+    await expect(kpis).toContainText(/margen (\d+%|—)/);
 
     await page.getByRole("button", { name: "Bloquear ya" }).click();
     await expect(kpis).toContainText("****");
