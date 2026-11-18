@@ -38,3 +38,13 @@ export function groupIdsFromForm(fd: FormData): number[] | null {
   }
   return ids;
 }
+
+/** Ids of the checked products (bulk group form); null when any value is not a positive integer. */
+export function productIdsFromForm(fd: FormData): number[] | null {
+  const ids: number[] = [];
+  for (const v of fd.getAll("productId")) {
+    if (typeof v !== "string" || !/^\d+$/.test(v) || Number(v) <= 0) return null;
+    ids.push(Number(v));
+  }
+  return ids;
+}

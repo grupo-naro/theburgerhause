@@ -7,8 +7,8 @@ import { authorizeManager, type ActionState } from "@/lib/menu/action-state";
 import { invalidateMenu } from "@/lib/menu/cache";
 import { parseBoolValue, parseDirection, parseId, rawValues } from "@/lib/menu/form-data";
 import type { Result } from "@/lib/menu/admin";
-import { moveModifier, saveModifier, saveModifierGroup, setModifierActive } from "@/lib/modifiers/admin";
-import { groupFromForm, modifierFromForm } from "@/lib/modifiers/form-data";
+import { moveModifier, saveModifier, saveModifierGroup, setGroupProducts, setModifierActive } from "@/lib/modifiers/admin";
+import { groupFromForm, modifierFromForm, productIdsFromForm } from "@/lib/modifiers/form-data";
 
 /**
  * Thin wrappers: authorize -> parse FormData -> core (zod inside) -> invalidate.
@@ -68,4 +68,17 @@ export async function toggleModifierActiveAction(_prev: ActionState, fd: FormDat
     const value = parseBoolValue(fd);
     return id && value !== null ? setModifierActive(getDb(), id, value) : null;
   });
+}
+
+/** "Productos que lo ofrecen": offers one group on exactly the checked products. */
+export async function saveGroupProductsAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const auth = await authorizeManager();
+  if ("state" in auth) return auth.state;
+  const groupId = Number(fd.get("groupId"));
+  const productIds = productIdsFromForm(fd);
+  if (!Number.isInteger(groupId) || groupId <= 0 || !productIds) return { error: "Solicitud inválida." };
+  const result = await setGroupProducts(getDb(), groupId, productIds);
+  if (!result.ok) return { error: result.error ?? "No se pudo guardar." };
+  invalidateMenu();
+  return { message: "Productos del grupo guardados" };
 }

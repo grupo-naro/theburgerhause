@@ -29,6 +29,7 @@ import { form, redirectOf } from "@/test-support/next-mocks";
 import { saveProductModifierGroupsAction } from "../menu/actions";
 import {
   moveModifierAction,
+  saveGroupProductsAction,
   saveModifierAction,
   saveModifierGroupAction,
   toggleModifierActiveAction,
@@ -229,5 +230,48 @@ describe("extra cost is admin only", () => {
     const { g, m } = await seed();
     expect(await redirectOf(saveModifierAction(prev, fields(g, m, { costArs: "500" })))).toBe("/admin/modificadores");
     expect(await costOf(m)).toBe(50000);
+  });
+});
+
+describe("saveGroupProductsAction", () => {
+  async function seedLinks() {
+    const [g] = await testDb().insert(s.modifierGroups).values({ name: "Quitar (milanesas)" }).returning();
+    const [c] = await testDb().insert(s.categories).values({ name: "Milanesas", slug: "milanesas" }).returning();
+    const [a, b] = await testDb()
+      .insert(s.products)
+      .values([
+        { categoryId: c.id, name: "Napolitana", price: 100 },
+        { categoryId: c.id, name: "Suiza", price: 100 },
+      ])
+      .returning();
+    await testDb().insert(s.productModifierGroups).values({ productId: a.id, groupId: g.id });
+    return { g: g.id, a: a.id, b: b.id };
+  }
+  const linked = async (groupId: number) =>
+    (await testDb().select({ p: s.productModifierGroups.productId }).from(s.productModifierGroups).where(eq(s.productModifierGroups.groupId, groupId))).map((r) => r.p);
+  const body = (groupId: number, ids: (number | string)[]) => {
+    const f = form({ groupId: String(groupId) });
+    for (const id of ids) f.append("productId", String(id));
+    return f;
+  };
+
+  it("a cajera is refused and nothing changes", async () => {
+    vi.mocked(requireRole).mockRejectedValue(new AuthError("FORBIDDEN"));
+    const f = await seedLinks();
+    expect((await saveGroupProductsAction(prev, body(f.g, [f.b]))).error).toBeTruthy();
+    expect(await linked(f.g)).toEqual([f.a]);
+  });
+  it("an encargado replaces the links and the menu is refreshed once", async () => {
+    vi.mocked(requireRole).mockResolvedValue({ user: { id: 2, name: "E", username: "e", role: "encargado" }, stationId: null, stationKind: null, sessionId: "x" });
+    const f = await seedLinks();
+    expect(await saveGroupProductsAction(prev, body(f.g, [f.b]))).toEqual({ message: "Productos del grupo guardados" });
+    expect(await linked(f.g)).toEqual([f.b]);
+    expect(invalidateMenu).toHaveBeenCalledTimes(1);
+  });
+  it("a malformed id is an invalid request", async () => {
+    vi.mocked(requireRole).mockResolvedValue(session("admin"));
+    const f = await seedLinks();
+    expect(await saveGroupProductsAction(prev, body(f.g, ["x"]))).toEqual({ error: "Solicitud inválida." });
+    expect(await linked(f.g)).toEqual([f.a]);
   });
 });

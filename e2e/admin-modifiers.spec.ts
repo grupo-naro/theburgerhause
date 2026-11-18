@@ -183,3 +183,27 @@ test("admin modifiers is usable on a phone @mobile", async ({ page }) => {
   expect(formOverflow).toBeLessThanOrEqual(0);
   await shot(page, "admin-modifier-form-mobile");
 });
+
+test("a group is offered on a whole category at once from its page, with exceptions", async ({ page }) => {
+  const name = `Quitar bloque ${uid()}`;
+  const groupId = await createGroup(page, name);
+  await page.goto(`/admin/modificadores/grupos/${groupId}`);
+  const section = page.getByRole("form", { name: "Productos que lo ofrecen" });
+  const simple = section.getByTestId("group-category").filter({ hasText: "Hamburguesa simple + papa chica" });
+  await simple.getByRole("button", { name: "Marcar toda la categoría" }).click();
+  await expect(simple.getByRole("button", { name: "Desmarcar toda la categoría" })).toBeVisible();
+  await simple.getByRole("checkbox", { name: "Melt simple" }).uncheck();
+  await section.getByRole("button", { name: "Guardar" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Productos del grupo guardados" })).toBeVisible();
+
+  await page.reload();
+  const again = page.getByRole("form", { name: "Productos que lo ofrecen" }).getByTestId("group-category").filter({ hasText: "Hamburguesa simple + papa chica" });
+  await expect(again.getByRole("checkbox", { name: "Ranchita simple" })).toBeChecked();
+  await expect(again.getByRole("checkbox", { name: "Melt simple" })).not.toBeChecked();
+
+  expect(await linkedGroupIds((await findProduct("Ranchita simple")).id)).toContain(groupId);
+  expect(await linkedGroupIds((await findProduct("Melt simple")).id)).not.toContain(groupId);
+  // The product edit page agrees.
+  await page.goto(`/admin/menu/productos/${(await findProduct("Melt simple")).id}`);
+  await expect(page.getByRole("form", { name: "Grupos de modificadores" }).getByRole("checkbox", { name })).not.toBeChecked();
+});

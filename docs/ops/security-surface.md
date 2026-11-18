@@ -37,6 +37,7 @@ Staff actions on orders additionally apply the sector rule server side (a cashie
 | `src/app/(admin)/admin/menu/actions.ts#toggleProductFeaturedAction` | staff | admin, encargado | Featured flag. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/modificadores/actions.ts#saveModifierGroupAction` | staff | admin, encargado | Modifier group CRUD. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/modificadores/actions.ts#saveModifierAction` | staff | admin, encargado | Modifier CRUD. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/modificadores/actions.ts#saveGroupProductsAction` | staff | admin, encargado | Bulk: offer one modifier group on exactly the checked products. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/modificadores/actions.ts#moveModifierAction` | staff | admin, encargado | Reorder modifiers. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/modificadores/actions.ts#toggleModifierActiveAction` | staff | admin, encargado | Show/hide a modifier. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/stock/actions.ts#createStockItemAction` | staff | admin, encargado | Create a stock item (kind and unit fixed). | `src/lib/security/authz.test.ts` |

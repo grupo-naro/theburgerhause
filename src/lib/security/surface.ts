@@ -74,6 +74,7 @@ export const SURFACE: Record<string, Entry> = {
   [`action:${ADMIN_DIR}/menu/actions.ts#toggleProductFeaturedAction`]: managerAction("Featured flag."),
   [`action:${ADMIN_DIR}/modificadores/actions.ts#saveModifierGroupAction`]: managerAction("Modifier group CRUD."),
   [`action:${ADMIN_DIR}/modificadores/actions.ts#saveModifierAction`]: managerAction("Modifier CRUD."),
+  [`action:${ADMIN_DIR}/modificadores/actions.ts#saveGroupProductsAction`]: managerAction("Bulk: offer one modifier group on exactly the checked products."),
   [`action:${ADMIN_DIR}/modificadores/actions.ts#moveModifierAction`]: managerAction("Reorder modifiers."),
   [`action:${ADMIN_DIR}/modificadores/actions.ts#toggleModifierActiveAction`]: managerAction("Show/hide a modifier."),
   [`action:${ADMIN_DIR}/stock/actions.ts#createStockItemAction`]: managerAction("Create a stock item (kind and unit fixed)."),

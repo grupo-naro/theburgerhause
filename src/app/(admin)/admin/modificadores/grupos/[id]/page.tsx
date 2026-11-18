@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import { getDb } from "@/db/client";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
-import { getGroupForAdmin } from "@/lib/modifiers/admin";
+import { getGroupForAdmin, listProductsForGroup } from "@/lib/modifiers/admin";
 import { GroupForm } from "../../_components/group-form";
+import { GroupProductsForm } from "../../_components/group-products-form";
 
 export const metadata = { title: "Editar grupo · Administración" };
 
@@ -12,10 +13,12 @@ export default async function EditGroupPage({ params }: PageProps<"/admin/modifi
   await requireSessionOrRedirect(["admin", "encargado"], `/admin/modificadores/grupos/${encodeURIComponent(rawId)}`);
   const group = Number.isSafeInteger(id) ? await getGroupForAdmin(getDb(), id) : null;
   if (!group) notFound();
+  const view = await listProductsForGroup(getDb(), group.id);
   return (
     <section className="flex flex-col gap-5">
       <h1 className="font-display text-3xl font-extrabold text-brand-600">Editar grupo</h1>
       <GroupForm key={group.id} initial={{ id: group.id, name: group.name }} />
+      <GroupProductsForm key={`products-${group.id}`} groupId={group.id} view={view} />
     </section>
   );
 }
