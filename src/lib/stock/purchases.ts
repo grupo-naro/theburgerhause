@@ -12,7 +12,7 @@ type Conn = Db | DbTransaction;
 /** Centavos: quantity (milli) × unit price (centavos per whole unit) / 1000, half up. BigInt keeps it exact. */
 export function purchaseTotal(milli: number, unitPrice: number): number {
   const product = BigInt(milli) * BigInt(unitPrice);
-  return Number((product + 500n) / 1000n);
+  return Number((product + BigInt(500)) / BigInt(1000));
 }
 
 /** % change from `prev` to `cur`, rounded to one decimal, half away from zero (−6,25 → −6,3). */
