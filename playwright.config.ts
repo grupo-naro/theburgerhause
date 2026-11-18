@@ -32,6 +32,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
+  // The GitHub runner is much slower than a dev machine and varies run to run (hydration alone can pass 5 s there).
+  expect: { timeout: process.env.CI ? 10_000 : 5_000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: `http://localhost:${PORT}`,

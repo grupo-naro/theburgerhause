@@ -60,3 +60,22 @@ export async function confirmAddonInDb(addonId: number): Promise<void> {
   const r = await confirmAddon(db(), { addonId, userId: cajera.id, sector: null, paymentVerified: true });
   if (!r.ok) throw new Error(`could not confirm the add-on: ${r.code}`);
 }
+
+/**
+ * Holds every background refresh of the page (router.refresh: the live "catch up" when the stream opens, live events,
+ * the heartbeat) until `release()`. Call it BEFORE opening the screen, so a refresh already in flight cannot land
+ * after a test flips the order in the DB behind the open dialog. Server Actions and navigations go through.
+ */
+export async function holdRefreshes(page: Page): Promise<() => Promise<void>> {
+  const held: (() => Promise<void>)[] = [];
+  const handler = (route: import("@playwright/test").Route) => {
+    const h = route.request().headers();
+    if (h["rsc"] === "1" && !h["next-action"]) held.push(() => route.continue().catch(() => {}));
+    else return route.fallback();
+  };
+  await page.route("**/*", handler);
+  return async () => {
+    await page.unroute("**/*", handler);
+    await Promise.all(held.map((release) => release()));
+  };
+}

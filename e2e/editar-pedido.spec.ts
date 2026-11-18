@@ -6,7 +6,7 @@ import { WRONG_SECTOR_MESSAGE } from "../src/lib/orders/sector";
 import { eventsOf, failPrintJob, markJobsDone, openDelivery, openRetiro, orderById, orderCard, parkPendingOrders, placeDeliveryOrder, placeRetiroOrder, printJobsOf } from "./helpers/caja";
 import { db, findProduct } from "./helpers/db";
 import { cleanBoard, counterOrder, dcard, openPedidos, placeApproved, runCleanups } from "./helpers/despacho";
-import { ADDED, addInEditor, additionalJobsOf, addonItemCount, addonsOf, confirmAddonInDb, editor, openRetiroPreparing, seedAddon } from "./helpers/editar";
+import { ADDED, addInEditor, additionalJobsOf, addonItemCount, addonsOf, confirmAddonInDb, editor, holdRefreshes, openRetiroPreparing, seedAddon } from "./helpers/editar";
 import { staffContext } from "./helpers/journey";
 import { currentStep, openTracking } from "./helpers/tracking";
 import { authFile } from "./helpers/users";
@@ -94,26 +94,19 @@ test.describe("cajera edits a pending order", () => {
 
   test("if somebody approved the order meanwhile, saving is refused with a message and nothing changes", async ({ page }) => {
     const o = await placeRetiroOrder({ paymentMethod: "cash" });
+    // "No hint reaches the open dialog": no background refresh (the live catch-up when the stream opens, the heartbeat)
+    // may move the now-approved card, and the dialog with it, out of the list before the save answers.
+    const release = await holdRefreshes(page);
     await openRetiro(page);
     const card = orderCard(page, o.number);
     await card.getByTestId("edit-order").click();
     await removeUnit(page, "Melt simple");
     await addInEditor(page);
-    // "No hint reaches the open dialog": hold this screen's background refreshes (live events of OTHER specs running in
-    // parallel, the heartbeat) so none can move the now-approved card, and the dialog with it, out of the list before
-    // the save answers. Server Actions (the save) still go through.
-    const held: (() => Promise<void>)[] = [];
-    await page.route("**/*", (route) => {
-      const h = route.request().headers();
-      if (h["rsc"] === "1" && !h["next-action"]) held.push(() => route.continue().catch(() => {}));
-      else return route.fallback();
-    });
     // Approved by somebody else behind this screen's back.
     await db().update(s.orders).set({ status: "en_preparacion" }).where(eq(s.orders.id, o.id));
     await editor(page).getByTestId("editor-save").click();
     await expect(editor(page).getByTestId("editor-error")).toBeVisible();
-    await page.unroute("**/*");
-    await Promise.all(held.map((release) => release()));
+    await release();
     expect((await orderById(o.id)).total).toBe(o.total);
     expect(await addonItemCount(o.id)).toBe(0);
   });
@@ -322,6 +315,8 @@ test.describe("delivery manager", () => {
     // simulates the other sector behind an open card, to prove the Server Action refuses on its own.
     const o = await placeApproved({ fulfillment: "delivery", paymentMethod: "cash" });
     const before = await orderById(o.id);
+    // No background refresh may drop the (now other-sector) card before the save answers.
+    const release = await holdRefreshes(page);
     await openDelivery(page, "preparing");
     const card = dcard(page, o.number);
     await expect(card).toBeVisible();
@@ -333,6 +328,7 @@ test.describe("delivery manager", () => {
     expect(await addonsOf(o.id)).toHaveLength(0);
     expect((await orderById(o.id)).total).toBe(before.total);
     await editor(page).getByTestId("editor-close").click();
+    await release();
   });
 });
 
