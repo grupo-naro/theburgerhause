@@ -1,3 +1,3 @@
-# El runner de GitHub Actions solo puede ejecutar el deploy de The Burger House (con estas variables).
+# El runner de GitHub Actions solo puede ejecutar el deploy de The Burger House: sin argumentos (deploy) o "logs".
 Defaults!/opt/theburgerhouse/deploy.sh env_keep += "COMMIT REF ALLOW_DESTRUCTIVE_MIGRATION"
-gh-runner ALL=(root) NOPASSWD: /opt/theburgerhouse/deploy.sh, /opt/theburgerhouse/deploy.sh logs
+gh-runner ALL=(root) NOPASSWD: /opt/theburgerhouse/deploy.sh "", /opt/theburgerhouse/deploy.sh logs
