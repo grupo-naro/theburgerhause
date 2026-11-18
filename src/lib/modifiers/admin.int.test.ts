@@ -8,9 +8,11 @@ import {
   getModifierForAdmin,
   listGroupsWithModifiers,
   listProductGroupIds,
+  listProductsForGroup,
   moveModifier,
   saveModifier,
   saveModifierGroup,
+  setGroupProducts,
   setModifierActive,
   setProductModifierGroups,
 } from "./admin";
@@ -242,5 +244,61 @@ describe("extra cost", () => {
     expect(await costOf(id)).toBe(50000);
     await saveModifier(db(), { id, groupId: g, name: "+ Dips", kind: "add", priceArs: 1300, active: true, costArs: null });
     expect(await costOf(id)).toBeNull();
+  });
+});
+
+describe("bulk group assignment", () => {
+  async function fixture() {
+    const g = await group("Quitar (milanesas)");
+    const other = await group("Papas");
+    const c1 = await saveCategory(db(), { name: "Milanesas", active: true });
+    const c2 = await saveCategory(db(), { name: "Burgers", active: true });
+    if (!c1.ok || !c2.ok) throw new Error("cat");
+    const mk = async (categoryId: number, name: string, active = true) => {
+      const r = await saveProduct(db(), { categoryId, name, priceArs: 100, active, featured: false });
+      if (!r.ok) throw new Error(name);
+      return r.data.id;
+    };
+    const a = await mk(c1.data.id, "Napolitana");
+    const b = await mk(c1.data.id, "Fugazzeta", false);
+    const c = await mk(c2.data.id, "Ranchita");
+    return { g, other, a, b, c, c1: c1.data.id, c2: c2.data.id };
+  }
+  const linked = async (groupId: number) =>
+    (await db().select({ p: s.productModifierGroups.productId }).from(s.productModifierGroups).where(eq(s.productModifierGroups.groupId, groupId)))
+      .map((r) => r.p)
+      .sort((x, y) => x - y);
+
+  it("list marks the linked products by category", async () => {
+    const f = await fixture();
+    await setGroupProducts(db(), f.g, [f.a]);
+    const view = await listProductsForGroup(db(), f.g);
+    const mil = view.find((v) => v.categoryId === f.c1)!;
+    expect(mil.categoryName).toBe("Milanesas");
+    expect(mil.products).toEqual([
+      { id: f.a, name: "Napolitana", active: true, checked: true },
+      { id: f.b, name: "Fugazzeta", active: false, checked: false },
+    ]);
+    expect(view.find((v) => v.categoryId === f.c2)!.products[0]).toMatchObject({ id: f.c, checked: false });
+  });
+  it("set replaces exactly the selected products; other groups untouched", async () => {
+    const f = await fixture();
+    await setGroupProducts(db(), f.other, [f.a, f.c]);
+    await setGroupProducts(db(), f.g, [f.a, f.b]);
+    expect(await setGroupProducts(db(), f.g, [f.b, f.c])).toEqual({ ok: true, data: null });
+    expect(await linked(f.g)).toEqual([f.b, f.c].sort((x, y) => x - y));
+    expect(await linked(f.other)).toEqual([f.a, f.c].sort((x, y) => x - y));
+  });
+  it("empty selection clears", async () => {
+    const f = await fixture();
+    await setGroupProducts(db(), f.g, [f.a, f.b]);
+    await setGroupProducts(db(), f.g, []);
+    expect(await linked(f.g)).toEqual([]);
+  });
+  it("unknown ids ignored; unknown group refused", async () => {
+    const f = await fixture();
+    expect((await setGroupProducts(db(), f.g, [f.b, 99999])).ok).toBe(true);
+    expect(await linked(f.g)).toEqual([f.b]);
+    expect(await setGroupProducts(db(), 99999, [f.a])).toEqual({ ok: false, error: "Grupo inexistente" });
   });
 });

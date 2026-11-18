@@ -1,5 +1,5 @@
 import { costColumn } from "@/lib/menu/cost-schema";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Db, DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
 import { pesosToCents } from "@/domain/money";
@@ -173,6 +173,9 @@ export async function saveProduct(db: Conn, input: unknown, deps: MenuDeps = {})
         .insert(s.products)
         .values({ ...fields, categoryId: v.categoryId, sort: await nextSort(tx, v.categoryId), stockItemId: link.stockItemId, stockPaused: link.paused })
         .returning({ id: s.products.id });
+      // A new product starts with the groups every other product of its category offers (editable afterwards).
+      const common = await commonGroupIdsForCategory(tx, v.categoryId, row.id);
+      if (common.length > 0) await tx.insert(s.productModifierGroups).values(common.map((groupId) => ({ productId: row.id, groupId })));
       return { id: row.id, oldImage: null, error: null };
     });
     if (saved.error) {
@@ -303,3 +306,18 @@ export async function setProductFeatured(db: Conn, id: number, featured: boolean
 
 export { categoryInputSchema, productInputSchema } from "./schemas";
 export { slugify } from "./slug";
+
+/** Groups that EVERY other product of the category offers (none when the category has no other product). */
+export async function commonGroupIdsForCategory(db: Conn, categoryId: number, excludeProductId?: number): Promise<number[]> {
+  const others = (await db.select({ id: s.products.id }).from(s.products).where(eq(s.products.categoryId, categoryId)))
+    .map((r) => r.id)
+    .filter((id) => id !== excludeProductId);
+  if (others.length === 0) return [];
+  const rows = await db
+    .select({ productId: s.productModifierGroups.productId, groupId: s.productModifierGroups.groupId })
+    .from(s.productModifierGroups)
+    .where(inArray(s.productModifierGroups.productId, others));
+  const count = new Map<number, number>();
+  for (const r of rows) count.set(r.groupId, (count.get(r.groupId) ?? 0) + 1);
+  return [...count].filter(([, n]) => n === others.length).map(([g]) => g).sort((a, b) => a - b);
+}

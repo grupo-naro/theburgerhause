@@ -366,3 +366,27 @@ describe("product patties", () => {
     expect((await productRow(id)).patties).toBe(3);
   });
 });
+
+describe("new product inherits the category's common groups", () => {
+  const groupsOf = async (productId: number) =>
+    (await db().select({ g: s.productModifierGroups.groupId }).from(s.productModifierGroups).where(eq(s.productModifierGroups.productId, productId)))
+      .map((r) => r.g)
+      .sort((a, b) => a - b);
+  it("gets the groups every other product of its category shares", async () => {
+    const c = await cat("Milanesas G");
+    const [g1, g2] = await db().insert(s.modifierGroups).values([{ name: "G1" }, { name: "G2" }]).returning({ id: s.modifierGroups.id });
+    const p1 = await prod(c, "P1");
+    const p2 = await prod(c, "P2");
+    await db().insert(s.productModifierGroups).values([
+      { productId: p1, groupId: g1.id },
+      { productId: p1, groupId: g2.id },
+      { productId: p2, groupId: g1.id },
+    ]);
+    const p3 = await prod(c, "P3");
+    expect(await groupsOf(p3)).toEqual([g1.id]);
+  });
+  it("new product in an empty category gets no group (and does not fail)", async () => {
+    const p = await prod(await cat("Vacía G"), "Solo");
+    expect(await groupsOf(p)).toEqual([]);
+  });
+});

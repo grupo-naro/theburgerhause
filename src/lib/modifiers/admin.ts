@@ -205,3 +205,62 @@ export async function getModifierForAdmin(db: Conn, id: number): Promise<AdminMo
 
 export { groupInputSchema, modifierInputSchema } from "./schemas";
 export { normalizeKitchenLabel } from "./kitchen-label";
+
+// ----------------------------------------------------------------- bulk: one group -> many products
+export type GroupProductsView = {
+  categoryId: number;
+  categoryName: string;
+  products: { id: number; name: string; active: boolean; checked: boolean }[];
+}[];
+
+/** Every product (active or not), by category in menu order, flagged with whether it offers `groupId`. */
+export async function listProductsForGroup(db: Conn, groupId: number): Promise<GroupProductsView> {
+  const [cats, prods, links] = await Promise.all([
+    db.select({ id: s.categories.id, name: s.categories.name }).from(s.categories).orderBy(asc(s.categories.sort), asc(s.categories.id)),
+    db
+      .select({ id: s.products.id, name: s.products.name, active: s.products.active, categoryId: s.products.categoryId })
+      .from(s.products)
+      .orderBy(asc(s.products.sort), asc(s.products.id)),
+    db.select({ productId: s.productModifierGroups.productId }).from(s.productModifierGroups).where(eq(s.productModifierGroups.groupId, groupId)),
+  ]);
+  const checked = new Set(links.map((l) => l.productId));
+  return cats.map((c) => ({
+    categoryId: c.id,
+    categoryName: c.name,
+    products: prods.filter((p) => p.categoryId === c.id).map((p) => ({ id: p.id, name: p.name, active: p.active, checked: checked.has(p.id) })),
+  }));
+}
+
+/** Offers `groupId` on exactly `productIds` (adds and removes in one transaction). Unknown product ids are skipped. */
+export async function setGroupProducts(db: Conn, groupId: number, productIds: number[]): Promise<Result<null>> {
+  if (!Number.isInteger(groupId) || groupId <= 0) return fail("Grupo inexistente");
+  if (!Array.isArray(productIds) || !productIds.every((p) => Number.isInteger(p) && p > 0)) return fail("Producto inválido");
+  const wanted = [...new Set(productIds)];
+  try {
+    return await asDb(db).transaction(async (tx) => {
+      const [group] = await tx.select({ id: s.modifierGroups.id }).from(s.modifierGroups).where(eq(s.modifierGroups.id, groupId));
+      if (!group) return fail("Grupo inexistente");
+      const existing = wanted.length
+        ? (await tx.select({ id: s.products.id }).from(s.products).where(inArray(s.products.id, wanted))).map((r) => r.id)
+        : [];
+      await tx
+        .delete(s.productModifierGroups)
+        .where(
+          existing.length > 0
+            ? and(eq(s.productModifierGroups.groupId, groupId), notInArray(s.productModifierGroups.productId, existing))
+            : eq(s.productModifierGroups.groupId, groupId),
+        );
+      if (existing.length > 0) {
+        await tx
+          .insert(s.productModifierGroups)
+          .values(existing.map((productId) => ({ productId, groupId })))
+          .onConflictDoNothing();
+      }
+      return ok(null);
+    });
+  } catch {
+    console.error("[modifiers] setGroupProducts failed");
+    return fail(UNEXPECTED);
+  }
+}
+
