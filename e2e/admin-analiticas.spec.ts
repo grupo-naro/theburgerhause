@@ -31,6 +31,7 @@ test.describe("admin", () => {
     const kpis = page.getByTestId("kpis");
     await expect(kpis).toContainText("****");
     expect(await kpis.textContent()).not.toMatch(/\d/);
+    expect(await page.getByTestId("patties").textContent()).not.toMatch(/\d/);
 
     await page.getByLabel("PIN").fill("1111");
     await page.getByRole("button", { name: "Desbloquear" }).click();
@@ -43,6 +44,7 @@ test.describe("admin", () => {
     await expect(kpis).not.toContainText("****");
     await expect(kpis).toContainText("Ganancia");
     await expect(kpis).toContainText(/margen (\d+%|—)/);
+    await expect(page.getByTestId("patties")).toContainText(/medall(ón|ones)/);
 
     await page.getByRole("button", { name: "Bloquear ya" }).click();
     await expect(kpis).toContainText("****");

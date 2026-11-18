@@ -164,3 +164,25 @@ export async function getSellers(db: Db, period: Period): Promise<SellerRow[]> {
     addons: r.addons,
   }));
 }
+
+/** Units sold per patty level and the total patties (snapshots; same orders and range as the KPIs). */
+export type Patties = { total: number; byLevel: { 1: number; 2: number; 3: number } };
+
+async function pattiesFor(db: Db, range: SQL): Promise<Patties> {
+  const { rows } = await db.execute<{ total: string | number; l1: number; l2: number; l3: number }>(sql`
+    SELECT
+      COALESCE(SUM(oi.patties_snapshot), 0)::bigint AS total,
+      COUNT(*) FILTER (WHERE oi.patties_snapshot = 1)::int AS l1,
+      COUNT(*) FILTER (WHERE oi.patties_snapshot = 2)::int AS l2,
+      COUNT(*) FILTER (WHERE oi.patties_snapshot = 3)::int AS l3
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE ${VALID} AND ${range}`);
+  const r = rows[0];
+  return { total: Number(r.total), byLevel: { 1: r.l1, 2: r.l2, 3: r.l3 } };
+}
+
+export async function getPatties(db: Db, period: Period): Promise<{ cur: Patties; prev: Patties }> {
+  const [cur, prev] = await Promise.all([pattiesFor(db, curRange(period)), pattiesFor(db, prevRange(period))]);
+  return { cur, prev };
+}

@@ -86,3 +86,18 @@ describe("seed demo costs", () => {
     for (const p of await db().select().from(s.products)) expect(p.cost, p.name).not.toBeNull();
   });
 });
+
+describe("seed patties", () => {
+  it("simple burgers 1, double 2, everything else 0", async () => {
+    await seed(db());
+    const rows = await db()
+      .select({ name: s.products.name, patties: s.products.patties, cat: s.categories.name })
+      .from(s.products)
+      .innerJoin(s.categories, eq(s.categories.id, s.products.categoryId));
+    for (const r of rows) {
+      const expected = r.cat === "Hamburguesa simple + papa chica" ? 1 : r.cat === "Hamburguesa doble + papa chica" ? 2 : 0;
+      expect(r.patties, r.name).toBe(expected);
+    }
+    expect(rows.some((r) => r.patties === 2)).toBe(true);
+  });
+});

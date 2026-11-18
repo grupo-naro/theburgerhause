@@ -4,14 +4,16 @@ import * as s from "@/db/schema";
 import { getLockedNames } from "@/lib/analytics/locked-names";
 import { resolvePeriod } from "@/lib/analytics/period";
 import { getAnalyticsUnlock, hasAnalyticsPin } from "@/lib/analytics/pin";
-import { getHeatmap, getKpis, getProfit, getSellers, getTopProducts } from "@/lib/analytics/queries";
+import { getHeatmap, getKpis, getPatties, getProfit, getSellers, getTopProducts } from "@/lib/analytics/queries";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
 import { getBusinessDayCutoff } from "@/lib/settings";
 import {
   HeatmapBlock,
   KpiCards,
+  PattiesBlock,
   LockedHeatmap,
   LockedKpiCards,
+  LockedPattiesBlock,
   LockedSellersTable,
   LockedTopProducts,
   SellersTable,
@@ -62,6 +64,7 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps<"/a
         <PeriodBar period={period} cat={cat} right={<span className="text-sm font-semibold">🔒 Bloqueado</span>} />
         <PinGate hasPin={hasPin} />
         <LockedKpiCards />
+        <LockedPattiesBlock />
         <div className="grid gap-4 lg:grid-cols-2">
           <LockedTopProducts names={names.products} filter={filter} />
           <LockedHeatmap />
@@ -71,9 +74,10 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps<"/a
     );
   }
 
-  const [kpis, profit, top, heatmap, sellers] = await Promise.all([
+  const [kpis, profit, patties, top, heatmap, sellers] = await Promise.all([
     getKpis(db, period),
     getProfit(db, period),
+    getPatties(db, period),
     getTopProducts(db, period, { categoryId }),
     getHeatmap(db, period, cutoff),
     getSellers(db, period),
@@ -84,6 +88,7 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps<"/a
       <PeriodBar period={period} cat={cat} right={<UnlockCountdown untilIso={until.toISOString()} />} />
       <KpiCards data={kpis} profit={profit} />
       <UncostedWarning units={profit.cur.uncostedUnits} />
+      <PattiesBlock data={patties} />
       <div className="grid gap-4 lg:grid-cols-2">
         <TopProducts rows={top} filter={filter} />
         <HeatmapBlock data={heatmap} />

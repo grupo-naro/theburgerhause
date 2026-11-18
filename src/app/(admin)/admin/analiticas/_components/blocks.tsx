@@ -1,8 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { formatARS } from "@/domain/money";
 import { pctChange } from "@/lib/analytics/period";
+import { pattiesBreakdownText, pattiesTotalText } from "@/lib/analytics/patties-copy";
 import { marginText, productProfitText, uncostedWarning } from "@/lib/analytics/profit-copy";
-import type { Heatmap, Kpis, Profit, SellerRow, TopProduct } from "@/lib/analytics/queries";
+import type { Heatmap, Kpis, Patties, Profit, SellerRow, TopProduct } from "@/lib/analytics/queries";
 
 /**
  * The four analytics blocks. Each one has a LOCKED variant that takes names only (no number reaches
@@ -260,5 +261,30 @@ export function LockedSellersTable({ names }: { names: string[] }) {
         </tr>
       ))}
     </SellersFrame>
+  );
+}
+
+export function PattiesBlock({ data }: { data: { cur: Patties; prev: Patties } }) {
+  return (
+    <Card data-testid="patties" className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+      <div className="flex flex-col gap-1">
+        <BlockTitle>Medallones</BlockTitle>
+        <span className="font-display text-2xl font-extrabold tabular-nums">{pattiesTotalText(data.cur.total)}</span>
+        <span className="text-xs">
+          <Delta cur={data.cur.total} prev={data.prev.total} />
+        </span>
+      </div>
+      <p className="text-sm text-ink-muted tabular-nums">{pattiesBreakdownText(data.cur.byLevel)}</p>
+    </Card>
+  );
+}
+
+export function LockedPattiesBlock() {
+  return (
+    <Card data-testid="patties" className="flex flex-col gap-1">
+      <BlockTitle>Medallones</BlockTitle>
+      <span className="font-display text-2xl font-extrabold">{MASK} medallones</span>
+      <span className="text-xs text-ink-muted">Simple: {MASK} · Doble: {MASK} · Triple: {MASK}</span>
+    </Card>
   );
 }

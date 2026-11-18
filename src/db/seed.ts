@@ -52,6 +52,8 @@ const PRODUCTS: [string, string, string, number, boolean][] = [
 
 /** Demo cost: 40% of the price, rounded to the peso (centavos). The real costs are loaded by the admin. */
 const demoCost = (price: number) => Math.round((price * 0.4) / 100) * 100;
+/** Demo patties: simple burgers 1, double 2, everything else 0. */
+const demoPatties = (category: string) => (category === SIMPLE ? 1 : category === DOUBLE ? 2 : 0);
 
 // group -> [kind, name, priceDelta, kitchenLabel]
 const MODIFIER_GROUPS: Record<string, ["remove" | "add" | "swap", string, number, string][]> = {
@@ -141,6 +143,7 @@ export async function seed(db: Db): Promise<void> {
           description,
           price,
           cost: demoCost(price),
+          patties: demoPatties(cat),
           featured,
           sort: i,
         })),
@@ -151,6 +154,20 @@ export async function seed(db: Db): Promise<void> {
       .update(s.products)
       .set({ cost: sql`(round(${s.products.price} * 0.4 / 100) * 100)::int` })
       .where(and(isNull(s.products.cost), inArray(s.products.name, PRODUCTS.map((p) => p[1]))));
+    // Same for the patties of seeded burgers still at 0 (never overwrites a count an admin set).
+    for (const level of [1, 2] as const) {
+      const cat = level === 1 ? SIMPLE : DOUBLE;
+      await tx
+        .update(s.products)
+        .set({ patties: level })
+        .where(
+          and(
+            eq(s.products.patties, 0),
+            eq(s.products.categoryId, catId.get(cat)!),
+            inArray(s.products.name, PRODUCTS.filter((p) => p[0] === cat).map((p) => p[1])),
+          ),
+        );
+    }
 
     await tx
       .insert(s.modifierGroups)
