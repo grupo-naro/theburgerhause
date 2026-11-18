@@ -32,6 +32,18 @@ export type CatalogProduct = {
   categoryActive: boolean;
   /** Modifiers of the groups LINKED to this product (inactive ones may be present). */
   modifiers: CatalogModifier[];
+  /** Fixed contents when the product is a combo (absent / empty = plain product). Server-only. */
+  combo?: CatalogComboItem[];
+};
+
+export type CatalogComboItem = {
+  productId: number;
+  name: string;
+  quantity: number;
+  patties: number;
+  cost: number | null;
+  active: boolean;
+  categoryActive: boolean;
 };
 
 export type Catalog = ReadonlyMap<number, CatalogProduct>;
@@ -52,6 +64,8 @@ export type ResolveResult = { ok: true; units: ResolvedUnit[] } | { ok: false; i
 function resolveOne(unit: OrderUnitInput, catalog: Catalog): ResolvedUnit | UnitIssueCode {
   const product = catalog.get(unit.productId);
   if (!product || !product.active || !product.categoryActive) return "PRODUCT_UNAVAILABLE";
+  // A combo is only as available as every product inside it.
+  if (product.combo?.some((c) => !c.active || !c.categoryActive)) return "PRODUCT_UNAVAILABLE";
 
   const byId = new Map(product.modifiers.map((m) => [m.id, m]));
   const modifiers: CatalogModifier[] = [];

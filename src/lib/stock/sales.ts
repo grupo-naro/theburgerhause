@@ -36,6 +36,26 @@ export class OutOfStockRollback extends Error {
   }
 }
 
+/**
+ * A sold combo takes its contents off the stock: each combo unit becomes its components, `quantity` times each.
+ * The combo unit itself stays in the list (harmless: a combo is not linked to a stock item). One query.
+ */
+async function expandCombos(tx: DbTransaction, units: { productId: number }[]): Promise<{ productId: number }[]> {
+  const ids = [...new Set(units.map((u) => u.productId))];
+  if (ids.length === 0) return units;
+  const parts = await tx
+    .select({ comboId: s.comboItems.comboId, productId: s.comboItems.productId, quantity: s.comboItems.quantity })
+    .from(s.comboItems)
+    .where(inArray(s.comboItems.comboId, ids));
+  if (parts.length === 0) return units;
+  const byCombo = new Map<number, { productId: number; quantity: number }[]>();
+  for (const p of parts) byCombo.set(p.comboId, [...(byCombo.get(p.comboId) ?? []), p]);
+  return units.flatMap((u) => [
+    u,
+    ...(byCombo.get(u.productId) ?? []).flatMap((c) => Array.from({ length: c.quantity }, () => ({ productId: c.productId }))),
+  ]);
+}
+
 const controlled =(item: LockedStockItem | undefined): item is LockedStockItem =>
   item !== undefined && item.active && item.kind === "bebida";
 
@@ -49,6 +69,7 @@ export async function reserveStockForOrder(
   tx: DbTransaction,
   input: { orderId: number; units: { productId: number }[]; userId?: number | null },
 ): Promise<ReserveStockResult> {
+  input = { ...input, units: await expandCombos(tx, input.units) };
   const productIds = [...new Set(input.units.map((u) => u.productId))];
   if (productIds.length === 0) return { ok: true, pauseChanged: false };
   const linked = await tx
@@ -112,6 +133,7 @@ export async function adjustStockForOrder(
   tx: DbTransaction,
   input: { orderId: number; add: { productId: number }[]; remove: { productId: number }[]; userId: number | null },
 ): Promise<ReserveStockResult> {
+  input = { ...input, add: await expandCombos(tx, input.add), remove: await expandCombos(tx, input.remove) };
   const productIds = [...new Set([...input.add, ...input.remove].map((u) => u.productId))];
   if (productIds.length === 0) return { ok: true, pauseChanged: false };
   const linked = await tx

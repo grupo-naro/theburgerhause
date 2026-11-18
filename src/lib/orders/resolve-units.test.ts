@@ -105,3 +105,24 @@ describe("resolveUnits", () => {
     expect(r.ok && r.units[0].unitTotal).toBe(1000_00);
   });
 });
+
+describe("combos", () => {
+  const comp = (over: Partial<NonNullable<CatalogProduct["combo"]>[number]> = {}) => ({
+    productId: 50,
+    name: "Coca 500",
+    quantity: 2,
+    patties: 0,
+    cost: 100,
+    active: true,
+    categoryActive: true,
+    ...over,
+  });
+  it("a combo with every component available resolves at its own price", () => {
+    const r = resolveUnits([u(1)], catalog(product(1, { price: 5000, combo: [comp()] })));
+    expect(r.ok && r.units[0].unitTotal).toBe(5000);
+  });
+  it("a combo is unavailable when a component is inactive or its category is", () => {
+    expect(resolveUnits([u(1)], catalog(product(1, { combo: [comp({ active: false })] })))).toEqual({ ok: false, issues: [{ unitIndex: 0, code: "PRODUCT_UNAVAILABLE" }] });
+    expect(resolveUnits([u(1)], catalog(product(1, { combo: [comp({ categoryActive: false })] })))).toEqual({ ok: false, issues: [{ unitIndex: 0, code: "PRODUCT_UNAVAILABLE" }] });
+  });
+});

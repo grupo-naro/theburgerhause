@@ -72,7 +72,53 @@ export async function loadCatalog(tx: DbTransaction, productIds: number[]): Prom
       p.modifiers.push(m);
     }
   }
+
+  // Combo contents (one query for every combo in the request), in the order the admin set them.
+  const comboIds = [...catalog.keys()];
+  if (comboIds.length > 0) {
+    const parts = await tx
+      .select({
+        comboId: s.comboItems.comboId,
+        productId: s.comboItems.productId,
+        quantity: s.comboItems.quantity,
+        sort: s.comboItems.sort,
+        name: s.products.name,
+        patties: s.products.patties,
+        cost: s.products.cost,
+        active: s.products.active,
+        categoryActive: s.categories.active,
+      })
+      .from(s.comboItems)
+      .innerJoin(s.products, eq(s.products.id, s.comboItems.productId))
+      .innerJoin(s.categories, eq(s.categories.id, s.products.categoryId))
+      .where(inArray(s.comboItems.comboId, comboIds))
+      .orderBy(s.comboItems.comboId, s.comboItems.sort, s.comboItems.productId);
+    for (const c of parts) {
+      const p = catalog.get(c.comboId)!;
+      (p.combo ??= []).push({
+        productId: c.productId,
+        name: c.name,
+        quantity: c.quantity,
+        patties: c.patties,
+        cost: c.cost,
+        active: c.active,
+        categoryActive: c.categoryActive,
+      });
+    }
+  }
   return catalog;
+}
+
+/** Patties of one sold unit: the product's own count, or (for a combo without one) the sum of its contents. */
+function unitPatties(p: CatalogProduct): number {
+  if ((p.patties ?? 0) > 0 || !p.combo?.length) return p.patties ?? 0;
+  return p.combo.reduce((sum, c) => sum + c.patties * c.quantity, 0);
+}
+
+/** Cost of one sold unit: the product's own cost, or (for a combo without one) the sum of its contents when all are costed. */
+function unitCost(p: CatalogProduct): number | null {
+  if (p.cost != null || !p.combo?.length) return p.cost ?? null;
+  return p.combo.every((c) => c.cost != null) ? p.combo.reduce((sum, c) => sum + c.cost! * c.quantity, 0) : null;
 }
 
 /** One order_items row per UNIT plus each unit's order_item_modifiers snapshots. */
@@ -92,8 +138,9 @@ export async function insertOrderItems(
           productId: u.product.id,
           nameSnapshot: u.product.name,
           unitPriceSnapshot: u.product.price,
-          unitCostSnapshot: u.product.cost ?? null,
-          pattiesSnapshot: u.product.patties ?? 0,
+          unitCostSnapshot: unitCost(u.product),
+          pattiesSnapshot: unitPatties(u.product),
+          comboSnapshot: u.product.combo?.length ? u.product.combo.map((c) => ({ name: c.name, quantity: c.quantity })) : null,
           notes: u.note === "" ? null : u.note,
           ...(opts.addonId !== undefined ? { addonId: opts.addonId } : {}),
         })),

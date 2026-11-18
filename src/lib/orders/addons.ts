@@ -52,6 +52,20 @@ export const storedUnitsSchema = z.array(
       price: z.number().int(),
       cost: z.number().int().nullable().optional(),
       patties: z.number().int().optional(),
+      /** A combo's contents when the add-on was created (absent in older add-ons and for plain products). */
+      combo: z
+        .array(
+          z.object({
+            productId: z.number().int(),
+            name: z.string(),
+            quantity: z.number().int(),
+            patties: z.number().int(),
+            cost: z.number().int().nullable(),
+            active: z.boolean(),
+            categoryActive: z.boolean(),
+          }),
+        )
+        .optional(),
       active: z.boolean(),
       categoryActive: z.boolean(),
       modifiers: z.array(modifierSchema),
