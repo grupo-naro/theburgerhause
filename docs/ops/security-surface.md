@@ -30,6 +30,7 @@ Staff actions on orders additionally apply the sector rule server side (a cashie
 | `src/app/(admin)/admin/menu/actions.ts#saveCategoryAction` | staff | admin, encargado | Category CRUD. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/menu/actions.ts#saveProductAction` | staff | admin, encargado | Product CRUD (imagePath re-validated). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/menu/actions.ts#saveProductModifierGroupsAction` | staff | admin, encargado | Product to modifier group links. | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/menu/actions.ts#saveComboItemsAction` | staff | admin, encargado | Fixed contents of a combo (no nesting, 1-20 per item). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/menu/actions.ts#moveCategoryAction` | staff | admin, encargado | Reorder categories. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/menu/actions.ts#moveProductAction` | staff | admin, encargado | Reorder products. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/menu/actions.ts#toggleCategoryActiveAction` | staff | admin, encargado | Show/hide a category. | `src/lib/security/authz.test.ts` |

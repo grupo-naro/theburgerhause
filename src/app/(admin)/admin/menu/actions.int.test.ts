@@ -30,6 +30,7 @@ import {
   moveCategoryAction,
   moveProductAction,
   saveCategoryAction,
+  saveComboItemsAction,
   saveProductAction,
   toggleCategoryActiveAction,
   toggleProductActiveAction,
@@ -252,5 +253,53 @@ describe("patties are editable by the encargado", () => {
     const fd = form({ id: String(p.id), categoryId: String(c.id), name: "Triple", priceArs: "9000", active: "on", patties: "3" });
     expect(await redirectOf(saveProductAction(prev, fd))).toBe("/admin/menu");
     expect((await testDb().select({ v: s.products.patties }).from(s.products).where(eq(s.products.id, p.id)))[0].v).toBe(3);
+  });
+});
+
+describe("saveComboItemsAction", () => {
+  async function seedCombo() {
+    const [c] = await testDb().insert(s.categories).values({ name: "Combos", slug: "combos" }).returning();
+    const [combo, burger, coke] = await testDb()
+      .insert(s.products)
+      .values([
+        { categoryId: c.id, name: "Combo mundial", price: 1_200_000 },
+        { categoryId: c.id, name: "Holtber simple", price: 980_000 },
+        { categoryId: c.id, name: "Coca 500", price: 250_000 },
+      ])
+      .returning({ id: s.products.id });
+    return { combo: combo.id, burger: burger.id, coke: coke.id };
+  }
+  const body = (combo: number, rows: [number | string, number | string][]) => {
+    const f = form({ comboId: String(combo) });
+    for (const [p, q] of rows) {
+      f.append("productId", String(p));
+      f.append("quantity", String(q));
+    }
+    return f;
+  };
+  const contents = async (combo: number) =>
+    (await testDb().select({ p: s.comboItems.productId, q: s.comboItems.quantity }).from(s.comboItems).where(eq(s.comboItems.comboId, combo))).map((r) => [r.p, r.q]);
+
+  it("a cajera is refused and nothing is written", async () => {
+    asCajera();
+    const f = await seedCombo();
+    expect((await saveComboItemsAction(prev, body(f.combo, [[f.burger, 1]]))).error).toBeTruthy();
+    expect(await contents(f.combo)).toEqual([]);
+  });
+  it("an encargado saves the contents and the menu is refreshed", async () => {
+    vi.mocked(requireRole).mockResolvedValue({ user: { id: 2, name: "E", username: "e", role: "encargado" }, stationId: null, stationKind: null, sessionId: "x" });
+    const f = await seedCombo();
+    expect(await saveComboItemsAction(prev, body(f.combo, [[f.burger, 1], [f.coke, 1]]))).toEqual({ message: "Contenido del combo guardado" });
+    expect(await contents(f.combo)).toEqual([[f.burger, 1], [f.coke, 1]]);
+    expect(invalidateMenu).toHaveBeenCalledTimes(1);
+  });
+  it("malformed rows are an invalid request; core errors are shown", async () => {
+    asAdmin();
+    const f = await seedCombo();
+    expect(await saveComboItemsAction(prev, body(f.combo, [["x", 1]]))).toEqual({ error: "Solicitud inválida." });
+    const mismatched = form({ comboId: String(f.combo) });
+    mismatched.append("productId", String(f.burger));
+    expect(await saveComboItemsAction(prev, mismatched)).toEqual({ error: "Solicitud inválida." });
+    expect(await saveComboItemsAction(prev, body(f.combo, [[f.combo, 1]]))).toEqual({ error: "Un combo no puede incluirse a sí mismo" });
   });
 });

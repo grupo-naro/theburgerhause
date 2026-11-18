@@ -15,6 +15,7 @@ import {
 } from "@/lib/menu/admin";
 import { setProductModifierGroups } from "@/lib/modifiers/admin";
 import { groupIdsFromForm } from "@/lib/modifiers/form-data";
+import { setComboItems } from "@/lib/menu/combos";
 import { authorizeManager, type ActionState } from "@/lib/menu/action-state";
 import { invalidateMenu } from "@/lib/menu/cache";
 import {
@@ -129,3 +130,23 @@ export async function toggleProductFeaturedAction(_prev: ActionState, fd: FormDa
     return id && value !== null ? setProductFeatured(getDb(), id, value) : null;
   });
 }
+
+/** "Contenido del combo": the fixed contents of a combo (parallel productId / quantity fields; empty = plain product). */
+export async function saveComboItemsAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const auth = await authorizeManager();
+  if ("state" in auth) return auth.state;
+  const rawCombo = fd.get("comboId");
+  const comboId = typeof rawCombo === "string" && /^\d{1,9}$/.test(rawCombo) ? Number(rawCombo) : null;
+  const products = fd.getAll("productId");
+  const quantities = fd.getAll("quantity");
+  const isInt = (v: FormDataEntryValue) => typeof v === "string" && /^\d{1,9}$/.test(v);
+  if (!comboId || products.length !== quantities.length || !products.every(isInt) || !quantities.every(isInt)) {
+    return { error: "Solicitud inválida." };
+  }
+  const items = products.map((p, i) => ({ productId: Number(p), quantity: Number(quantities[i]) }));
+  const result = await setComboItems(getDb(), comboId, items);
+  if (!result.ok) return { error: result.error ?? "No se pudo guardar." };
+  invalidateMenu();
+  return { message: "Contenido del combo guardado" };
+}
+

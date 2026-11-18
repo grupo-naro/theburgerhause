@@ -132,6 +132,30 @@ export const modifiers = pgTable(
   ],
 );
 
+/**
+ * Fixed contents of a combo: a product with rows here IS a combo (its own price is the combo price).
+ * No nesting: a combo never contains another combo (enforced by the admin core).
+ */
+export const comboItems = pgTable(
+  "combo_items",
+  {
+    comboId: integer("combo_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    quantity: smallint("quantity").notNull(),
+    sort: smallint("sort").notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ columns: [t.comboId, t.productId] }),
+    index("combo_items_product_idx").on(t.productId),
+    check("combo_items_quantity_range", sql`${t.quantity} BETWEEN 1 AND 20`),
+    check("combo_items_not_self", sql`${t.comboId} <> ${t.productId}`),
+  ],
+);
+
 export const productModifierGroups = pgTable(
   "product_modifier_groups",
   {
@@ -306,6 +330,8 @@ export const orderItems = pgTable(
     unitCostSnapshot: integer("unit_cost_snapshot"),
     /** Product patties at sale time (0 for older rows and non-burgers). */
     pattiesSnapshot: smallint("patties_snapshot").notNull().default(0),
+    /** A combo's contents at sale time ([{ name, quantity }]); NULL for a plain product. */
+    comboSnapshot: jsonb("combo_snapshot"),
     notes: text("notes"),
     /** NULL for the original order; set for units that came in through an add-on. */
     addonId: integer("addon_id").references(() => orderAddons.id, { onDelete: "no action" }),

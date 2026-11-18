@@ -67,6 +67,7 @@ export const SURFACE: Record<string, Entry> = {
   [`action:${ADMIN_DIR}/menu/actions.ts#saveCategoryAction`]: managerAction("Category CRUD."),
   [`action:${ADMIN_DIR}/menu/actions.ts#saveProductAction`]: managerAction("Product CRUD (imagePath re-validated)."),
   [`action:${ADMIN_DIR}/menu/actions.ts#saveProductModifierGroupsAction`]: managerAction("Product to modifier group links."),
+  [`action:${ADMIN_DIR}/menu/actions.ts#saveComboItemsAction`]: managerAction("Fixed contents of a combo (no nesting, 1-20 per item)."),
   [`action:${ADMIN_DIR}/menu/actions.ts#moveCategoryAction`]: managerAction("Reorder categories."),
   [`action:${ADMIN_DIR}/menu/actions.ts#moveProductAction`]: managerAction("Reorder products."),
   [`action:${ADMIN_DIR}/menu/actions.ts#toggleCategoryActiveAction`]: managerAction("Show/hide a category."),

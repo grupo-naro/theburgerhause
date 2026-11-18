@@ -1,14 +1,16 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { getDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { centsToPesos } from "@/domain/money";
 import { requireSessionOrRedirect } from "@/lib/auth/guards";
 import { getProductForAdmin } from "@/lib/menu/admin-queries";
+import { comboIds, getComboItems } from "@/lib/menu/combos";
 import { listLinkableDrinks } from "@/lib/stock/queries";
 import { listProductGroupIds } from "@/lib/modifiers/admin";
 import { thumbUrl } from "@/lib/uploads/storage";
 import { ProductForm } from "../../_components/product-form";
+import { ComboItemsForm } from "../../_components/combo-items-form";
 import { ProductModifierGroupsForm } from "../../_components/product-modifier-groups-form";
 
 export const metadata = { title: "Editar producto · Administración" };
@@ -33,6 +35,15 @@ export default async function EditProductPage({ params }: PageProps<"/admin/menu
       .orderBy(asc(s.modifierGroups.id)),
     listProductGroupIds(db, product.id),
   ]);
+  // Combo contents: options exclude this product and every combo (no nesting).
+  const [comboItems, combos, allProducts, [inside]] = await Promise.all([
+    getComboItems(db, product.id),
+    comboIds(db),
+    db.select({ id: s.products.id, name: s.products.name, price: s.products.price }).from(s.products).orderBy(asc(s.products.name)),
+    db.select({ id: s.comboItems.comboId }).from(s.comboItems).where(eq(s.comboItems.productId, product.id)).limit(1),
+  ]);
+  const insideCombo = inside !== undefined;
+  const comboOptions = allProducts.filter((p) => p.id !== product.id && !combos.has(p.id));
   return (
     <section className="flex flex-col gap-5">
       <h1 className="font-display text-3xl font-extrabold text-brand-600">Editar producto</h1>
@@ -65,6 +76,18 @@ export default async function EditProductPage({ params }: PageProps<"/admin/menu
         groups={groups}
         linkedIds={linkedIds}
       />
+      <hr className="max-w-xl border-line" />
+      {insideCombo ? (
+        <p className="max-w-xl text-sm text-ink-muted">Este producto está dentro de un combo: no puede ser un combo.</p>
+      ) : (
+        <ComboItemsForm
+          key={`combo-${product.id}`}
+          comboId={product.id}
+          comboPrice={product.price}
+          options={comboOptions}
+          initial={comboItems.map((i) => ({ productId: i.productId, quantity: i.quantity }))}
+        />
+      )}
     </section>
   );
 }
