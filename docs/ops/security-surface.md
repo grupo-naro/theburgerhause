@@ -44,9 +44,10 @@ Staff actions on orders additionally apply the sector rule server side (a cashie
 | `src/app/(admin)/admin/stock/actions.ts#createStockItemAction` | staff | admin, encargado | Create a stock item (kind and unit fixed). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/stock/actions.ts#updateStockItemAction` | staff | admin, encargado | Rename / minimum / (de)activate a stock item (may flip the stock pause of a linked drink). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/stock/actions.ts#setInitialStockAction` | staff | admin, encargado | Starting balance of an item, once. | `src/lib/security/authz.test.ts` |
-| `src/app/(admin)/admin/stock/actions.ts#registerIngresoAction` | staff | admin, encargado | Stock replenishment (idempotency key; same key with other data is refused). | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/stock/actions.ts#registerIngresoAction` | staff | admin, encargado | Stock replenishment (idempotency key; same key with other data is refused); the unit price is admin-only (a non-admin sending one is refused). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/stock/actions.ts#closeStockDayAction` | staff | admin, encargado | Rendición de materia prima: closes one date once (unique date + idempotency key; negative balance needs confirmation). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/stock/actions.ts#editMovementAction` | staff | admin, encargado | Correct an ingreso / consumo / initial stock (full edit trail; negative needs confirmation). | `src/lib/security/authz.test.ts` |
+| `src/app/(admin)/admin/stock/actions.ts#setPurchasePriceAction` | admin | admin | Set or clear the unit price of an ingreso (purchase prices). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/usuarios/actions.ts#saveUserAction` | admin | admin | Create/edit staff users and passwords. | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/usuarios/actions.ts#toggleUserActiveAction` | admin | admin | Deactivate/reactivate a user (revokes sessions). | `src/lib/security/authz.test.ts` |
 | `src/app/(admin)/admin/usuarios/actions.ts#revokeSessionsAction` | admin | admin | Revoke every session of a user. | `src/lib/security/authz.test.ts` |

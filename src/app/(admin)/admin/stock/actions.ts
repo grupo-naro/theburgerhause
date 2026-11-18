@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { GENERIC_ACTION_ERROR } from "@/lib/admin/action-helpers";
-import { authorizeManager } from "@/lib/menu/action-state";
+import { authorizeAdmin, authorizeManager } from "@/lib/menu/action-state";
+import { parsePesosToCents } from "@/lib/rendicion/parse-pesos";
 import { invalidateMenu } from "@/lib/menu/cache";
 import { parseId, rawValues } from "@/lib/menu/form-data";
 import { revalidateAdminShell, revalidateStockPages } from "@/lib/stock/cache";
@@ -13,7 +14,7 @@ import { longDay } from "@/lib/stock/closing-dates";
 import { closeStockDay } from "@/lib/stock/closings";
 import { formFieldErrors, isUnit, parseOptionalQuantity, type StockActionState } from "@/lib/stock/form";
 import { createStockItem, updateStockItem } from "@/lib/stock/items";
-import { editMovement, registerIngreso, setInitialStock } from "@/lib/stock/movements";
+import { editMovement, registerIngreso, setIngresoPrice, setInitialStock } from "@/lib/stock/movements";
 import { formatQuantity, parseQuantity, type Unit } from "@/lib/stock/quantity";
 import { STOCK_MESSAGES, type StockFailure } from "@/lib/stock/schemas";
 
@@ -122,6 +123,10 @@ export async function registerIngresoAction(_prev: StockActionState, fd: FormDat
   if ("state" in auth) return auth.state;
   const itemId = Number(text(fd, "itemId"));
   if (!Number.isSafeInteger(itemId) || itemId <= 0) return { error: "Elegí un artículo", fieldErrors: { itemId: "Elegí un artículo" }, values: rawValues(fd) };
+  // The purchase price is admin-only: anyone else sending one is a forged request.
+  const price = unitPriceFrom(fd);
+  if (price.cents !== null && auth.session.user.role !== "admin") return invalid(fd);
+  if (!price.ok) return priceError(fd);
   return guarded(async () => {
     const item = await unitOfItem(itemId);
     if (!item) return { error: STOCK_MESSAGES.ITEM_NOT_FOUND, values: rawValues(fd) };
@@ -133,10 +138,40 @@ export async function registerIngresoAction(_prev: StockActionState, fd: FormDat
       milli: qty.milli,
       note: text(fd, "note"),
       idempotencyKey: text(fd, "idempotencyKey"),
+      unitPrice: price.cents,
     });
     if (!result.ok) return failureState(result, fd);
     await refreshAfterWrite([itemId]);
     return { message: `Ingreso cargado. Saldo de ${item.name}: ${formatQuantity(result.data.quantity, item.unit)}.` };
+  });
+}
+
+const BAD_PRICE = "Ingresá un precio válido";
+
+/** Optional `unitPrice` field (es-AR pesos). Blank = no price; anything else must be > 0. `cents` is non-null whenever a value was sent. */
+function unitPriceFrom(fd: FormData): { ok: true; cents: number | null } | { ok: false; cents: number } {
+  const raw = text(fd, "unitPrice").trim();
+  if (raw === "") return { ok: true, cents: null };
+  const parsed = parsePesosToCents(raw);
+  if (!parsed.ok || parsed.cents <= 0) return { ok: false, cents: -1 };
+  return { ok: true, cents: parsed.cents };
+}
+
+const priceError = (fd: FormData): StockActionState => ({ error: BAD_PRICE, fieldErrors: { unitPrice: BAD_PRICE }, values: rawValues(fd) });
+
+/** "Precios de compra": sets or clears (blank) the unit price of an ingreso. Admin only. */
+export async function setPurchasePriceAction(_prev: StockActionState, fd: FormData): Promise<StockActionState> {
+  const auth = await authorizeAdmin();
+  if ("state" in auth) return auth.state;
+  const movementId = Number(text(fd, "movementId"));
+  if (!Number.isSafeInteger(movementId) || movementId <= 0) return invalid(fd);
+  const price = unitPriceFrom(fd);
+  if (!price.ok) return priceError(fd);
+  return guarded(async () => {
+    const result = await setIngresoPrice(getDb(), { movementId, unitPrice: price.cents });
+    if (!result.ok) return failureState(result, fd);
+    revalidateStockPages();
+    return { message: "Precio guardado" };
   });
 }
 

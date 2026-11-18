@@ -21,6 +21,7 @@ import {
   editMovementAction,
   registerIngresoAction,
   setInitialStockAction,
+  setPurchasePriceAction,
   updateStockItemAction,
 } from "./actions";
 
@@ -46,6 +47,7 @@ describe("authorization", () => {
     ["registerIngresoAction", () => registerIngresoAction(prev, form({ itemId: "1", qty: "5", idempotencyKey: key(1) }))],
     ["closeStockDayAction", () => closeStockDayAction(prev, form({ q_1: "5", businessDate: "2026-10-19", idempotencyKey: key(2) }))],
     ["editMovementAction", () => editMovementAction(prev, form({ movementId: "1", qty: "5" }))],
+    ["setPurchasePriceAction", () => setPurchasePriceAction(prev, form({ movementId: "1", unitPrice: "2.000" }))],
   ];
 
   it.each(calls)("%s: cajera is refused and nothing is written", async (_n, run) => {
@@ -173,5 +175,59 @@ describe("encargado flow", () => {
     await redirectOf(updateStockItemAction(prev, form({ id: String(fx.coca), name: "Coca-Cola 500 ml", minQty: "6", active: "on" })));
     expect(await productFlags(fx.cocaProduct)).toEqual({ active: true, stockPaused: true });
     expect(invalidateMenu).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("purchase prices", () => {
+  const ingreso = (fields: Record<string, string>, n: number) =>
+    registerIngresoAction(prev, form({ itemId: String(fx.carne), qty: "20", idempotencyKey: key(700 + n), ...fields }));
+
+  it("admin stores the unit price of an ingreso", async () => {
+    as(fx.userId, "admin");
+    const r = await ingreso({ unitPrice: "2.000" }, 1);
+    expect(r.error).toBeUndefined();
+    expect((await movementsOf(fx.carne))[0].unitPrice).toBe(200000);
+  });
+
+  it("admin price with centavos", async () => {
+    as(fx.userId, "admin");
+    await ingreso({ unitPrice: "1.500,50" }, 2);
+    expect((await movementsOf(fx.carne))[0].unitPrice).toBe(150050);
+  });
+
+  it("encargado sending a price is refused and nothing is written", async () => {
+    as(fx.userId, "encargado");
+    const r = await ingreso({ unitPrice: "2.000" }, 3);
+    expect(r.error).toBe("Solicitud inválida.");
+    expect(await movementsOf(fx.carne)).toHaveLength(0);
+  });
+
+  it("encargado without the field (or blank) works as before", async () => {
+    as(fx.userId, "encargado");
+    expect((await ingreso({}, 4)).error).toBeUndefined();
+    expect((await ingreso({ unitPrice: "  " }, 5)).error).toBeUndefined();
+    const ms = await movementsOf(fx.carne);
+    expect(ms).toHaveLength(2);
+    expect(ms.every((m) => m.unitPrice === null)).toBe(true);
+  });
+
+  it.each(["abc", "0", "-5", "1.5"])("admin invalid price %s is a field error", async (bad) => {
+    as(fx.userId, "admin");
+    const r = await ingreso({ unitPrice: bad }, 6);
+    expect(r.fieldErrors?.unitPrice).toBe("Ingresá un precio válido");
+    expect(await movementsOf(fx.carne)).toHaveLength(0);
+  });
+
+  it("setPurchasePriceAction is admin-only, sets and clears", async () => {
+    as(fx.userId, "admin");
+    await ingreso({}, 7);
+    const [m] = await movementsOf(fx.carne);
+    const r = await setPurchasePriceAction(prev, form({ movementId: String(m.id), unitPrice: "2.400" }));
+    expect(r.message).toBe("Precio guardado");
+    expect(requireRole).toHaveBeenLastCalledWith("admin");
+    expect((await movementsOf(fx.carne))[0].unitPrice).toBe(240000);
+    await setPurchasePriceAction(prev, form({ movementId: String(m.id), unitPrice: "" }));
+    expect((await movementsOf(fx.carne))[0].unitPrice).toBeNull();
+    expect((await setPurchasePriceAction(prev, form({ movementId: String(m.id), unitPrice: "x" }))).fieldErrors?.unitPrice).toBe("Ingresá un precio válido");
   });
 });
