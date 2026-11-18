@@ -1,0 +1,3 @@
+# Backup diario de The Burger House (ver /opt/theburgerhouse/README.md)
+CRON_TZ=America/Argentina/Buenos_Aires
+30 4 * * * root /opt/theburgerhouse/backup.sh >> /opt/theburgerhouse/backups/backup.log 2>&1

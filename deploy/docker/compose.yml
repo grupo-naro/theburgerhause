@@ -1,0 +1,94 @@
+# The Burger House (theburgerhouse.com.ar) - producción.
+# Cloudflare Tunnel -> Traefik (/opt/traefik) -> web (nginx: IP real, límites, SSE) -> app (Next.js) -> db
+# Desplegar SIEMPRE con ./deploy.sh (backup, migración, build, health, vuelta atrás). Ver README.md.
+# UNA sola instancia de app (bus SSE y límites en memoria): nunca --scale.
+name: theburgerhouse
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: burgerhause
+      POSTGRES_DB: burgerhause
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?}
+      TZ: America/Argentina/Buenos_Aires
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U burgerhause -d burgerhause"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Migraciones (drizzle). Solo se corre a mano / desde deploy.sh: docker compose run --rm migrate
+  migrate:
+    build:
+      context: .
+      target: deps
+    image: theburgerhouse-deps:latest
+    profiles: [tools]
+    restart: "no"
+    command: ["pnpm", "db:migrate"]
+    env_file: .env.app
+    environment:
+      UPLOAD_DIR: /tmp
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+
+  app:
+    build:
+      context: .
+      target: app
+      network: host
+      secrets: [database_url]
+    image: theburgerhouse-app:${APP_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env.app
+    environment:
+      UPLOAD_DIR: /data/uploads
+      APP_COMMIT: ${APP_COMMIT:-unknown}
+    volumes:
+      - ./data/uploads:/data/uploads
+    depends_on:
+      db: { condition: service_healthy }
+    # Nombre único: "app" a secas puede chocar con otra app en la red compartida "proxy" (web está en ambas).
+    networks:
+      internal:
+        aliases: [burgerhause-app]
+    stop_grace_period: 30s
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/headers.conf:/etc/nginx/bh-headers.conf:ro
+      - ./nginx/maintenance.html:/usr/share/nginx/maintenance/maintenance.html:ro
+      - ./data/uploads:/srv/uploads:ro
+    depends_on: [app]
+    networks: [internal, proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.theburgerhouse.rule=Host(`theburgerhouse.com.ar`) || Host(`www.theburgerhouse.com.ar`)
+      - traefik.http.routers.theburgerhouse.entrypoints=web
+      - traefik.http.routers.theburgerhouse.middlewares=theburgerhouse-www
+      - traefik.http.middlewares.theburgerhouse-www.redirectregex.regex=^https?://www\.theburgerhouse\.com\.ar/(.*)
+      - traefik.http.middlewares.theburgerhouse-www.redirectregex.replacement=https://theburgerhouse.com.ar/$${1}
+      - traefik.http.middlewares.theburgerhouse-www.redirectregex.permanent=true
+      - traefik.http.services.theburgerhouse.loadbalancer.server.port=80
+
+secrets:
+  database_url:
+    environment: BUILD_DATABASE_URL
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
+  proxy:
+    external: true

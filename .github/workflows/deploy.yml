@@ -1,0 +1,110 @@
+# Deploy a producción (theburgerhouse.com.ar).
+#   Etiqueta v* (o botón "Run workflow") -> verify (runner de GitHub, incluye e2e) -> deploy (runner self-hosted en la VPS).
+# Si verify falla, el deploy ni arranca. Si el deploy falla, deploy.sh deja (o vuelve a) la versión anterior y el job
+# queda rojo (GitHub manda mail). La VPS ejecuta /opt/theburgerhouse/deploy.sh (copia de referencia: deploy/docker/).
+# El commit a desplegar TIENE que estar en feature/mvp-fase1 (deploy.sh lo exige).
+# SEGURIDAD: este workflow corre en un runner con acceso a producción. Nunca agregar `pull_request` ni
+# `pull_request_target` como disparador.
+name: deploy
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      allow_destructive_migration:
+        description: "Permitir migraciones con DROP / RENAME / SET NOT NULL (revisalas antes: el rollback no revierte la base)"
+        type: boolean
+        default: false
+
+# Un solo deploy a la vez y nunca se corta uno a la mitad (el siguiente espera).
+concurrency:
+  group: produccion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: burgerhause
+          POSTGRES_PASSWORD: burgerhause
+          POSTGRES_DB: burgerhause
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U burgerhause -d burgerhause"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://burgerhause:burgerhause@localhost:5432/burgerhause
+      UPLOAD_DIR: /tmp/uploads
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4   # versión tomada de "packageManager" en package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: lint
+        run: pnpm lint
+      - name: tests unitarios
+        run: pnpm test
+      - name: typecheck print-agent
+        run: pnpm --filter @burgerhause/print-agent typecheck
+      - name: migraciones (base vacía, como producción)
+        run: pnpm db:migrate
+      - name: tests de integración
+        run: pnpm test:int
+      - name: build (pre-renderiza contra la base migrada)
+        run: pnpm build
+      - name: instalar Chromium para Playwright
+        run: pnpm exec playwright install --with-deps chromium
+      - name: e2e
+        # retries 1 solo acá: editar-pedido.spec.ts (:95 y :310) es intermitente.
+        run: pnpm e2e --retries=1
+      - name: reporte de Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+  deploy:
+    needs: verify
+    runs-on: [self-hosted, burgerhouse-prod]
+    environment: production
+    timeout-minutes: 45
+    steps:
+      # Sin checkout: el runner solo ejecuta el deploy.sh de la VPS con el SHA exacto que pasó verify.
+      # REF es fijo: es la rama donde tiene que estar el commit (en un tag, github.ref_name sería "v1.2.0").
+      # sudoers conserva COMMIT, REF y ALLOW_DESTRUCTIVE_MIGRATION (env_keep) solo para este script.
+      - name: deploy ${{ github.ref_name }} (${{ github.sha }})
+        env:
+          COMMIT: ${{ github.sha }}
+          REF: feature/mvp-fase1
+          ALLOW_DESTRUCTIVE_MIGRATION: ${{ inputs.allow_destructive_migration && '1' || '0' }}
+        run: |
+          set +e
+          sudo -n /opt/theburgerhouse/deploy.sh
+          code=$?
+          case $code in
+            0) echo "::notice::Desplegado ${GITHUB_REF_NAME} (${COMMIT::12})" ;;
+            1) echo "::error::Deploy frenado ANTES de tocar producción (commit fuera de feature/mvp-fase1, migración destructiva, backup, migración o build). Producción sigue con la versión anterior." ;;
+            2) echo "::error::Había otro deploy en curso en la VPS." ;;
+            3) echo "::error::La versión nueva no quedó sana: producción volvió sola a la anterior (la base quedó migrada)." ;;
+            *) echo "::error::Ni la versión anterior quedó sana: intervenir a mano en la VPS (./deploy.sh status)." ;;
+          esac
+          exit $code
+      - name: logs de la app (últimas 100 líneas)
+        if: failure()
+        run: sudo -n /opt/theburgerhouse/deploy.sh logs

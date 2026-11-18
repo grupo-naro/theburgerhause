@@ -1,0 +1,53 @@
+# Proxy de entrada del servidor: Cloudflare Tunnel (cloudflared) -> Traefik, ambos en la red "proxy".
+# Nada publica puertos al host. Cada app se suma a la red externa "proxy" con labels:
+#   traefik.enable=true
+#   traefik.docker.network=proxy
+#   traefik.http.routers.<nombre>.rule=Host(`dominio`)
+#   traefik.http.routers.<nombre>.entrypoints=web
+#   traefik.http.services.<nombre>.loadbalancer.server.port=<puerto>
+# y en Cloudflare cada hostname público apunta a HTTP traefik:80.
+name: traefik
+
+services:
+  traefik:
+    image: traefik:v3
+    restart: unless-stopped
+    command:
+      - --global.checknewversion=false
+      - --global.sendanonymoususage=false
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=proxy
+      - --entrypoints.web.address=:80
+      # Solo se confía en X-Forwarded-* que llegan desde la red proxy (cloudflared).
+      - --entrypoints.web.forwardedheaders.trustedips=10.0.250.0/24
+      # Descarta cabeceras alias (X_Forwarded_For, etc.) que podrían falsificar las que maneja Traefik.
+      - --entrypoints.web.http.aliasheadersstrategy=delete
+      - --ping=true
+      - --log.level=INFO
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    env_file: .env   # TUNNEL_TOKEN=...
+    networks:
+      - proxy
+    depends_on:
+      - traefik
+
+networks:
+  proxy:
+    name: proxy
+    ipam:
+      config:
+        - subnet: 10.0.250.0/24

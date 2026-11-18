@@ -1,0 +1,8 @@
+/opt/theburgerhouse/deploy.log /opt/theburgerhouse/backups/backup.log {
+  monthly
+  rotate 12
+  compress
+  missingok
+  notifempty
+  copytruncate
+}

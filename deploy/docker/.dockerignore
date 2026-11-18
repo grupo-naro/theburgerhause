@@ -1,0 +1,12 @@
+repo/.git
+repo/node_modules
+repo/.next
+repo/.env*
+repo/.uploads
+data
+backups
+.env
+.env.app
+repo/**/*.test.ts
+repo/**/*.test.tsx
+repo/e2e
