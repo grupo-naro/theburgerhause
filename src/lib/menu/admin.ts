@@ -134,6 +134,8 @@ export async function saveProduct(db: Conn, input: unknown, deps: MenuDeps = {})
     ...(v.suggest === undefined ? {} : { suggest: v.suggest }),
     // undefined = keep the stored cost (the encargado's form never carries it), null = clear.
     ...costColumn(v.costArs),
+    // undefined = keep (the column defaults to 0 on create).
+    ...(v.patties === undefined ? {} : { patties: v.patties }),
   };
   const nextSort = async (tx: DbTransaction, categoryId: number) => {
     const [{ next }] = await tx

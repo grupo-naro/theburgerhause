@@ -352,3 +352,17 @@ describe("product cost", () => {
     expect((await productRow(id)).cost).toBeNull();
   });
 });
+
+describe("product patties", () => {
+  it("create stores patties; without it defaults to 0; undefined keeps it on edit", async () => {
+    const c = await cat("Burgers P");
+    const id = await prod(c, "Doble P", { patties: 2 });
+    expect((await productRow(id)).patties).toBe(2);
+    const plain = await prod(c, "Papas");
+    expect((await productRow(plain)).patties).toBe(0);
+    await saveProduct(db(), { id, categoryId: c, name: "Doble P", priceArs: 1200, active: true, featured: false });
+    expect((await productRow(id)).patties).toBe(2);
+    await saveProduct(db(), { id, categoryId: c, name: "Doble P", priceArs: 1200, active: true, featured: false, patties: 3 });
+    expect((await productRow(id)).patties).toBe(3);
+  });
+});

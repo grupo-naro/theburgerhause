@@ -22,6 +22,8 @@ export type ProductFormValues = {
   stockItemId: number | null;
   /** Admin only (absent for other roles: the page never sends it). */
   costArs?: number | null;
+  /** Beef patties per unit (0-3). */
+  patties: number;
 };
 
 export function ProductForm({
@@ -95,6 +97,15 @@ export function ProductForm({
           hasHint
           error={fe.priceArs}
         />
+      </Field>
+      <Field label="Medallones de carne" htmlFor="patties" hint="Simple 1, doble 2, triple 3. Lo que no es hamburguesa: 0." error={fe.patties}>
+        <Select id="patties" name="patties" defaultValue={v?.patties ?? String(initial.patties)} hasHint error={fe.patties}>
+          {[0, 1, 2, 3].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </Select>
       </Field>
       {showCost ? (
         <Field label="Precio de costo ($)" htmlFor="costArs" hint="Lo ve solo el administrador. Vacío = sin costo cargado." error={fe.costArs}>

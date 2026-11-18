@@ -48,6 +48,8 @@ export function productFromForm(fd: FormData) {
     suggest: checkbox(fd, "suggest"),
     stockItemId: stockLink(fd),
     costArs: costFromForm(fd),
+    // Missing key = keep the stored count (forms or callers that do not send it).
+    patties: fd.has("patties") ? Number(text(fd, "patties").trim() || Number.NaN) : undefined,
   };
 }
 

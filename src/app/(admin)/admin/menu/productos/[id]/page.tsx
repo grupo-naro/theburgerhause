@@ -53,6 +53,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/menu
           suggest: product.suggest,
           imagePath: product.imagePath,
           stockItemId: product.stockItemId,
+          patties: product.patties,
           // The cost is sent to the admin only.
           ...(isAdmin ? { costArs: product.cost === null ? null : centsToPesos(product.cost) } : {}),
         }}

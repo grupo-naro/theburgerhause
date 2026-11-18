@@ -66,3 +66,18 @@ describe("productInputSchema cost", () => {
     expect(msg(100_000_001)).toBe("Costo demasiado alto");
   });
 });
+
+describe("productInputSchema patties", () => {
+  const msg = (patties: number) => {
+    const r = productInputSchema.safeParse({ ...prod, patties });
+    return r.success ? undefined : r.error.issues.find((i) => i.path[0] === "patties")?.message;
+  };
+  it("accepts 0 to 3 and undefined (keep)", () => {
+    for (const patties of [0, 1, 2, 3, undefined]) expect(productInputSchema.safeParse({ ...prod, patties }).success, String(patties)).toBe(true);
+  });
+  it("rejects out of range and fractions", () => {
+    expect(msg(4)).toBe("Entre 0 y 3 medallones");
+    expect(msg(-1)).toBe("Entre 0 y 3 medallones");
+    expect(msg(1.5)).toBe("Los medallones son un número entero");
+  });
+});

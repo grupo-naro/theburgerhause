@@ -87,6 +87,8 @@ export const products = pgTable(
     stockPaused: boolean("stock_paused").notNull().default(false),
     /** Cost price (centavos), admin only. NULL = not loaded ("sin costo"). Each sale snapshots it. */
     cost: integer("cost"),
+    /** Beef patties in one unit (0-3): simple 1, doble 2, triple 3, anything else 0. Each sale snapshots it. */
+    patties: smallint("patties").notNull().default(0),
   },
   (t) => [
     unique("products_category_name_unique").on(t.categoryId, t.name),
@@ -95,6 +97,7 @@ export const products = pgTable(
     uniqueIndex("products_stock_item_unique").on(t.stockItemId).where(sql`${t.stockItemId} IS NOT NULL`),
     check("products_price_nonneg", sql`${t.price} >= 0`),
     check("products_cost_nonneg", sql`${t.cost} IS NULL OR ${t.cost} >= 0`),
+    check("products_patties_range", sql`${t.patties} BETWEEN 0 AND 3`),
   ],
 );
 
@@ -301,6 +304,8 @@ export const orderItems = pgTable(
     unitPriceSnapshot: integer("unit_price_snapshot").notNull(),
     /** Product cost at sale time (centavos); NULL = no cost was loaded then. */
     unitCostSnapshot: integer("unit_cost_snapshot"),
+    /** Product patties at sale time (0 for older rows and non-burgers). */
+    pattiesSnapshot: smallint("patties_snapshot").notNull().default(0),
     notes: text("notes"),
     /** NULL for the original order; set for units that came in through an add-on. */
     addonId: integer("addon_id").references(() => orderAddons.id, { onDelete: "no action" }),

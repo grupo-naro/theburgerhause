@@ -243,3 +243,14 @@ describe("product cost is admin only", () => {
     expect(await costOf(p)).toBe(300000);
   });
 });
+
+describe("patties are editable by the encargado", () => {
+  it("encargado save stores patties", async () => {
+    vi.mocked(requireRole).mockResolvedValue({ user: { id: 2, name: "E", username: "e", role: "encargado" }, stationId: null, stationKind: null, sessionId: "x" });
+    const [c] = await testDb().insert(s.categories).values({ name: "Burgers", slug: "burgers" }).returning();
+    const [p] = await testDb().insert(s.products).values({ categoryId: c.id, name: "Triple", price: 900000 }).returning();
+    const fd = form({ id: String(p.id), categoryId: String(c.id), name: "Triple", priceArs: "9000", active: "on", patties: "3" });
+    expect(await redirectOf(saveProductAction(prev, fd))).toBe("/admin/menu");
+    expect((await testDb().select({ v: s.products.patties }).from(s.products).where(eq(s.products.id, p.id)))[0].v).toBe(3);
+  });
+});

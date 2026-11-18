@@ -47,6 +47,13 @@ export const productInputSchema = z.object({
   stockItemId: id.nullish(),
   /** Admin-only cost (see cost-schema.ts): undefined = keep, null = clear. */
   costArs: costArsSchema,
+  /** Beef patties per unit (0-3). undefined = leave as is (0 on create). */
+  patties: z
+    .number("Elegí la cantidad de medallones")
+    .int("Los medallones son un número entero")
+    .min(0, "Entre 0 y 3 medallones")
+    .max(3, "Entre 0 y 3 medallones")
+    .optional(),
 });
 
 export type CategoryInput = z.input<typeof categoryInputSchema>;

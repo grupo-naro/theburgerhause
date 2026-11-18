@@ -36,6 +36,7 @@ export default async function NewProductPage({ searchParams }: PageProps<"/admin
           suggest: false,
           imagePath: null,
           stockItemId: null,
+          patties: 0,
         }}
       />
     </section>

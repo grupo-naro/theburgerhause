@@ -18,3 +18,10 @@ describe("cost from the form", () => {
     }
   });
 });
+
+describe("patties from the form", () => {
+  it("missing key = undefined (keep), a number = that number", () => {
+    expect(productFromForm(fd({})).patties).toBeUndefined();
+    expect(productFromForm(fd({ patties: "2" })).patties).toBe(2);
+  });
+});
