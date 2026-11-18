@@ -1,4 +1,4 @@
-# Deploy a producción (theburgerhouse.com.ar).
+# Deploy a producción (theburgerhouse828.com.ar).
 #   Etiqueta v* (o botón "Run workflow") -> verify (runner de GitHub, incluye e2e) -> deploy (runner self-hosted en la VPS).
 # Si verify falla, el deploy ni arranca. Si el deploy falla, deploy.sh deja (o vuelve a) la versión anterior y el job
 # queda rojo (GitHub manda mail). La VPS ejecuta /opt/theburgerhouse/deploy.sh (copia de referencia: deploy/docker/).

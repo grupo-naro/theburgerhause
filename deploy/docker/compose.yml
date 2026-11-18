@@ -1,4 +1,4 @@
-# The Burger House (theburgerhouse.com.ar) - producción.
+# The Burger House (theburgerhouse828.com.ar) - producción.
 # Cloudflare Tunnel -> Traefik (/opt/traefik) -> web (nginx: IP real, límites, SSE) -> app (Next.js) -> db
 # Desplegar SIEMPRE con ./deploy.sh (backup, migración, build, health, vuelta atrás). Ver README.md.
 # UNA sola instancia de app (bus SSE y límites en memoria): nunca --scale.
@@ -73,11 +73,11 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=proxy
-      - traefik.http.routers.theburgerhouse.rule=Host(`theburgerhouse.com.ar`) || Host(`www.theburgerhouse.com.ar`)
+      - traefik.http.routers.theburgerhouse.rule=Host(`theburgerhouse828.com.ar`) || Host(`www.theburgerhouse828.com.ar`)
       - traefik.http.routers.theburgerhouse.entrypoints=web
       - traefik.http.routers.theburgerhouse.middlewares=theburgerhouse-www
-      - traefik.http.middlewares.theburgerhouse-www.redirectregex.regex=^https?://www\.theburgerhouse\.com\.ar/(.*)
-      - traefik.http.middlewares.theburgerhouse-www.redirectregex.replacement=https://theburgerhouse.com.ar/$${1}
+      - traefik.http.middlewares.theburgerhouse-www.redirectregex.regex=^https?://www\.theburgerhouse828\.com\.ar/(.*)
+      - traefik.http.middlewares.theburgerhouse-www.redirectregex.replacement=https://theburgerhouse828.com.ar/$${1}
       - traefik.http.middlewares.theburgerhouse-www.redirectregex.permanent=true
       - traefik.http.services.theburgerhouse.loadbalancer.server.port=80
 
