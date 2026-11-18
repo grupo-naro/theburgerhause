@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Db, DbTransaction } from "@/db/client";
+import { priceChangePct, purchaseTotal } from "./purchase-math";
 import type { Unit } from "./quantity";
 
 /**
@@ -9,26 +10,7 @@ import type { Unit } from "./quantity";
 
 type Conn = Db | DbTransaction;
 
-/** Centavos: quantity (milli) × unit price (centavos per whole unit) / 1000, half up. BigInt keeps it exact. */
-export function purchaseTotal(milli: number, unitPrice: number): number {
-  const product = BigInt(milli) * BigInt(unitPrice);
-  return Number((product + BigInt(500)) / BigInt(1000));
-}
-
-/** % change from `prev` to `cur`, rounded to one decimal, half away from zero (−6,25 → −6,3). */
-export function priceChangePct(prev: number, cur: number): number {
-  const raw = ((cur - prev) / prev) * 1000;
-  const pct = (Math.sign(raw) * Math.round(Math.abs(raw))) / 10;
-  return Object.is(pct, -0) ? 0 : pct;
-}
-
-/** "▲ 20%", "▼ 6,5%", "= 0%". */
-export function formatPriceChange(pct: number): string {
-  const abs = Math.abs(pct).toLocaleString("es-AR", { maximumFractionDigits: 1 });
-  if (pct > 0) return `▲ ${abs}%`;
-  if (pct < 0) return `▼ ${abs}%`;
-  return "= 0%";
-}
+export { formatPriceChange, priceChangePct, purchaseTotal } from "./purchase-math";
 
 export type Purchase = {
   movementId: number;

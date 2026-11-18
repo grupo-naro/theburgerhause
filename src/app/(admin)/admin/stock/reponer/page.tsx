@@ -9,7 +9,7 @@ export const metadata = { title: "Reponer stock · Administración" };
 
 export default async function ReponerPage({ searchParams }: PageProps<"/admin/stock/reponer">) {
   const sp = await searchParams;
-  await requireSessionOrRedirect(["admin", "encargado"], "/admin/stock/reponer");
+  const session = await requireSessionOrRedirect(["admin", "encargado"], "/admin/stock/reponer");
   const items = (await listStockItems(getDb())).filter((i) => i.active);
   // Untrusted query param: only preselect when it matches an active item.
   const raw = typeof sp.item === "string" && /^\d+$/.test(sp.item) ? Number(sp.item) : null;
@@ -26,6 +26,7 @@ export default async function ReponerPage({ searchParams }: PageProps<"/admin/st
           items={items.map((i) => ({ id: i.id, name: i.name, unit: i.unit, kind: i.kind, quantity: i.quantity }))}
           initialItemId={initialItemId}
           initialKey={randomUUID()}
+          showPrice={session.user.role === "admin"}
         />
       )}
     </section>

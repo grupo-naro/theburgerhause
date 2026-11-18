@@ -11,13 +11,17 @@ const LINKS = [
   { href: "/admin/stock/historial", label: "Historial" },
 ] as const;
 
+/** Admin only: purchase prices are the owner's data. */
+const ADMIN_LINKS = [{ href: "/admin/stock/precios", label: "Precios de compra" }] as const;
+
 /** Sections of Stock: a horizontally scrollable strip of tabs (44 px tall, no page overflow). */
-export function StockSubnav() {
+export function StockSubnav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const links = isAdmin ? [...LINKS, ...ADMIN_LINKS] : LINKS;
   return (
     <nav aria-label="Secciones de stock" className="-mx-4 overflow-x-auto px-4">
       <ul className="flex gap-2 pb-1">
-        {LINKS.map((l) => {
+        {links.map((l) => {
           const active = "exact" in l ? pathname === l.href : pathname === l.href || pathname.startsWith(`${l.href}/`);
           return (
             <li key={l.href} className="shrink-0">
