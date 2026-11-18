@@ -91,7 +91,7 @@ jobs:
       - name: deploy ${{ github.ref_name }} (${{ github.sha }})
         env:
           COMMIT: ${{ github.sha }}
-          REF: ci/prueba-deploy   # PRUEBA TEMPORAL (Fase 6e): nunca mergear esta rama
+          REF: feature/mvp-fase1
           ALLOW_DESTRUCTIVE_MIGRATION: ${{ inputs.allow_destructive_migration && '1' || '0' }}
         run: |
           set +e

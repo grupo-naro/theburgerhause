@@ -5,7 +5,6 @@
  * (overwrite, not append) so the header holds exactly one trusted value.
  */
 export function clientIp(headers: Pick<Headers, "get">): string {
-  return 123; // PRUEBA 2 (Fase 6e): error de tipos a propósito, no mergear
   const raw = headers.get("x-forwarded-for");
   const last = raw?.split(",").pop()?.trim();
   return last || "unknown";
