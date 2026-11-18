@@ -99,11 +99,21 @@ test.describe("cajera edits a pending order", () => {
     await card.getByTestId("edit-order").click();
     await removeUnit(page, "Melt simple");
     await addInEditor(page);
-    // Approved by somebody else behind this screen's back (no hint reaches the open dialog).
+    // "No hint reaches the open dialog": hold this screen's background refreshes (live events of OTHER specs running in
+    // parallel, the heartbeat) so none can move the now-approved card, and the dialog with it, out of the list before
+    // the save answers. Server Actions (the save) still go through.
+    const held: (() => Promise<void>)[] = [];
+    await page.route("**/*", (route) => {
+      const h = route.request().headers();
+      if (h["rsc"] === "1" && !h["next-action"]) held.push(() => route.continue().catch(() => {}));
+      else return route.fallback();
+    });
+    // Approved by somebody else behind this screen's back.
     await db().update(s.orders).set({ status: "en_preparacion" }).where(eq(s.orders.id, o.id));
     await editor(page).getByTestId("editor-save").click();
-    // A live refresh may then remove the card and the dialog with it.
     await expect(editor(page).getByTestId("editor-error")).toBeVisible();
+    await page.unroute("**/*");
+    await Promise.all(held.map((release) => release()));
     expect((await orderById(o.id)).total).toBe(o.total);
     expect(await addonItemCount(o.id)).toBe(0);
   });
