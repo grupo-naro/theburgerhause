@@ -43,6 +43,12 @@ fail() { log "ERROR: $2"; exit "$1"; }
 # Entradas: se validan porque las puede pasar GitHub Actions.
 [[ "$REF" =~ ^[A-Za-z0-9._/-]+$ && "$REF" != *..* ]] || fail 1 "REF inválida: $REF"
 [ -z "$COMMIT" ] || [[ "$COMMIT" =~ ^[0-9a-f]{7,40}$ ]] || fail 1 "COMMIT inválido (tiene que ser un sha hex): $COMMIT"
+# Desde GitHub Actions (sudo por gh-runner) solo se despliega la rama de producción, salvo ramas habilitadas a mano
+# por root en .allowed-refs (una por línea; p. ej. para probar el pipeline). Así un workflow de otra rama no puede
+# llevar a producción código que no está en feature/mvp-fase1.
+if [ "${SUDO_USER:-}" = gh-runner ] && [ "$REF" != feature/mvp-fase1 ] && ! grep -qxF -- "$REF" .allowed-refs 2>/dev/null; then
+  fail 1 "REF $REF no habilitada para deploy automático (solo feature/mvp-fase1 o las de .allowed-refs)"
+fi
 
 # logs/status son de solo lectura: no toman el lock (se pueden mirar con un deploy en curso).
 if [ "${1:-}" != logs ] && [ "${1:-}" != status ]; then
