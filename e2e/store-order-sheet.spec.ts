@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { formatARS } from "../src/domain/money";
-import { findGroup, setAcceptingOrders } from "./helpers/db";
+import * as s from "../src/db/schema";
+import { db, findGroup, setAcceptingOrders } from "./helpers/db";
 import { reloadUntil } from "./helpers/public-menu";
 import { shotViewport } from "./helpers/shots";
 import {
@@ -22,7 +23,6 @@ import {
 // Public storefront: no session.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const SIMPLE = "Hamburguesa simple + papa chica";
 const uid = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
 
 // Seed prices (centavos): Ranchita simple 850000; + Dips de cheddar 120000; Agregar tomate 30000.
@@ -36,9 +36,13 @@ test("a product without modifier groups gets the minimal sheet and adds at its p
   baseURL,
 }, testInfo) => {
   const name = `Combo sin extras ${uid()}`;
+  // A fresh, empty category: a new product inherits the groups its category's products share, and the seeded
+  // burgers share every group. This test is about a product WITHOUT groups.
+  const category = `Sin extras ${uid()}`;
+  await db().insert(s.categories).values({ name: category, slug: `sin-extras-${uid()}`, sort: 999 });
   await withAdmin(browser, baseURL, testInfo.project.use.extraHTTPHeaders, async (admin) => {
     await admin.goto("/admin/menu/productos/nuevo");
-    await admin.getByLabel("Categoría").selectOption({ label: SIMPLE });
+    await admin.getByLabel("Categoría").selectOption({ label: category });
     await admin.getByLabel("Nombre").fill(name);
     await admin.getByLabel("Precio (pesos)").fill("5000");
     await admin.getByRole("button", { name: "Guardar" }).click();

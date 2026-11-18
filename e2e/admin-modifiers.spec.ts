@@ -195,6 +195,11 @@ test("a group is offered on a whole category at once from its page, with excepti
   await simple.getByRole("checkbox", { name: "Melt simple" }).uncheck();
   await section.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Productos del grupo guardados" })).toBeVisible();
+  // A change after saving: the "saved" message must not stay up over unsaved changes.
+  await simple.getByRole("checkbox", { name: "Melt simple" }).check();
+  await expect(page.getByRole("status").filter({ hasText: "Productos del grupo guardados" })).toHaveCount(0);
+  await expect(section.getByText("Hay cambios sin guardar")).toBeVisible();
+  await simple.getByRole("checkbox", { name: "Melt simple" }).uncheck();
 
   await page.reload();
   const again = page.getByRole("form", { name: "Productos que lo ofrecen" }).getByTestId("group-category").filter({ hasText: "Hamburguesa simple + papa chica" });
