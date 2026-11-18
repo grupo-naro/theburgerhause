@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Select } from "@/components/ui/field";
@@ -11,6 +12,10 @@ import { listStockItems } from "@/lib/stock/queries";
 import { PurchasePriceForm } from "../_components/purchase-price-form";
 
 export const metadata = { title: "Precios de compra · Administración" };
+
+/** Newest purchases per article in the overview; one article's view shows its whole history (up to this cap). */
+const OVERVIEW_PER_ITEM = 12;
+const ITEM_PER_ITEM = 200;
 
 /** "2026-11-18" -> "18/11/26". */
 const shortDate = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(2, 4)}`;
@@ -51,7 +56,7 @@ export default async function PreciosPage({ searchParams }: PageProps<"/admin/st
   const raw = typeof sp.item === "string" && /^\d+$/.test(sp.item) ? Number(sp.item) : null;
   const selected = items.find((i) => i.id === raw) ?? null;
   const [groups, unpriced] = await Promise.all([
-    listPurchases(db, selected ? { itemId: selected.id } : {}),
+    listPurchases(db, selected ? { itemId: selected.id, perItem: ITEM_PER_ITEM } : { perItem: OVERVIEW_PER_ITEM }),
     selected ? listUnpricedIngresos(db, selected.id) : Promise.resolve([]),
   ]);
 
@@ -101,6 +106,15 @@ export default async function PreciosPage({ searchParams }: PageProps<"/admin/st
                     <PurchaseRow key={p.movementId} p={p} unit={g.unit} />
                   ))}
                 </ul>
+                {g.hasMore ? (
+                  selected ? (
+                    <p className="text-sm text-ink-muted">Se muestran las últimas {ITEM_PER_ITEM} compras.</p>
+                  ) : (
+                    <Link href={`/admin/stock/precios?item=${g.itemId}`} className="flex min-h-11 items-center font-semibold text-brand-600 underline">
+                      Ver todas las compras de {g.itemName}
+                    </Link>
+                  )
+                ) : null}
               </Card>
             </li>
           ))}

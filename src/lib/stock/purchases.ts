@@ -23,7 +23,8 @@ export type Purchase = {
   note: string | null;
 };
 
-export type PurchaseGroup = { itemId: number; itemName: string; unit: Unit; last: Purchase; purchases: Purchase[] };
+/** `hasMore`: the article has older priced purchases beyond the `perItem` shown. */
+export type PurchaseGroup = { itemId: number; itemName: string; unit: Unit; last: Purchase; purchases: Purchase[]; hasMore: boolean };
 
 const DEFAULT_PER_ITEM = 12;
 
@@ -55,7 +56,7 @@ export async function listPurchases(db: Conn, opts: { itemId?: number; perItem?:
     )
     SELECT p.id, p.item_id, i.name AS item_name, i.unit, p.business_date, p.qty_delta, p.unit_price, p.prev_price, p.user_name, p.note
     FROM p JOIN stock_items i ON i.id = p.item_id
-    WHERE p.rn <= ${perItem}
+    WHERE p.rn <= ${perItem + 1}
     ORDER BY p.business_date DESC, p.id DESC
   `);
   const groups = new Map<number, PurchaseGroup>();
@@ -71,8 +72,9 @@ export async function listPurchases(db: Conn, opts: { itemId?: number; perItem?:
       note: r.note,
     };
     const g = groups.get(r.item_id);
-    if (g) g.purchases.push(purchase);
-    else groups.set(r.item_id, { itemId: r.item_id, itemName: r.item_name, unit: r.unit, last: purchase, purchases: [purchase] });
+    if (!g) groups.set(r.item_id, { itemId: r.item_id, itemName: r.item_name, unit: r.unit, last: purchase, purchases: [purchase], hasMore: false });
+    else if (g.purchases.length < perItem) g.purchases.push(purchase);
+    else g.hasMore = true; // one extra row per article was fetched only to know this
   }
   // Rows came newest first overall, so Map insertion order is already "newest purchase first".
   return [...groups.values()];

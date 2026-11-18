@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { noHorizontalOverflow } from "./helpers/checkout";
-import { deleteStockItem } from "./helpers/db";
+import * as s from "../src/db/schema";
+import { db, deleteStockItem, findStockItem } from "./helpers/db";
 import { authFile } from "./helpers/users";
 
 const QUESO = `Queso compra ${Date.now()}`;
@@ -79,5 +80,34 @@ test.describe("purchase prices as encargado", () => {
     await expect(page.getByRole("link", { name: "Precios de compra" })).toHaveCount(0);
     await page.goto("/admin/stock/precios");
     await expect(page).not.toHaveURL(/\/admin\/stock\/precios/);
+  });
+});
+
+test.describe("long purchase history", () => {
+  test.use({ storageState: authFile("admin") });
+  const LECHE = `Leche compra ${Date.now()}`;
+  test.afterAll(async () => {
+    await deleteStockItem(LECHE);
+  });
+
+  test("older purchases are reachable with 'Ver todas las compras'", async ({ page }) => {
+    await createItem(page, LECHE);
+    const item = await findStockItem(LECHE);
+    await db()
+      .insert(s.stockMovements)
+      .values(
+        Array.from({ length: 14 }, (_, i) => ({
+          itemId: item!.id,
+          kind: "ingreso" as const,
+          qtyDelta: 1000,
+          businessDate: `2026-01-${String(i + 1).padStart(2, "0")}`,
+          unitPrice: 100_000 + i * 1_000,
+        })),
+      );
+    await page.goto("/admin/stock/precios");
+    const card = page.getByTestId("purchase-group").filter({ hasText: LECHE });
+    await expect(card.getByRole("listitem")).toHaveCount(12);
+    await card.getByRole("link", { name: /Ver todas las compras/ }).click();
+    await expect(page.getByTestId("purchase-group").filter({ hasText: LECHE }).getByRole("listitem")).toHaveCount(14);
   });
 });

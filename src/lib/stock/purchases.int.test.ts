@@ -85,3 +85,16 @@ describe("listPurchases", () => {
     expect(carne.purchases.map((p) => p.changePct)).toEqual([10, 10]);
   });
 });
+
+describe("listPurchases hasMore", () => {
+  it("tells when older purchases exist beyond perItem", async () => {
+    await buy(fx.carne, 1_000, 100_000, "2026-10-01");
+    await buy(fx.carne, 1_000, 110_000, "2026-10-02");
+    await buy(fx.carne, 1_000, 121_000, "2026-10-03");
+    const [two] = await listPurchases(db(), { perItem: 2 });
+    expect(two.purchases).toHaveLength(2);
+    expect(two.hasMore).toBe(true);
+    const [three] = await listPurchases(db(), { perItem: 3 });
+    expect(three.hasMore).toBe(false);
+  });
+});
