@@ -56,7 +56,8 @@ export default defineConfig({
     command: `pnpm exec tsx e2e/prepare-db-cli.ts && pnpm exec next build && pnpm exec next start -p ${PORT}`,
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
+    // CI builds from scratch on a slower runner: prepare-db + next build + start can take several minutes there.
+    timeout: process.env.CI ? 600_000 : 180_000,
     env: {
       DATABASE_URL: E2E_DATABASE_URL,
       E2E_SERVER_DATABASE_URL: serverUrl,

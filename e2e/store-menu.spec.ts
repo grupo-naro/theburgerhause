@@ -140,6 +140,12 @@ test("closed banner appears without moving the page, and the scrollspy still wor
   await expect(page.getByTestId("closed-banner")).toHaveCount(0);
   const first = card(page, "Ranchita simple");
   await expect(first).toBeVisible();
+  // Open, the estimated-wait notice sits in the flow above the menu; it streams in a moment after the menu and is not
+  // shown while closed. Measure only once it has arrived and discount its outer height, so the assertion is about the
+  // closed notice itself (which must float) and not about a race with the estimate's stream.
+  const estimate = page.getByTestId("estimate-notice");
+  await expect(estimate).toBeVisible();
+  const estimateOuter = await estimate.evaluate((el) => el.getBoundingClientRect().height + parseFloat(getComputedStyle(el).marginTop) + parseFloat(getComputedStyle(el).marginBottom));
   const before = (await first.boundingBox())!;
   await setAcceptingOrders(false);
   try {
@@ -147,9 +153,11 @@ test("closed banner appears without moving the page, and the scrollspy still wor
     const banner = page.getByTestId("closed-banner");
     await expect(banner).toBeVisible();
     await expect(banner).toContainText("Por el momento no estamos tomando pedidos");
-    // No layout shift: the notice floats instead of pushing the content.
+    // No layout shift: the notice floats instead of pushing the content (the only difference is the estimate, gone while closed).
+    expect(await banner.evaluate((el) => getComputedStyle(el).position)).toBe("fixed");
+    await expect(page.getByTestId("estimate-notice")).toHaveCount(0);
     const after = (await first.boundingBox())!;
-    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(after.y - (before.y - estimateOuter))).toBeLessThanOrEqual(1);
     expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1);
     // Menu is still browsable, the notice and the bars stay in view while scrolling.
     const nav = page.getByRole("navigation", { name: "Categorías del menú" });
