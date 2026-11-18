@@ -24,9 +24,14 @@ export function ProductCard({ product }: { product: PublicProduct }) {
         <span className="line-clamp-3 block font-display text-base font-bold leading-tight text-ink [overflow-wrap:anywhere] md:line-clamp-2 md:text-lg">
           {product.name}
         </span>
-        {product.description && (
+        {product.description ? (
           <span className="line-clamp-2 block text-sm leading-snug text-ink-muted">{product.description}</span>
-        )}
+        ) : product.includes?.length ? (
+          // A combo without its own description: say what it includes.
+          <span className="line-clamp-2 block text-sm leading-snug text-ink-muted">
+            {product.includes.map((i) => `${i.quantity} × ${i.name}`).join(", ")}
+          </span>
+        ) : null}
         <span className="mt-auto flex items-center justify-between gap-3 pt-2 md:pt-3">
           <span className="font-display text-xl font-extrabold leading-none text-brand-600 md:text-2xl">
             {formatARS(product.price)}

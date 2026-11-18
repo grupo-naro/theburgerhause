@@ -21,6 +21,8 @@ export type PrintableItem = {
   modifiers: PrintableModifier[];
   /** Sequence number of the add-on this unit belongs to; null = part of the original order. */
   addonSeq: number | null;
+  /** A combo's contents at sale time (absent = plain product). */
+  comboItems?: { name: string; quantity: number }[];
 };
 export type PrintableOrder = {
   number: number;
@@ -92,6 +94,8 @@ function addonSuffix(item: PrintableItem): string {
 function kitchenItemBlocks(order: PrintableOrder, opts: { markAddons: boolean }): PrintBlock[] {
   return order.items.flatMap((item, i): PrintBlock[] => [
     text(`${i + 1}) ${item.name.toUpperCase()}${opts.markAddons ? addonSuffix(item) : ""}`, { bold: true, size: 1, align: "left" }),
+    // A combo: what to prepare (ASCII hyphen: the printer code pages have no middle dot).
+    ...(item.comboItems ?? []).map((c) => text(`   - ${c.quantity}x ${c.name.toUpperCase()}`, { bold: true, size: 1, align: "left" })),
     ...item.modifiers.map((m) =>
       text(`   ${m.kitchenLabel.toUpperCase()}`, { bold: true, size: 2, align: "left" }),
     ),
@@ -176,6 +180,7 @@ function customerBlocks(order: PrintableOrder): PrintBlock[] {
 function priceItems(order: PrintableOrder): PrintBlock[] {
   return order.items.flatMap((item): PrintBlock[] => [
     text(`${item.name}${addonSuffix(item)}  ${formatARS(item.unitPrice)}`, { align: "left" }),
+    ...(item.comboItems?.length ? [text(`   Incluye: ${item.comboItems.map((c) => `${c.quantity}x ${c.name}`).join(", ")}`)] : []),
     ...item.modifiers.map((m) =>
       text(`   ${m.name}${m.priceDelta !== 0 ? `  (${signedARS(m.priceDelta)})` : ""}`),
     ),

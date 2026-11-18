@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import * as s from "@/db/schema";
 import { thumbUrl, uploadUrl } from "@/lib/uploads/storage";
@@ -33,6 +33,8 @@ export type PublicProduct = {
   /** Offered as an add-on suggestion when the customer taps Continuar in the cart. */
   suggest: boolean;
   modifierGroups: PublicModifierGroup[];
+  /** A combo's fixed contents (absent for a plain product). */
+  includes?: { name: string; quantity: number }[];
 };
 
 export type PublicCategory = {
@@ -107,7 +109,25 @@ export async function loadMenu(db: Db): Promise<PublicMenu> {
     featured: p.featured,
     suggest: p.suggest,
     modifierGroups: (groupsByProduct.get(p.id) ?? []).slice().sort((a, b) => a.id - b.id),
+    ...(combos.has(p.id) ? { includes: combos.get(p.id)!.map(({ name, quantity }) => ({ name, quantity })) } : {}),
   });
+
+  // Combos: what each one includes; a combo with anything unsellable inside (paused, out of stock, hidden category)
+  // is not offered at all.
+  const comboRows = await db
+    .select({
+      comboId: s.comboItems.comboId,
+      name: s.products.name,
+      quantity: s.comboItems.quantity,
+      sellable: sql<boolean>`${s.products.active} AND NOT ${s.products.stockPaused} AND ${s.categories.active}`,
+    })
+    .from(s.comboItems)
+    .innerJoin(s.products, eq(s.products.id, s.comboItems.productId))
+    .innerJoin(s.categories, eq(s.categories.id, s.products.categoryId))
+    .orderBy(asc(s.comboItems.comboId), asc(s.comboItems.sort), asc(s.comboItems.productId));
+  const combos = new Map<number, { name: string; quantity: number; sellable: boolean }[]>();
+  for (const r of comboRows) combos.set(r.comboId, [...(combos.get(r.comboId) ?? []), r]);
+  const sellable = (p: typeof s.products.$inferSelect) => !combos.has(p.id) || combos.get(p.id)!.every((c) => c.sellable);
 
   const categories: PublicCategory[] = cats
     .map((c) => ({
@@ -115,7 +135,7 @@ export async function loadMenu(db: Db): Promise<PublicMenu> {
       name: c.name,
       slug: c.slug,
       imageUrl: c.imagePath ? uploadUrl(c.imagePath) : null,
-      products: prods.filter((p) => p.categoryId === c.id).map(toPublic),
+      products: prods.filter((p) => p.categoryId === c.id && sellable(p)).map(toPublic),
     }))
     .filter((c) => c.products.length > 0);
 

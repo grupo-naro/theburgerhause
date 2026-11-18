@@ -10,6 +10,7 @@ import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders"
 import { addOrderAddon, confirmAddon } from "./addons";
 import { approveOrder } from "./approve-order";
 import { createOrder } from "./create-order";
+import { loadPrintableOrder } from "./print-jobs";
 
 const db = () => testDb();
 let fx: Fx;
@@ -113,5 +114,18 @@ describe("a combo added to an order (add-on)", () => {
       { name: "Coca 500", quantity: 2 },
     ]);
     expect(added.pattiesSnapshot).toBe(8);
+  });
+});
+
+describe("combo on the kitchen ticket", () => {
+  it("the printable order carries the combo contents from the sale snapshot", async () => {
+    const o = await placeWebOrder(fx, { units: [{ productId: combo, modifierIds: [], note: "" }] });
+    // The contents printed are the ones of the SALE, not today's: change the combo afterwards.
+    await setComboItems(db(), combo, [{ productId: coke, quantity: 1 }]);
+    const printable = await db().transaction((tx) => loadPrintableOrder(tx, o.id));
+    expect(printable?.items[0].comboItems).toEqual([
+      { name: "Ranchita simple", quantity: 4 },
+      { name: "Coca 500", quantity: 2 },
+    ]);
   });
 });

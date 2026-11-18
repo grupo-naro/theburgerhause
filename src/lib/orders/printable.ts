@@ -8,7 +8,24 @@ import type { PrintableItem, PrintableModifier, PrintableOrder } from "@/domain/
 export type PrintableOrderRow = Omit<PrintableOrder, "items" | "customerName"> & {
   customerName: string | null;
 };
-export type PrintableItemRow = { id: number; nameSnapshot: string; unitPriceSnapshot: number; notes: string | null; addonSeq: number | null };
+export type PrintableItemRow = {
+  id: number;
+  nameSnapshot: string;
+  unitPriceSnapshot: number;
+  notes: string | null;
+  addonSeq: number | null;
+  /** order_items.combo_snapshot (jsonb): a combo's contents at sale time, or null. */
+  comboSnapshot?: unknown;
+};
+
+/** Only well-formed `[{ name, quantity }]` snapshots reach the tickets; anything else prints as a plain item. */
+function comboItemsOf(snapshot: unknown): { name: string; quantity: number }[] | undefined {
+  if (!Array.isArray(snapshot) || snapshot.length === 0) return undefined;
+  const ok = snapshot.every(
+    (c) => c && typeof c === "object" && typeof (c as { name?: unknown }).name === "string" && Number.isInteger((c as { quantity?: unknown }).quantity),
+  );
+  return ok ? snapshot.map((c: { name: string; quantity: number }) => ({ name: c.name, quantity: c.quantity })) : undefined;
+}
 export type PrintableModifierRow = {
   id: number;
   orderItemId: number;
@@ -36,6 +53,7 @@ export function orderToPrintable(
       unitPrice: i.unitPriceSnapshot,
       note: i.notes,
       addonSeq: i.addonSeq,
+      ...(comboItemsOf(i.comboSnapshot) ? { comboItems: comboItemsOf(i.comboSnapshot) } : {}),
       modifiers: (byItem.get(i.id) ?? [])
         .slice()
         .sort((a, b) => a.id - b.id)

@@ -10,6 +10,11 @@ export function SheetHeader({ product, titleId }: { product: PublicProduct; titl
         {product.name}
       </h2>
       {product.description && <p className="mt-1 text-sm leading-snug text-ink-muted">{product.description}</p>}
+      {product.includes?.length ? (
+        <p data-testid="combo-includes" className="mt-1 text-sm font-semibold leading-snug text-ink">
+          Incluye: {product.includes.map((i) => `${i.quantity} × ${i.name}`).join(", ")}
+        </p>
+      ) : null}
       <p className="mt-2 font-display text-xl font-extrabold text-brand-600">{formatARS(product.price)}</p>
     </div>
   );

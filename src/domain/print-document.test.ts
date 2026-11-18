@@ -393,3 +393,35 @@ describe("purity", () => {
     expect(order).toEqual(snapshot);
   });
 });
+
+describe("combos on the tickets", () => {
+  const withCombo = () =>
+    makeOrder({
+      items: [
+        {
+          name: "Combo para 4",
+          unitPrice: 3500000,
+          note: null,
+          modifiers: [],
+          addonSeq: null,
+          comboItems: [
+            { name: "Holtber simple", quantity: 4 },
+            { name: "Coca 500", quantity: 2 },
+          ],
+        },
+      ],
+    });
+  it("the kitchen comanda lists what goes inside the combo, under it", () => {
+    const texts = textsOf(renderKitchenTicket(withCombo()));
+    const at = texts.indexOf("1) COMBO PARA 4");
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(texts.slice(at + 1, at + 3)).toEqual(["   - 4x HOLTBER SIMPLE", "   - 2x COCA 500"]);
+  });
+  it("the customer ticket shows the contents without prices", () => {
+    const texts = textsOf(renderCustomerTicket(withCombo()));
+    expect(texts).toContain("   Incluye: 4x Holtber simple, 2x Coca 500");
+  });
+  it("a plain item has no contents line", () => {
+    expect(textsOf(renderKitchenTicket(makeOrder())).some((t) => t.startsWith("   - "))).toBe(false);
+  });
+});

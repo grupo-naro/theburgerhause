@@ -26,6 +26,7 @@ export async function loadPrintableOrder(
       nameSnapshot: s.orderItems.nameSnapshot,
       unitPriceSnapshot: s.orderItems.unitPriceSnapshot,
       notes: s.orderItems.notes,
+      comboSnapshot: s.orderItems.comboSnapshot,
       addonSeq: s.orderAddons.seq,
     })
     .from(s.orderItems)

@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { closeDb } from "@/db/client";
 import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
@@ -182,5 +183,46 @@ describe("loadMenu", () => {
       "name",
       "priceDelta",
     ]);
+  });
+});
+
+describe("combos in the public menu", () => {
+  const products = (m: Awaited<ReturnType<typeof loadMenu>>) => m.categories.flatMap((c) => c.products);
+  it("a combo lists what it includes; a plain product has no list", async () => {
+    const c = await cat("Combos");
+    const burger = await prod(c.id, "Holtber simple");
+    const coke = await prod(c.id, "Coca 500");
+    const combo = await prod(c.id, "Combo mundial");
+    await testDb().insert(s.comboItems).values([
+      { comboId: combo.id, productId: burger.id, quantity: 1, sort: 0 },
+      { comboId: combo.id, productId: coke.id, quantity: 1, sort: 1 },
+    ]);
+    const menu = await loadMenu(testDb());
+    expect(products(menu).find((p) => p.id === combo.id)?.includes).toEqual([
+      { name: "Holtber simple", quantity: 1 },
+      { name: "Coca 500", quantity: 1 },
+    ]);
+    expect(products(menu).find((p) => p.id === burger.id)?.includes).toBeUndefined();
+  });
+  it("a combo is hidden while something inside it is paused, out of stock or in a hidden category", async () => {
+    const c = await cat("Combos");
+    const hidden = await cat("Ocultas", 1, false);
+    const burger = await prod(c.id, "Holtber simple");
+    const coke = await prod(c.id, "Coca 500");
+    const secret = await prod(hidden.id, "Salsa secreta");
+    const combo = await prod(c.id, "Combo mundial");
+    await testDb().insert(s.comboItems).values([
+      { comboId: combo.id, productId: burger.id, quantity: 1 },
+      { comboId: combo.id, productId: coke.id, quantity: 1 },
+    ]);
+    const has = async () => products(await loadMenu(testDb())).some((p) => p.id === combo.id);
+    expect(await has()).toBe(true);
+    await testDb().update(s.products).set({ stockPaused: true }).where(eq(s.products.id, coke.id));
+    expect(await has()).toBe(false);
+    await testDb().update(s.products).set({ stockPaused: false, active: false }).where(eq(s.products.id, burger.id));
+    expect(await has()).toBe(false);
+    await testDb().update(s.products).set({ active: true }).where(eq(s.products.id, burger.id));
+    await testDb().insert(s.comboItems).values({ comboId: combo.id, productId: secret.id, quantity: 1 });
+    expect(await has()).toBe(false);
   });
 });
