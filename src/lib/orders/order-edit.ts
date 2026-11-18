@@ -8,7 +8,7 @@ import { adjustStockForOrder } from "@/lib/stock/sales";
 import type { OrderUnitInput } from "@/lib/cart/types";
 import { describeUnitIssues } from "@/lib/checkout/unit-issues";
 import { outOfStock, pgErrorCode, type OutOfStockFailure } from "./create-order";
-import { insertOrderItems, loadCatalog } from "./order-rows";
+import { insertOrderItems, loadCatalog, soldStockUnit, toStockUnit } from "./order-rows";
 import { resolveUnits } from "./resolve-units";
 import { decideSector, type Sector } from "./sector";
 import { currentStateMessage, failure, UNEXPECTED_MESSAGE, type OrderResult } from "./transition";
@@ -67,7 +67,7 @@ export async function editPendingOrder(
       if (order.status !== "pendiente_aprobacion") return failure("INVALID_STATE", currentStateMessage(order.status));
 
       const current = await tx
-        .select({ id: s.orderItems.id, productId: s.orderItems.productId, name: s.orderItems.nameSnapshot })
+        .select({ id: s.orderItems.id, productId: s.orderItems.productId, name: s.orderItems.nameSnapshot, comboSnapshot: s.orderItems.comboSnapshot })
         .from(s.orderItems)
         .where(eq(s.orderItems.orderId, orderId));
       const byId = new Map(current.map((i) => [i.id, i]));
@@ -91,8 +91,9 @@ export async function editPendingOrder(
       // Items whose product was deleted (null productId) move no stock.
       const stock = await adjustStockForOrder(tx, {
         orderId,
-        add: resolvedUnits.units.map((u) => ({ productId: u.product.id })),
-        remove: removed.flatMap((i) => (i.productId === null ? [] : [{ productId: i.productId }])),
+        add: resolvedUnits.units.map(toStockUnit),
+        // A removed combo gives back what it was SOLD with (its snapshot), not today's contents.
+        remove: removed.flatMap((i) => (i.productId === null ? [] : [soldStockUnit(i.productId, i.comboSnapshot)])),
         userId,
       });
       if (!stock.ok) return outOfStock(stock);

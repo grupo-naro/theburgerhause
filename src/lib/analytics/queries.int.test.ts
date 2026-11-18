@@ -303,3 +303,17 @@ describe("getPatties", () => {
     expect(await getPatties(db(), WEEK)).toEqual({ cur: zero, prev: zero });
   });
 });
+
+describe("getPatties with combos", () => {
+  it("a combo's patties count in the total but not in the simple/doble/triple levels", async () => {
+    const o = await insertOrder();
+    await insertItem(o.id, { productId: fx.doble, name: "Simple", price: 1, patties: 1 });
+    const [row] = await db()
+      .insert(s.orderItems)
+      .values({ orderId: o.id, productId: null, nameSnapshot: "Combo 2 simples", unitPriceSnapshot: 1, pattiesSnapshot: 2, comboSnapshot: [{ name: "Simple", quantity: 2 }] })
+      .returning();
+    expect(row.id).toBeGreaterThan(0);
+    // Without the exclusion, a combo of 2 simples would count as one "doble".
+    expect((await getPatties(db(), WEEK)).cur).toEqual({ total: 3, byLevel: { 1: 1, 2: 0, 3: 0 } });
+  });
+});

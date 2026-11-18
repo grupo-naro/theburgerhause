@@ -37,23 +37,40 @@ export class OutOfStockRollback extends Error {
 }
 
 /**
- * A sold combo takes its contents off the stock: each combo unit becomes its components, `quantity` times each.
- * The combo unit itself stays in the list (harmless: a combo is not linked to a stock item). One query.
+ * A unit that moves stock. `combo` = the contents it was SOLD with (sale snapshot / stored add-on): when given, it is used
+ * instead of the combo's current contents, so a combo edited after the sale gives back exactly what it took.
  */
-async function expandCombos(tx: DbTransaction, units: { productId: number }[]): Promise<{ productId: number }[]> {
-  const ids = [...new Set(units.map((u) => u.productId))];
-  if (ids.length === 0) return units;
-  const parts = await tx
-    .select({ comboId: s.comboItems.comboId, productId: s.comboItems.productId, quantity: s.comboItems.quantity })
-    .from(s.comboItems)
-    .where(inArray(s.comboItems.comboId, ids));
-  if (parts.length === 0) return units;
+export type StockUnit = { productId: number; combo?: { productId: number; quantity: number }[] };
+/** An expanded unit: the product that moves stock and `origin`, the product the customer ordered (the combo, or itself). */
+type ExpandedUnit = { productId: number; origin: number };
+
+/**
+ * A sold combo takes its contents off the stock: each combo unit becomes its components, `quantity` times each.
+ * The combo unit itself stays in the list (harmless: a combo is not linked to a stock item). At most one query.
+ */
+async function expandCombos(tx: DbTransaction, units: StockUnit[]): Promise<ExpandedUnit[]> {
+  const unknown = [...new Set(units.filter((u) => !u.combo).map((u) => u.productId))];
   const byCombo = new Map<number, { productId: number; quantity: number }[]>();
-  for (const p of parts) byCombo.set(p.comboId, [...(byCombo.get(p.comboId) ?? []), p]);
+  if (unknown.length > 0) {
+    const parts = await tx
+      .select({ comboId: s.comboItems.comboId, productId: s.comboItems.productId, quantity: s.comboItems.quantity })
+      .from(s.comboItems)
+      .where(inArray(s.comboItems.comboId, unknown));
+    for (const p of parts) byCombo.set(p.comboId, [...(byCombo.get(p.comboId) ?? []), p]);
+  }
   return units.flatMap((u) => [
-    u,
-    ...(byCombo.get(u.productId) ?? []).flatMap((c) => Array.from({ length: c.quantity }, () => ({ productId: c.productId }))),
+    { productId: u.productId, origin: u.productId },
+    ...(u.combo ?? byCombo.get(u.productId) ?? []).flatMap((c) =>
+      Array.from({ length: c.quantity }, () => ({ productId: c.productId, origin: u.productId })),
+    ),
   ]);
+}
+
+/** OUT_OF_STOCK lists what the customer ORDERED (a combo, not the drink inside it), sorted by name. */
+async function shortResult(tx: DbTransaction, originIds: Set<number>): Promise<ReserveStockResult> {
+  const rows = await tx.select({ id: s.products.id, name: s.products.name }).from(s.products).where(inArray(s.products.id, [...originIds]));
+  rows.sort((a, b) => a.name.localeCompare(b.name, "es"));
+  return { ok: false, code: "OUT_OF_STOCK", productIds: rows.map((p) => p.id), names: rows.map((p) => p.name) };
 }
 
 const controlled =(item: LockedStockItem | undefined): item is LockedStockItem =>
@@ -67,10 +84,10 @@ const controlled =(item: LockedStockItem | undefined): item is LockedStockItem =
  */
 export async function reserveStockForOrder(
   tx: DbTransaction,
-  input: { orderId: number; units: { productId: number }[]; userId?: number | null },
+  input: { orderId: number; units: StockUnit[]; userId?: number | null },
 ): Promise<ReserveStockResult> {
-  input = { ...input, units: await expandCombos(tx, input.units) };
-  const productIds = [...new Set(input.units.map((u) => u.productId))];
+  const units = await expandCombos(tx, input.units);
+  const productIds = [...new Set(units.map((u) => u.productId))];
   if (productIds.length === 0) return { ok: true, pauseChanged: false };
   const linked = await tx
     .select({ id: s.products.id, name: s.products.name, itemId: s.products.stockItemId })
@@ -80,25 +97,18 @@ export async function reserveStockForOrder(
 
   const items = await lockStockItems(tx, linked.map((p) => p.itemId!));
   const need = new Map<number, number>();
-  const productsOf = new Map<number, { id: number; name: string }[]>();
+  const originsOf = new Map<number, Set<number>>();
   const byProduct = new Map(linked.map((p) => [p.id, p]));
-  for (const u of input.units) {
+  for (const u of units) {
     const p = byProduct.get(u.productId);
     if (!p || !controlled(items.get(p.itemId!))) continue;
     need.set(p.itemId!, (need.get(p.itemId!) ?? 0) + MILLI_PER_UNIT);
-    const list = productsOf.get(p.itemId!) ?? [];
-    if (!list.some((x) => x.id === p.id)) list.push({ id: p.id, name: p.name });
-    productsOf.set(p.itemId!, list);
+    originsOf.set(p.itemId!, (originsOf.get(p.itemId!) ?? new Set<number>()).add(u.origin));
   }
   if (need.size === 0) return { ok: true, pauseChanged: false };
 
-  const short = [...need]
-    .filter(([itemId, milli]) => items.get(itemId)!.quantity < milli)
-    .flatMap(([itemId]) => productsOf.get(itemId)!)
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
-  if (short.length > 0) {
-    return { ok: false, code: "OUT_OF_STOCK", productIds: short.map((p) => p.id), names: short.map((p) => p.name) };
-  }
+  const short = new Set([...need].filter(([itemId, milli]) => items.get(itemId)!.quantity < milli).flatMap(([itemId]) => [...originsOf.get(itemId)!]));
+  if (short.size > 0) return shortResult(tx, short);
 
   const [order] = await tx.select({ businessDate: s.orders.businessDate }).from(s.orders).where(eq(s.orders.id, input.orderId));
   if (!order) throw new Error("reserveStockForOrder: order not found in transaction");
@@ -131,10 +141,11 @@ export async function reserveStockForOrder(
  */
 export async function adjustStockForOrder(
   tx: DbTransaction,
-  input: { orderId: number; add: { productId: number }[]; remove: { productId: number }[]; userId: number | null },
+  input: { orderId: number; add: StockUnit[]; remove: StockUnit[]; userId: number | null },
 ): Promise<ReserveStockResult> {
-  input = { ...input, add: await expandCombos(tx, input.add), remove: await expandCombos(tx, input.remove) };
-  const productIds = [...new Set([...input.add, ...input.remove].map((u) => u.productId))];
+  const add = await expandCombos(tx, input.add);
+  const remove = await expandCombos(tx, input.remove);
+  const productIds = [...new Set([...add, ...remove].map((u) => u.productId))];
   if (productIds.length === 0) return { ok: true, pauseChanged: false };
   const linked = await tx
     .select({ id: s.products.id, name: s.products.name, itemId: s.products.stockItemId })
@@ -146,21 +157,17 @@ export async function adjustStockForOrder(
   const byProduct = new Map(linked.map((p) => [p.id, p]));
   const consumed = new Map<number, number>();
   const released = new Map<number, number>();
-  const addedProducts = new Map<number, { id: number; name: string }[]>();
-  const bump = (units: { productId: number }[], into: Map<number, number>, track: boolean) => {
+  const addedOrigins = new Map<number, Set<number>>();
+  const bump = (units: ExpandedUnit[], into: Map<number, number>, track: boolean) => {
     for (const u of units) {
       const p = byProduct.get(u.productId);
       if (!p || !controlled(items.get(p.itemId!))) continue;
       into.set(p.itemId!, (into.get(p.itemId!) ?? 0) + MILLI_PER_UNIT);
-      if (track) {
-        const list = addedProducts.get(p.itemId!) ?? [];
-        if (!list.some((x) => x.id === p.id)) list.push({ id: p.id, name: p.name });
-        addedProducts.set(p.itemId!, list);
-      }
+      if (track) addedOrigins.set(p.itemId!, (addedOrigins.get(p.itemId!) ?? new Set<number>()).add(u.origin));
     }
   };
-  bump(input.add, consumed, true);
-  bump(input.remove, released, false);
+  bump(add, consumed, true);
+  bump(remove, released, false);
 
   // What the order holds per item, read AFTER the item locks (a concurrent adjustment/return of the same order has committed).
   const held = new Map<number, number>();
@@ -186,13 +193,8 @@ export async function adjustStockForOrder(
   const moves = [...delta].filter(([, d]) => d !== 0).sort((a, b) => a[0] - b[0]);
   if (moves.length === 0) return { ok: true, pauseChanged: false };
 
-  const short = moves
-    .filter(([itemId, d]) => d < 0 && items.get(itemId)!.quantity < -d)
-    .flatMap(([itemId]) => addedProducts.get(itemId) ?? [])
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
-  if (short.length > 0) {
-    return { ok: false, code: "OUT_OF_STOCK", productIds: short.map((p) => p.id), names: short.map((p) => p.name) };
-  }
+  const short = new Set(moves.filter(([itemId, d]) => d < 0 && items.get(itemId)!.quantity < -d).flatMap(([itemId]) => [...(addedOrigins.get(itemId) ?? [])]));
+  if (short.size > 0) return shortResult(tx, short);
 
   const [order] = await tx.select({ businessDate: s.orders.businessDate }).from(s.orders).where(eq(s.orders.id, input.orderId));
   if (!order) throw new Error("adjustStockForOrder: order not found in transaction");

@@ -9,7 +9,9 @@ import { itemQty } from "@/lib/stock/test-fixtures";
 import { placeWebOrder, seedMenuAndStaff, type Fx } from "@/test-support/orders";
 import { addOrderAddon, confirmAddon } from "./addons";
 import { approveOrder } from "./approve-order";
+import { cancelOrder } from "./cancel-order";
 import { createOrder } from "./create-order";
+import { editPendingOrder } from "./order-edit";
 import { loadPrintableOrder } from "./print-jobs";
 
 const db = () => testDb();
@@ -49,8 +51,8 @@ describe("selling a combo", () => {
     expect(item.nameSnapshot).toBe("Combo para 4");
     expect(item.unitPriceSnapshot).toBe(3_500_000);
     expect(item.comboSnapshot).toEqual([
-      { name: "Ranchita simple", quantity: 4 },
-      { name: "Coca 500", quantity: 2 },
+      { productId: fx.ranchita, name: "Ranchita simple", quantity: 4 },
+      { productId: coke, name: "Coca 500", quantity: 2 },
     ]);
     expect(item.pattiesSnapshot).toBe(8);
     expect(item.unitCostSnapshot).toBe(4 * 280_000 + 2 * 100_000);
@@ -75,7 +77,7 @@ describe("selling a combo", () => {
     expect(await itemQty(cokeItem)).toBe(10_000 - 4 * 1000);
   });
 
-  it("refuses the order when a drink inside the combo is short, naming the drink", async () => {
+  it("refuses the order when a drink inside the combo is short, naming the COMBO (what the customer ordered)", async () => {
     const r = await createOrder(db(), {
       idempotencyKey: crypto.randomUUID(),
       units: Array.from({ length: 6 }, () => ({ productId: combo, modifierIds: [], note: "" })),
@@ -86,6 +88,9 @@ describe("selling a combo", () => {
     });
     expect(r.ok).toBe(false);
     expect(!r.ok && r.code).toBe("OUT_OF_STOCK");
+    expect(r).toMatchObject({ productIds: [combo] });
+    expect(!r.ok && r.message).toContain("Combo para 4");
+    expect(!r.ok && r.message).not.toContain("Coca 500");
     expect(await itemQty(cokeItem)).toBe(10_000);
   });
 
@@ -110,8 +115,8 @@ describe("a combo added to an order (add-on)", () => {
     expect(await confirmAddon(db(), { addonId: a.data.addonId, userId: fx.userId, sector: null, paymentVerified: true })).toMatchObject({ ok: true });
     const [added] = await db().select().from(s.orderItems).where(isNotNull(s.orderItems.addonId));
     expect(added.comboSnapshot).toEqual([
-      { name: "Ranchita simple", quantity: 4 },
-      { name: "Coca 500", quantity: 2 },
+      { productId: fx.ranchita, name: "Ranchita simple", quantity: 4 },
+      { productId: coke, name: "Coca 500", quantity: 2 },
     ]);
     expect(added.pattiesSnapshot).toBe(8);
   });
@@ -127,5 +132,38 @@ describe("combo on the kitchen ticket", () => {
       { name: "Ranchita simple", quantity: 4 },
       { name: "Coca 500", quantity: 2 },
     ]);
+  });
+});
+
+describe("stock follows what was SOLD, not today's combo", () => {
+  it("removing a combo while editing gives back the drinks it was sold with, even if the combo changed since", async () => {
+    const o = await placeWebOrder(fx, { units: [{ productId: combo, modifierIds: [], note: "" }, { productId: fx.melt, modifierIds: [], note: "" }] });
+    expect(await itemQty(cokeItem)).toBe(10_000 - 2000);
+    // The admin changes the combo after the sale: no drink inside any more.
+    await setComboItems(db(), combo, [{ productId: fx.ranchita, quantity: 4 }]);
+    const [comboItem] = (await db().select().from(s.orderItems).where(eq(s.orderItems.orderId, o.id))).filter((i) => i.productId === combo);
+    const r = await editPendingOrder(db(), { orderId: o.id, userId: fx.userId, sector: null, removeItemIds: [comboItem.id], addUnits: [] });
+    expect(r).toMatchObject({ ok: true });
+    expect(await itemQty(cokeItem)).toBe(10_000);
+  });
+
+  it("cancelling an order with a combo returns its drinks", async () => {
+    const o = await placeWebOrder(fx, { units: [{ productId: combo, modifierIds: [], note: "" }] });
+    const ok = await approveOrder(db(), { orderId: o.id, userId: fx.userId, stationId: fx.otherStationId, paymentVerified: true, sector: null });
+    if (!ok.ok) throw new Error(ok.message);
+    expect(await itemQty(cokeItem)).toBe(10_000 - 2000);
+    expect(await cancelOrder(db(), { orderId: o.id, userId: fx.userId, reason: "prueba", sector: null })).toMatchObject({ ok: true });
+    expect(await itemQty(cokeItem)).toBe(10_000);
+  });
+
+  it("an add-on confirmed after the combo changed takes the drinks it was offered with", async () => {
+    const o = await placeWebOrder(fx, { paymentMethod: "transfer", units: [{ productId: fx.melt, modifierIds: [], note: "" }] });
+    const ok = await approveOrder(db(), { orderId: o.id, userId: fx.userId, stationId: fx.otherStationId, paymentVerified: true, sector: null });
+    if (!ok.ok) throw new Error(ok.message);
+    const a = await addOrderAddon(db(), { orderId: o.id, userId: fx.userId, sector: null, units: [{ productId: combo, modifierIds: [], note: "" }], idempotencyKey: crypto.randomUUID() });
+    if (!a.ok) throw new Error(a.message);
+    await setComboItems(db(), combo, [{ productId: fx.ranchita, quantity: 4 }]);
+    expect(await confirmAddon(db(), { addonId: a.data.addonId, userId: fx.userId, sector: null, paymentVerified: true })).toMatchObject({ ok: true });
+    expect(await itemQty(cokeItem)).toBe(10_000 - 2000);
   });
 });

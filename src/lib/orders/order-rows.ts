@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import type { DbTransaction } from "@/db/client";
 import * as s from "@/db/schema";
+import type { StockUnit } from "@/lib/stock/sales";
 import type { Catalog, CatalogModifier, CatalogProduct, ResolvedUnit } from "./resolve-units";
 
 /**
@@ -140,7 +141,8 @@ export async function insertOrderItems(
           unitPriceSnapshot: u.product.price,
           unitCostSnapshot: unitCost(u.product),
           pattiesSnapshot: unitPatties(u.product),
-          comboSnapshot: u.product.combo?.length ? u.product.combo.map((c) => ({ name: c.name, quantity: c.quantity })) : null,
+          // productId too: removing this unit later gives back the stock of what was SOLD, not of today's combo.
+          comboSnapshot: u.product.combo?.length ? u.product.combo.map((c) => ({ productId: c.productId, name: c.name, quantity: c.quantity })) : null,
           notes: u.note === "" ? null : u.note,
           ...(opts.addonId !== undefined ? { addonId: opts.addonId } : {}),
         })),
@@ -160,4 +162,24 @@ export async function insertOrderItems(
     })),
   );
   if (modifierRows.length > 0) await tx.insert(s.orderItemModifiers).values(modifierRows);
+}
+
+/** The stock view of a resolved unit: its product and, for a combo, the contents it is being sold with. */
+export function toStockUnit(u: ResolvedUnit): StockUnit {
+  return u.product.combo?.length
+    ? { productId: u.product.id, combo: u.product.combo.map((c) => ({ productId: c.productId, quantity: c.quantity })) }
+    : { productId: u.product.id };
+}
+
+/**
+ * The stock view of a SOLD unit (order_items row): a combo gives back what its sale snapshot says. Older snapshots
+ * without product ids fall back to the combo's current contents (expandCombos looks them up).
+ */
+export function soldStockUnit(productId: number, comboSnapshot: unknown): StockUnit {
+  if (!Array.isArray(comboSnapshot) || comboSnapshot.length === 0) return { productId };
+  const parts = comboSnapshot.filter(
+    (c): c is { productId: number; quantity: number } =>
+      !!c && Number.isInteger((c as { productId?: unknown }).productId) && Number.isInteger((c as { quantity?: unknown }).quantity),
+  );
+  return parts.length === comboSnapshot.length ? { productId, combo: parts.map((c) => ({ productId: c.productId, quantity: c.quantity })) } : { productId };
 }

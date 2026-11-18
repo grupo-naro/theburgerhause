@@ -10,7 +10,7 @@ import { adjustStockForOrder } from "@/lib/stock/sales";
 import type { OrderUnitInput } from "@/lib/cart/types";
 import { describeUnitIssues } from "@/lib/checkout/unit-issues";
 import { outOfStock, pgErrorCode, type OutOfStockFailure } from "./create-order";
-import { insertOrderItems, loadCatalog } from "./order-rows";
+import { insertOrderItems, loadCatalog, toStockUnit } from "./order-rows";
 import { enqueueAddonPrintJobs } from "./print-jobs";
 import { resolveUnits, type ResolvedUnit } from "./resolve-units";
 import { decideSector, type Sector } from "./sector";
@@ -115,7 +115,7 @@ async function applyConfirmed(
   const { orderId, order, userId, units, subtotal, seq } = args;
   // Before any write (stock included): the ticket needs the order's station.
   if (order.stationId === null) return { ok: false, code: "UNEXPECTED", message: UNEXPECTED_MESSAGE };
-  const stock = await adjustStockForOrder(tx, { orderId, add: units.map((u) => ({ productId: u.product.id })), remove: [], userId });
+  const stock = await adjustStockForOrder(tx, { orderId, add: units.map(toStockUnit), remove: [], userId });
   if (!stock.ok) return outOfStock(stock);
 
   const addonId = await args.persist();
