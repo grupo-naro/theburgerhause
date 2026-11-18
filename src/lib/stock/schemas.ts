@@ -51,6 +51,8 @@ const INT4_MIN = -2_147_483_648;
 export const balanceFits = (quantity: number): boolean => Number.isSafeInteger(quantity) && quantity >= INT4_MIN && quantity <= INT4_MAX;
 const BAD_ID = "Dato inválido";
 export const idSchema = z.number({ error: BAD_ID }).int(BAD_ID).positive(BAD_ID).max(INT4_MAX, BAD_ID);
+/** Purchase price in centavos per whole unit (> 0); null = none. */
+export const unitPriceSchema = z.number({ error: "Precio inválido" }).int("Precio inválido").positive("Precio inválido").max(INT4_MAX, "Precio inválido").nullable();
 const milli = (min: number) =>
   z
     .number({ error: "Cantidad inválida" })
@@ -85,7 +87,11 @@ export const ingresoSchema = z.object({
   milli: milli(1),
   note: text(0, 200).optional(),
   idempotencyKey: idempotencyKeySchema,
+  /** Centavos per whole unit (admin purchase price). */
+  unitPrice: unitPriceSchema.optional(),
 });
+
+export const setIngresoPriceSchema = z.object({ movementId: idSchema, unitPrice: unitPriceSchema });
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export const businessDateSchema = z

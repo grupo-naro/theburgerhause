@@ -6,7 +6,8 @@ import * as s from "@/db/schema";
 import { resetDb, testDb } from "@/db/test-utils";
 import { getEnv } from "@/lib/env";
 import { STOCK_CHANNEL } from "@/lib/events/channels";
-import { editMovement, registerIngreso, setInitialStock } from "./movements";
+import { editMovement, registerIngreso, setIngresoPrice, setInitialStock } from "./movements";
+import { STOCK_MESSAGES } from "./schemas";
 import { consume, itemQty, key, movementsOf, productFlags, seedStock, type StockFx } from "./test-fixtures";
 
 const db = () => testDb();
@@ -295,4 +296,52 @@ describe("balance range (int4) and idempotency payload", () => {
     expect(await itemQty(fx.coca)).toBe(5000);
   });
 
+});
+
+describe("purchase prices (unit_price on ingresos)", () => {
+  it("registerIngreso stores the unit price", async () => {
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 20000, idempotencyKey: key(500), unitPrice: 200000 }));
+    const [m] = await movementsOf(fx.carne);
+    expect(m.unitPrice).toBe(200000);
+  });
+
+  it("registerIngreso without price stores null", async () => {
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 20000, idempotencyKey: key(501) }));
+    const [m] = await movementsOf(fx.carne);
+    expect(m.unitPrice).toBeNull();
+  });
+
+  it("same key with a different price is a conflict", async () => {
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 1000, idempotencyKey: key(502), unitPrice: 200000 }));
+    const again = await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 1000, idempotencyKey: key(502), unitPrice: 210000 });
+    expect(again).toMatchObject({ ok: false, message: STOCK_MESSAGES.KEY_REUSED });
+    expect(await movementsOf(fx.carne)).toHaveLength(1);
+  });
+
+  it("same key and same price returns the first result", async () => {
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 1000, idempotencyKey: key(503), unitPrice: 200000 }));
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 1000, idempotencyKey: key(503), unitPrice: 200000 }));
+    expect(await movementsOf(fx.carne)).toHaveLength(1);
+  });
+
+  it("unitPrice 0 is rejected", async () => {
+    const r = await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 1000, idempotencyKey: key(504), unitPrice: 0 });
+    expect(r).toMatchObject({ ok: false, code: "VALIDATION" });
+  });
+
+  it("setIngresoPrice sets and clears without touching the balance", async () => {
+    ok(await registerIngreso(db(), { itemId: fx.carne, userId: fx.userId, milli: 5000, idempotencyKey: key(505) }));
+    const [m] = await movementsOf(fx.carne);
+    ok(await setIngresoPrice(db(), { movementId: m.id, unitPrice: 150000 }));
+    expect((await movementsOf(fx.carne))[0].unitPrice).toBe(150000);
+    ok(await setIngresoPrice(db(), { movementId: m.id, unitPrice: null }));
+    expect((await movementsOf(fx.carne))[0].unitPrice).toBeNull();
+    expect(await itemQty(fx.carne)).toBe(5000);
+  });
+
+  it("setIngresoPrice refuses a consumo movement", async () => {
+    await consume(fx.carne, 1000);
+    const [m] = await movementsOf(fx.carne);
+    expect(await setIngresoPrice(db(), { movementId: m.id, unitPrice: 150000 })).toMatchObject({ ok: false, code: "NOT_FOUND" });
+  });
 });

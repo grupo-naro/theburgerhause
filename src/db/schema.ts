@@ -553,6 +553,8 @@ export const stockMovements = pgTable(
     editedBy: integer("edited_by").references(() => users.id, { onDelete: "set null" }),
     editedAt: timestamp("edited_at", { withTimezone: true }),
     closingId: integer("closing_id").references(() => stockClosings.id, { onDelete: "restrict" }),
+    /** Purchase price of an ingreso: centavos per WHOLE unit (per kg / l / u). Admin-only data; NULL = not recorded. */
+    unitPrice: integer("unit_price"),
     createdAt: createdAt(),
   },
   (t) => [
@@ -576,6 +578,7 @@ export const stockMovements = pgTable(
     check("stock_movements_order_only_sales", sql`${t.orderId} IS NULL OR ${t.kind}::text IN ('venta','devolucion','ajuste_pedido')`),
     check("stock_movements_note_len", sql`char_length(${t.note}) <= 200`),
     check("stock_movements_closing_only_consumo", sql`${t.closingId} IS NULL OR ${t.kind}::text = 'consumo'`),
+    check("stock_movements_unit_price_ingreso", sql`${t.unitPrice} IS NULL OR (${t.kind}::text = 'ingreso' AND ${t.unitPrice} > 0)`),
   ],
 );
 

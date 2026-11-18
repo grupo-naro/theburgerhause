@@ -14,6 +14,7 @@ import {
   fitsUnit,
   ingresoSchema,
   initialStockSchema,
+  setIngresoPriceSchema,
   STOCK_MESSAGES,
   stockFailure,
   validationFailure,
@@ -108,6 +109,8 @@ export type RecordMovementInput = {
   idempotencyKey?: string | null;
   /** The rendición that writes this consumo (see closings.ts). */
   closingId?: number | null;
+  /** Purchase price of an ingreso (centavos per whole unit). */
+  unitPrice?: number | null;
 };
 
 /**
@@ -132,6 +135,7 @@ export async function recordMovement(
       note: input.note ? input.note : null,
       idempotencyKey: input.idempotencyKey ?? null,
       closingId: input.closingId ?? null,
+      unitPrice: input.unitPrice ?? null,
     })
     .returning({ id: s.stockMovements.id });
   const quantity = input.item.quantity + input.qtyDelta;
@@ -200,7 +204,7 @@ export async function setInitialStock(
 
 export async function registerIngreso(
   db: Db,
-  rawInput: { itemId: number; userId: number; milli: number; note?: string; idempotencyKey: string },
+  rawInput: { itemId: number; userId: number; milli: number; note?: string; idempotencyKey: string; unitPrice?: number | null },
   ctx: StockContext = {},
 ): Promise<Result<{ quantity: number }>> {
   const parsed = ingresoSchema.safeParse(rawInput);
@@ -215,6 +219,7 @@ export async function registerIngreso(
         itemId: s.stockMovements.itemId,
         qtyDelta: s.stockMovements.qtyDelta,
         note: s.stockMovements.note,
+        unitPrice: s.stockMovements.unitPrice,
         editedAt: s.stockMovements.editedAt,
       })
       .from(s.stockMovements)
@@ -224,6 +229,7 @@ export async function registerIngreso(
     const same =
       prev.itemId === input.itemId &&
       (prev.note ?? null) === (input.note ? input.note : null) &&
+      (prev.unitPrice ?? null) === (input.unitPrice ?? null) &&
       (prev.editedAt !== null || prev.qtyDelta === input.milli);
     if (!same) return stockFailure("CONFLICT", STOCK_MESSAGES.KEY_REUSED);
     return { ok: true, data: { quantity: await currentQuantity(conn, prev.itemId) } };
@@ -249,6 +255,7 @@ export async function registerIngreso(
         userId: input.userId,
         note: input.note,
         idempotencyKey: storedKey,
+        unitPrice: input.unitPrice ?? null,
       });
       return { ok: true, data: { quantity } };
     });
@@ -259,6 +266,23 @@ export async function registerIngreso(
     }
     throw err;
   }
+}
+
+/**
+ * Sets (or clears with null) the purchase price of an INGRESO. Quantity, balance and pause are untouched; any other
+ * movement kind is NOT_FOUND. Admin-only at the action layer.
+ */
+export async function setIngresoPrice(db: Db, rawInput: { movementId: number; unitPrice: number | null }): Promise<Result<null>> {
+  const parsed = setIngresoPriceSchema.safeParse(rawInput);
+  if (!parsed.success) return validationFailure(parsed.error);
+  const { movementId, unitPrice } = parsed.data;
+  const rows = await db
+    .update(s.stockMovements)
+    .set({ unitPrice })
+    .where(and(eq(s.stockMovements.id, movementId), eq(s.stockMovements.kind, "ingreso")))
+    .returning({ id: s.stockMovements.id });
+  if (rows.length === 0) return stockFailure("NOT_FOUND", STOCK_MESSAGES.MOVEMENT_NOT_FOUND);
+  return { ok: true, data: null };
 }
 
 // ---------------------------------------------------------------- consumo (written by the rendición)

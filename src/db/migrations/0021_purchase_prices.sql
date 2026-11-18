@@ -1,0 +1,2 @@
+ALTER TABLE "stock_movements" ADD COLUMN "unit_price" integer;--> statement-breakpoint
+ALTER TABLE "stock_movements" ADD CONSTRAINT "stock_movements_unit_price_ingreso" CHECK ("stock_movements"."unit_price" IS NULL OR ("stock_movements"."kind"::text = 'ingreso' AND "stock_movements"."unit_price" > 0));
