@@ -24,6 +24,8 @@ export type CatalogProduct = {
   id: number;
   name: string;
   price: number;
+  /** Beef patties per unit at resolve time (0-3), snapshotted on the sale. Absent = 0. */
+  patties?: number;
   /** Cost at resolve time (centavos), snapshotted on the sale. Server-only. NULL/absent = none. */
   cost?: number | null;
   active: boolean;

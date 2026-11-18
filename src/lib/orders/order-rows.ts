@@ -33,6 +33,7 @@ export async function loadCatalog(tx: DbTransaction, productIds: number[]): Prom
       pname: s.products.name,
       price: s.products.price,
       pcost: s.products.cost,
+      patties: s.products.patties,
       pactive: s.products.active,
       cactive: s.categories.active,
       mid: s.modifiers.id,
@@ -54,7 +55,7 @@ export async function loadCatalog(tx: DbTransaction, productIds: number[]): Prom
   for (const r of rows) {
     let p = catalog.get(r.pid);
     if (!p) {
-      p = { id: r.pid, name: r.pname, price: r.price, cost: r.pcost, active: r.pactive, categoryActive: r.cactive, modifiers: [] };
+      p = { id: r.pid, name: r.pname, price: r.price, cost: r.pcost, patties: r.patties, active: r.pactive, categoryActive: r.cactive, modifiers: [] };
       catalog.set(r.pid, p);
     }
     if (r.mid !== null) {
@@ -92,6 +93,7 @@ export async function insertOrderItems(
           nameSnapshot: u.product.name,
           unitPriceSnapshot: u.product.price,
           unitCostSnapshot: u.product.cost ?? null,
+          pattiesSnapshot: u.product.patties ?? 0,
           notes: u.note === "" ? null : u.note,
           ...(opts.addonId !== undefined ? { addonId: opts.addonId } : {}),
         })),

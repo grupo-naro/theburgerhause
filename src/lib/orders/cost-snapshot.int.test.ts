@@ -81,3 +81,51 @@ describe("cost snapshot on every sale", () => {
     expect(json).not.toContain("40000");
   });
 });
+
+describe("patties snapshot on every sale", () => {
+  beforeEach(async () => {
+    await db().update(s.products).set({ patties: 2 }).where(eq(s.products.id, fx.ranchita));
+  });
+
+  it("sale snapshots patties", async () => {
+    const o = await placeWebOrder(fx, { units: [{ productId: fx.ranchita, modifierIds: [], note: "" }] });
+    expect((await itemsOf(o.id))[0].pattiesSnapshot).toBe(2);
+  });
+
+  it("later patties change does not touch past sales", async () => {
+    const o = await placeWebOrder(fx, { units: [{ productId: fx.ranchita, modifierIds: [], note: "" }] });
+    await db().update(s.products).set({ patties: 3 }).where(eq(s.products.id, fx.ranchita));
+    expect((await itemsOf(o.id))[0].pattiesSnapshot).toBe(2);
+  });
+
+  it("legacy add-on json without patties confirms with 0", async () => {
+    const o = await placeWebOrder(fx, { paymentMethod: "transfer", units: [{ productId: fx.melt, modifierIds: [], note: "" }] });
+    const ok = await approveOrder(db(), { orderId: o.id, userId: fx.userId, stationId: fx.otherStationId, paymentVerified: true, sector: null });
+    if (!ok.ok) throw new Error(ok.message);
+    const a = await addOrderAddon(db(), { orderId: o.id, userId: fx.userId, sector: null, units: [{ productId: fx.ranchita, modifierIds: [], note: "" }], idempotencyKey: randomUUID() });
+    if (!a.ok) throw new Error(a.message);
+    const [row] = await db().select({ units: s.orderAddons.units }).from(s.orderAddons).where(eq(s.orderAddons.id, a.data.addonId));
+    const legacy = JSON.parse(JSON.stringify(row.units), (k, v) => (k === "patties" ? undefined : v));
+    await db().update(s.orderAddons).set({ units: legacy }).where(eq(s.orderAddons.id, a.data.addonId));
+    const c = await confirmAddon(db(), { addonId: a.data.addonId, userId: fx.userId, sector: null, paymentVerified: true });
+    expect(c).toMatchObject({ ok: true });
+    const [added] = await db().select().from(s.orderItems).where(isNotNull(s.orderItems.addonId));
+    expect(added.pattiesSnapshot).toBe(0);
+  });
+
+  it("an add-on keeps the patties it had when it was created", async () => {
+    const o = await placeWebOrder(fx, { paymentMethod: "transfer", units: [{ productId: fx.melt, modifierIds: [], note: "" }] });
+    const ok = await approveOrder(db(), { orderId: o.id, userId: fx.userId, stationId: fx.otherStationId, paymentVerified: true, sector: null });
+    if (!ok.ok) throw new Error(ok.message);
+    const a = await addOrderAddon(db(), { orderId: o.id, userId: fx.userId, sector: null, units: [{ productId: fx.ranchita, modifierIds: [], note: "" }], idempotencyKey: randomUUID() });
+    if (!a.ok) throw new Error(a.message);
+    await db().update(s.products).set({ patties: 1 }).where(eq(s.products.id, fx.ranchita));
+    await confirmAddon(db(), { addonId: a.data.addonId, userId: fx.userId, sector: null, paymentVerified: true });
+    const [added] = await db().select().from(s.orderItems).where(isNotNull(s.orderItems.addonId));
+    expect(added.pattiesSnapshot).toBe(2);
+  });
+
+  it("public menu has no patties", async () => {
+    expect(JSON.stringify(await loadMenu(db()))).not.toContain('"patties"');
+  });
+});

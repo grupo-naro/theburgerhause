@@ -51,6 +51,7 @@ export const storedUnitsSchema = z.array(
       name: z.string(),
       price: z.number().int(),
       cost: z.number().int().nullable().optional(),
+      patties: z.number().int().optional(),
       active: z.boolean(),
       categoryActive: z.boolean(),
       modifiers: z.array(modifierSchema),
