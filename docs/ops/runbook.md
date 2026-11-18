@@ -3,6 +3,21 @@
 Para la persona que administra el servidor. Se asume que sabés Linux básico (entrar por SSH, editar un archivo,
 usar `sudo`), pero **no** que conocés este proyecto. Todos los comandos se pueden copiar y pegar.
 
+> **Aviso (2026-11-17): producción ya NO usa systemd + nginx del host.** Corre en **Docker detrás de Cloudflare
+> Tunnel + Traefik**, y se despliega con GitHub Actions al subir una etiqueta `v*` (`.github/workflows/deploy.yml`,
+> que en la VPS ejecuta `/opt/theburgerhouse/deploy.sh`). La copia de referencia está en `deploy/docker/` (ver su
+> README) y la operación completa en `/opt/theburgerhouse/README.md` de la VPS.
+>
+> - **Obsoletas:** §1 (puertos 80/443), la parte de ufw de §2.3 que abre 80/443, §2.5 a §2.13, §2.15 y §3.1 a §3.5.
+>   También `deploy/systemd/`, `deploy/env/`, `deploy/postgres/`, `deploy/scripts/deploy.sh`, `deploy/scripts/app-run.sh`,
+>   `deploy/nginx/` (salvo `maintenance/`) y, en `deploy/tests/`, los tests de deploy/systemd/nginx.
+> - **Siguen valiendo, con comandos Docker:** §2.14 (`docker compose run --rm migrate pnpm db:init-prod`),
+>   §4.1/§4.3/§4.5/§4.6 (backups en `/opt/theburgerhouse/backups`, restore con `docker exec`), §5.1
+>   (`docker compose logs` en vez de `journalctl -u`), §6 (secretos en `.env`/`.env.app`), §7 (Node viene con la
+>   imagen `node:22`).
+> - **Sin cambios:** §5.3, §10, §11 y §13. `deploy/scripts/backup.sh`, `lib.sh`, `restore-db.sh` y `check-backup.sh`
+>   se siguen usando.
+
 ## Cómo leer este documento
 
 - Los valores que **tenés que reemplazar** están entre `<ESTOS_SIGNOS>` y en MAYÚSCULAS. Ejemplos:
