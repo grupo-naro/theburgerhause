@@ -122,7 +122,7 @@ export function ComboItemsForm({
         {dirty ? <p className="text-sm font-semibold text-ink-muted">Hay cambios sin guardar</p> : null}
         <div>
           <Button type="submit" disabled={pending}>
-            {pending ? "Guardando…" : "Guardar contenido"}
+            {pending ? "Actualizando…" : "Actualizar contenido"}
           </Button>
         </div>
       </form>
